@@ -1,0 +1,51 @@
+@startuml
+!theme plain
+title BPMN: Бизнес-процесс проверки ресурса и оповещения
+
+' --- Стилизация под классический BPMN ---
+skinparam conditionStyle diamond
+skinparam swimlane {
+    BorderColor Black
+    BorderThickness 1
+    TitleBackgroundColor LightGray
+    TitleFontColor Black
+}
+skinparam activity {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+' Объявление параллельных дорожек
+|Планировщик (Scheduler)|
+|Сервис Анализа (Analyzer)|
+|Сервис Оповещений (Notifier)|
+|Отслеживаемый ресурс|
+
+' --- Ход процесса ---
+
+|Планировщик (Scheduler)|
+start
+:Триггер по расписанию;
+:Выполнение сетевого запроса;
+
+|Отслеживаемый ресурс|
+: Ответ (или таймаут));
+
+|Планировщик (Scheduler)|
+: Сохранение результата проверки\nв персистентное хранилище;
+
+|Сервис Анализа (Analyzer)|
+:Получение результата;
+:Определение текущего состояния\n цели на мониторе\n(UP / DOWN / MAINTENANCE));
+
+if (Статус изменился на DOWN) then (Да)
+    |Сервис Оповещений (Notifier)|
+    :Отправка уведомлений о сбое\nпо включенным каналам оповещения\nдля мониторе;
+    stop
+else (Нет)
+    |Сервис Анализа (Analyzer)|
+    stop
+endif
+
+@enduml

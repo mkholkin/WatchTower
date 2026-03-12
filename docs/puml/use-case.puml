@@ -1,0 +1,52 @@
+@startuml
+!theme plain
+left to right direction
+skinparam packageStyle rectangle
+'skinparam actorStyle awesome
+
+' Акторы (Люди)
+actor "Пользователь" as User
+actor "Неавторизованный\nПользователь" as UnauthorizedUser
+
+package "Система WatchTower" {
+
+    ' Группа: Управление аккаунтом
+    usecase "Авторизация" as UC_Auth
+    usecase "Регистрация" as UC_Register
+
+    usecase "Управление каналами оповещения" as UC_Contacts
+
+    ' Группа: Управление мониторингом (User Side)
+    usecase "Создание монитора" as UC_CreateMon
+    usecase "Настройка частоты опроса" as UC_SetInterval
+    usecase "Управление окнами обслуживания" as UC_SetSuspend
+    usecase "Включение/Пауза монитора" as UC_Pause
+
+    ' Группа: Аналитика и Просмотр
+    usecase "Просмотр дашборда\n(Текущие статусы)" as UC_Dashboard
+    usecase "Просмотр графиков истории\nмонитора" as UC_History
+    usecase "Расчет SLA" as UC_CalcSLA
+}
+
+' Действия Пользователя
+User --> UC_Contacts
+User --> UC_CreateMon
+User --> UC_SetSuspend
+User --> UC_Pause
+User --> UC_Dashboard
+
+UnauthorizedUser --> UC_Auth
+UnauthorizedUser --> UC_Register
+'UC_Register ..> UC_Auth : <<extend>>
+
+' --- Внутренние связи Use Cases ---
+
+' При создании монитора обязательно происходит дедупликация и настройка частоты
+UC_CreateMon ..> UC_SetInterval : <<include>>
+
+' Просмотр графиков включает расчет SLA
+UC_Dashboard ..> UC_History : <<extend>>
+UC_History ..> UC_CalcSLA : <<include>>
+
+
+@enduml
