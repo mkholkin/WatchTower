@@ -1,0 +1,137 @@
+// --- ENUMS ---
+
+Enum protocol_type {
+  HTTP
+  TCP
+  ICMP
+}
+
+Enum status_type {
+  UP
+  DOWN
+  MAINTENANCE
+  UNKNOWN
+}
+
+Enum maintenance_type {
+  ONCE
+  MANUAL
+}
+
+Enum contact_type {
+  TELEGRAM
+}
+
+Enum processing_status_type {
+  NEW
+  PROCESSED
+  CANCELLED
+}
+
+// --- TABLES ---
+
+Table users {
+  id uuid [pk]
+  login varchar [unique]
+  password_hash varchar
+}
+
+Table target {
+  id uuid [pk]
+  signature_hash varchar [unique, note: 'SHA-256(protocol + address + network_config)']
+  protocol protocol_type
+  endpoint varchar [note: 'URL or IP']
+  network_config jsonb [note: 'Request params: method, headers, body']
+  probe_interval_sec int [note: 'Min interval among all linked monitors']
+}
+
+Table probe_result {
+  id uuid [pk]
+  target_id uuid
+  probe_time timestamp [note: 'Partitioning Key']
+  latency_ms int
+  status_code int [note: 'Nullable. HTTP code (200) or NULL']
+  is_available boolean [note: 'Network/Transport layer success flag']
+  error_message text [note: 'DNS fail, Timeout, etc.']
+  meta jsonb [note: 'Protocol specific: headers, packet_loss, etc.']
+  processing_status processing_status_type
+}
+
+Table monitor {
+  id uuid [pk]
+  target_id uuid
+  user_id uuid
+  is_paused boolean
+  probe_interval_sec int [note: 'User desired interval']
+  expectations jsonb [note: 'Simple rules: {http_codes:[], max_latency:int, keyword:str}']
+  current_status status_type
+  created_at timestamp
+}
+
+Table monitor_status_log {
+  id uuid [pk]
+  monitor_id uuid
+  status status_type
+  start_time timestamp
+  end_time timestamp
+}
+
+Table maintenance_window {
+  id uuid [pk]
+  user_id uuid
+  title varchar
+  description text
+  type maintenance_type
+  config jsonb [note: 'Rules: {start, end} OR {is_active}']
+  timezone varchar
+  is_enabled boolean
+}
+
+Table maintenance_window_monitor {
+  monitor_id uuid
+  window_id uuid
+
+  Indexes {
+    (window_id, monitor_id) [pk]
+  }
+}
+
+Table alert_contact {
+  id uuid [pk]
+  user_id uuid
+  type contact_type
+  label varchar [note: 'Friendly name']
+  destination_config jsonb [note: 'Target address: {email:..} or {chat_id:..}']
+  is_enabled boolean
+}
+
+Table monitor_alert_contact {
+  monitor_id uuid
+  contact_id uuid
+
+  Indexes {
+    (monitor_id, contact_id) [pk]
+  }
+}
+
+// --- RELATIONSHIPS ---
+
+// User Ownership
+Ref: monitor.user_id > users.id
+Ref: maintenance_window.user_id > users.id
+Ref: alert_contact.user_id > users.id
+
+// Execution Layer
+Ref: monitor.target_id > target.id
+Ref: probe_result.target_id > target.id
+
+// Logs & Status
+Ref: monitor_status_log.monitor_id > monitor.id
+
+// Maintenance M2M
+Ref: maintenance_window_monitor.window_id > maintenance_window.id
+Ref: maintenance_window_monitor.monitor_id > monitor.id
+
+// Notifications M2M
+Ref: monitor_alert_contact.monitor_id > monitor.id
+Ref: monitor_alert_contact.contact_id > alert_contact.id

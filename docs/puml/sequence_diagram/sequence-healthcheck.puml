@@ -1,0 +1,29 @@
+@startuml
+
+participant "Системный таймер" as timer
+participant "Health Checker" as hc
+participant "Веб-ресурс" as target
+participant "Database" as db
+participant "Redis Cache" as redis
+participant "Analyzer Service" as as
+
+timer -> hc: Триггер по расписанию
+activate hc
+hc -> target: Выполнение проверки (HTTP/TCP/ICMP)
+target --> hc: Ответ (или таймаут)
+hc -> db: Сохранение результата проверки
+deactivate hc
+
+timer -> as: Триггер по расписанию
+activate as
+as -> db: Запрос последних результатов проверки
+activate db
+db --> as: Результат проверки
+deactivate db
+as -> db: Обновление текущих статусов мониторов
+as -> redis: Добавление последних ProbeSummary в Redis Queue (для быстрого доступа)
+deactivate as
+
+
+
+@enduml

@@ -1,0 +1,39 @@
+@startuml
+
+actor "Пользователь" as user
+participant "Monitoring Mgmt Service" as mms
+participant Database as db
+
+user -> mms: Запрос на создание\nнового монитора с параметрами
+activate mms
+mms -> db: Поиск Target по хешу адреса и конфигурации
+activate db
+alt #lightblue Цель уже существует
+    db --> mms: Существующий Target
+    deactivate db
+    alt #lightgreen Запрошенный интервал меньше текущего
+        mms -> db: Обновление конфигурации Target\n(Применение минимального интервала)
+        activate db
+        db --> mms: Подтверждение обновления
+        deactivate db
+    else #lightyellow Запрошенный интервал не меньше текущего
+         mms -> mms: Ничего не делаем
+    end
+else #lightcoral Цель не существует
+    db --> mms: Нет существующей цели
+    deactivate db
+    mms -> db: Регистрация новой Target\n(Сохранение адреса, протокола, параметров)
+    activate db
+    db --> mms: Новый Target с ID
+    deactivate db
+end
+
+mms -> db: Создание нового монитора,\nпривязанного к Target ID
+activate db
+db --> mms: Новый монитор с ID
+deactivate db
+mms --> user: Подтверждение успешного создания монитора
+
+deactivate mms
+
+@enduml
