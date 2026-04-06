@@ -31,8 +31,7 @@ Enum processing_status_type {
 // --- TABLES ---
 
 Table users {
-  id uuid [pk]
-  login varchar [unique]
+  login varchar [pk]
   password_hash varchar
 }
 
@@ -51,7 +50,7 @@ Table probe_result {
   probe_time timestamp [note: 'Partitioning Key']
   latency_ms int
   status_code int [note: 'Nullable. HTTP code (200) or NULL']
-  is_available boolean [note: 'Network/Transport layer success flag']
+  network_failure boolean [note: 'Network/Transport layer success flag']
   error_message text [note: 'DNS fail, Timeout, etc.']
   meta jsonb [note: 'Protocol specific: headers, packet_loss, etc.']
   processing_status processing_status_type
@@ -60,11 +59,13 @@ Table probe_result {
 Table monitor {
   id uuid [pk]
   target_id uuid
-  user_id uuid
+  user_login varchar
+  name varchar
   is_paused boolean
   probe_interval_sec int [note: 'User desired interval']
   expectations jsonb [note: 'Simple rules: {http_codes:[], max_latency:int, keyword:str}']
   current_status status_type
+  last_evalueated_at timestamp
   created_at timestamp
 }
 
@@ -78,13 +79,11 @@ Table monitor_status_log {
 
 Table maintenance_window {
   id uuid [pk]
-  user_id uuid
+  user_login varchar
   title varchar
   description text
   type maintenance_type
   config jsonb [note: 'Rules: {start, end} OR {is_active}']
-  timezone varchar
-  is_enabled boolean
 }
 
 Table maintenance_window_monitor {
@@ -98,11 +97,11 @@ Table maintenance_window_monitor {
 
 Table alert_contact {
   id uuid [pk]
-  user_id uuid
+  user_login varchar
   type contact_type
   label varchar [note: 'Friendly name']
-  destination_config jsonb [note: 'Target address: {email:..} or {chat_id:..}']
-  is_enabled boolean
+  config jsonb [note: 'Target address: {email:..} or {chat_id:..}']
+  is_active boolean
 }
 
 Table monitor_alert_contact {
@@ -117,9 +116,9 @@ Table monitor_alert_contact {
 // --- RELATIONSHIPS ---
 
 // User Ownership
-Ref: monitor.user_id > users.id
-Ref: maintenance_window.user_id > users.id
-Ref: alert_contact.user_id > users.id
+Ref: monitor.user_login > users.login
+Ref: maintenance_window.user_login > users.login
+Ref: alert_contact.user_login > users.login
 
 // Execution Layer
 Ref: monitor.target_id > target.id

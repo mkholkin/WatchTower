@@ -12,11 +12,11 @@ namespace healthcheck {
 
     }
     interface "Prober"  {
-        + Probe(ctx context.Context, target *domain.Target) (domain.ProbeResult, error)
+        + Probe(ctx context.Context, target *target.Target) (probe.ProbeResult, error)
     }
     class "ProberRegistry" << (S,Aquamarine) >> {
-        + Register(protocol domain.Protocol, prober Prober) 
-        + Get(protocol domain.Protocol) (Prober, error)
+        + Register(protocol target.Protocol, prober Prober) 
+        + Get(protocol target.Protocol) (Prober, error)
     }
     class "Scheduler" << (S,Aquamarine) >> {
         + Run(ctx context.Context) error
@@ -28,24 +28,24 @@ namespace healthcheck {
 
     }
     class "scheduleEntry" << (S,Aquamarine) >> {
-        + Target domain.Target
+        + Target target.Target
     }
 }
 
-enum "domain.Protocol" {
+enum "target.Protocol" {
     HTTP
     TCP
     ICMP
 }
 
-struct domain.Target {
+struct target.Target {
     + ID
     + Endpoint
     + Config
     + IsActive
     + ProbeIntervalSec
 }
-struct domain.ProbeResult {
+struct probe.ProbeResult {
     + ID
     + Target
     + LatencyMs
@@ -56,11 +56,11 @@ struct domain.ProbeResult {
     + ProcessingStatus
 }
 
-interface domain.ProbeResultRepository {
+interface probe.ProbeResultRepository {
     + Create(probeResult *ProbeResult)
 }
 
-interface "domain.TargetRepository" {
+interface "target.TargetRepository" {
     + Create(ctx context.Context, target *Target) (int64, error)
     + GetByID(ctx context.Context, id int64) (*Target, error)
     + GetAllActive(ctx context.Context) ([]Target, error)
@@ -71,37 +71,37 @@ interface "domain.TargetRepository" {
 }
 
 namespace repository {
-    class "PostgresTargetRepository" implements "domain.TargetRepository"{
-        + Create(ctx context.Context, target *domain.Target) (int64, error)
-        + GetByID(ctx context.Context, id int64) (*domain.Target, error)
-        + GetAllActive(ctx context.Context) ([]domain.Target, error)
-        + Update(ctx context.Context, target *domain.Target) error
+    class "PostgresTargetRepository" implements "target.TargetRepository"{
+        + Create(ctx context.Context, target *target.Target) (int64, error)
+        + GetByID(ctx context.Context, id int64) (*target.Target, error)
+        + GetAllActive(ctx context.Context) ([]target.Target, error)
+        + Update(ctx context.Context, target *target.Target) error
         + DeleteByID(ctx context.Context, id int64) error
         + Disable(ctx context.Context, id int64) error
         + Enable(ctx context.Context, id int64) error
     }
 
-    class "PostgresProbeResultRepository" implements "domain.ProbeResultRepository" {
-        + Create(probeResult *domain.ProbeResult)
+    class "PostgresProbeResultRepository" implements "probe.ProbeResultRepository" {
+        + Create(probeResult *probe.ProbeResult)
     }
 }
 
-"healthcheck.HealthChecker" --> "domain.Target"
+"healthcheck.HealthChecker" --> "target.Target"
 "healthcheck.HealthChecker" *-- "healthcheck.Scheduler"
 "healthcheck.HealthChecker" *-- "healthcheck.WorkerPool"
-"healthcheck.ProberRegistry" --> "domain.Protocol"
+"healthcheck.ProberRegistry" --> "target.Protocol"
 "healthcheck.ProberRegistry" o-- "healthcheck.Prober"
-"healthcheck.Scheduler" --> "domain.Target"
-"healthcheck.Scheduler" o-- "domain.TargetRepository"
+"healthcheck.Scheduler" --> "target.Target"
+"healthcheck.Scheduler" o-- "target.TargetRepository"
 "healthcheck.Scheduler" o-- "healthcheck.scheduleEntry"
-"healthcheck.WorkerPool" o-- "domain.ProbeResultRepository"
-"healthcheck.WorkerPool" --> "domain.Target"
+"healthcheck.WorkerPool" o-- "probe.ProbeResultRepository"
+"healthcheck.WorkerPool" --> "target.Target"
 "healthcheck.WorkerPool" o-- "healthcheck.ProberRegistry"
-"healthcheck.scheduleEntry" o-- "domain.Target"
+"healthcheck.scheduleEntry" o-- "target.Target"
 "HealthChecker" *-- "HealthCheckerConfig"
-domain.Target --> "domain.Protocol"
-"domain.TargetRepository" --> domain.Target
-"domain.ProbeResultRepository" --> domain.ProbeResult
-"domain.ProbeResult" o-- domain.Target
+target.Target --> "target.Protocol"
+"target.TargetRepository" --> target.Target
+"probe.ProbeResultRepository" --> probe.ProbeResult
+"probe.ProbeResult" o-- target.Target
 @enduml
 
