@@ -332,3 +332,279 @@ endif
 
 @enduml
 ```
+## 10 C4 диаграммы
+### Контекстная диаграмма (C4 Level 1)
+```plantuml
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+' Настройки отображения
+LAYOUT_WITH_LEGEND()
+title Диаграмма контекста (C4 Level 1) - Система мониторинга WatchTower
+
+' === Акторы (Пользователи) ===
+Person(user, "Пользователь", "DevOps-инженер, системный администратор или владелец сайта. Настраивает проверки и получает алерты.")
+
+' === Наша система ===
+System(watchtower, "WatchTower", "Платформа для непрерывного мониторинга доступности сервисов, расчета SLA и маршрутизации уведомлений об инцидентах.")
+
+' === Внешние системы ===
+System_Ext(target_systems, "Целевые ресурсы\n(Web, API, Servers)", "Внешние сайты, API и серверы, доступность которых проверяется системой.")
+System_Ext(notification_apis, "Платформы оповещений\n(Telegram API)", "Внешние провайдеры связи для доставки сообщений об инцидентах.")
+
+' === Взаимодействия (Связи) ===
+Rel(user, watchtower, "Настраивает мониторы, просматривает дашборды и метрики")
+
+Rel(watchtower, target_systems, "Опрашивает статус")
+Rel(watchtower, notification_apis, "Отправляет данные об инцидентах")
+
+Rel(notification_apis, user, "Доставляет уведомления")
+
+@enduml
+```
+
+### Диаграмма контейнеров (C4 Level 2)
+```plantuml
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+LAYOUT_WITH_LEGEND()
+
+title Диаграмма контейнеров (C4 Level 2) - Система мониторинга WatchTower
+
+' === Акторы ===
+Person(user, "Пользователь", "DevOps-инженер или владелец ИТ-сервиса. Настраивает мониторинг, правила оповещений и просматривает дашборды.")
+
+' === Границы нашей системы (WatchTower) ===
+System_Boundary(watchtower, "WatchTower") {
+
+    Container(spa, "Frontend Application", "SPA (TypeScript, React)", "Предоставляет веб-интерфейс для управления логическими мониторами, настройки контактов, просмотра графиков задержки ответа и SLA.")
+
+    Container(backend, "Backend Application", "Go (Golang)", "Реализует REST API для мониторинга, выполняет непосредственные проверки доступности ресурсов.")
+
+    ContainerDb(db, "БД", "PostgreSQL", "Хранит пользователей, конфигурации, цели, также исторические временные ряды проверок.")
+
+    ContainerDb(redis, "In-Memory Cache", "Redis", "Хранит «горячие» данные: последние известные состояния ресурсов (Last Known State) для мгновенной загрузки дашбордов.")
+}
+
+System_Ext(target_systems, "Целевые ресурсы\n(Web, API, Servers)", "Внешние сайты, API и серверы, доступность которых отслеживается системой.")
+System_Ext(notification_apis, "Платформы оповещений\n(Telegram API, SMTP)", "Внешние провайдеры связи для доставки сообщений об инцидентах.")
+
+
+' === Взаимодействия (Связи) ===
+
+' Пользователь -> Frontend
+Rel(user, spa, "Просматривает метрики и настраивает конфигурацию", "HTTPS")
+
+' Frontend -> Backend
+Rel(spa, backend, "Запрашивает данные и отправляет команды", "JSON/HTTPS/WSS")
+
+' Backend <-> Базы Данных
+Rel(backend, db, "Чтение/запись конфигураций и исторических данных", "TCP/SQL")
+Rel(backend, redis, "Чтение/обновление текущих статусов", "TCP/RESP")
+
+' Backend -> Внешние системы
+Rel(backend, target_systems, "Выполняет проверки доступности", "HTTP/TCP/ICMP")
+Rel(backend, notification_apis, "Отправляет сформированные алерты", "HTTPS/SMTP")
+
+' Внешние системы -> Пользователь
+'Rel(notification_apis, user, "Доставляет уведомления")
+
+@enduml
+```
+
+### Диаграмма компонентов (C4 Level 3)
+```plantuml
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+'skinparam linetype polyline
+LAYOUT_WITH_LEGEND()
+
+title Диаграмма контейнеров (C4 Level 3) - WatchTower Backend Components
+
+' === External ===
+Person(user, "Пользователь", "DevOps/Admin")
+System_Ext(target_systems, "Target Resources", "HTTP/TCP/ICMP Targets")
+System_Ext(notification_apis, "Notification APIs", "Telegram, SMTP")
+
+System_Boundary(watchtower, "WatchTower System") {
+    Container(spa, "Frontend SPA", "React, TS", "Web Dashboard")
+
+    ContainerDb(db, "PostgreSQL", "Relational DB", "Persistent Data")
+    ContainerDb(redis, "Redis", "Key-Value Store", "Hot Cache & Last Known State")
+
+    System_Boundary(backend, "Backend Application") {
+
+        ' --- Data Access Layer ---
+        Container(repository, "Repository Layer", "Go Interface", "Абстракция доступа к данным (Postgres + Redis)")
+
+        ' --- API Layer ---
+        Container(auth_api, "Auth API", "Go/Gin", "REST Controller")
+        Container(monitoring_api, "Monitoring API", "Go/Gin", "REST Controller")
+
+        ' --- Domain Services (Business Logic) ---
+        Container(auth_service, "Auth Service", "Go", "Logic: Login, JWT")
+        Container(monitoring_service, "Monitoring Mgmt Service", "Go", "Logic: CRUD Monitors")
+        Container(metric_query_service, "Metric Query Service", "Go", "Logic: Read Stats/History (CQRS Read)")
+        Container(maintenance_service, "Maintenance Service", "Go", "Logic: Windows & Schedules")
+        Container(contact_service, "Contact Service", "Go", "Logic: Alert Contacts")
+
+        ' --- Background Workers ---
+        System_Boundary(workers, "Background Workers") {
+            Container(healthchecker, "Health Checker", "Go Routine", "Scheduler & Executor. Writes results to DB.")
+            Container(analyzer, "Analyzer", "Go Routine", "Polls results from DB, evaluates logic.")
+            Container(notifier, "Notifier", "Go Routine", "Sends alerts via providers.")
+            Container(notification_provider, "Notification Provider", "Interface", "Adapter for external APIs")
+        }
+    }
+}
+
+' === Relationships ===
+
+' Frontend to API
+Rel(user, spa, "Uses")
+Rel(spa, monitoring_api, "JSON/HTTPS")
+Rel(spa, auth_api, "JSON/HTTPS")
+
+' API to Services
+Rel(auth_api, auth_service, "Calls")
+Rel(monitoring_api, monitoring_service, "Calls")
+Rel(monitoring_api, metric_query_service, "Calls")
+Rel(monitoring_api, maintenance_service, "Calls")
+Rel(monitoring_api, contact_service, "Calls")
+
+' Services to Repository
+Rel(auth_service, repository, "Read/Write")
+Rel(monitoring_service, repository, "Read/Write")
+Rel(maintenance_service, repository, "Read/Write")
+Rel(contact_service, repository, "Read/Write")
+Rel(metric_query_service, repository, "Read Only")
+
+' Workers Interactions
+Rel(healthchecker, repository, "Writes Results")
+Rel(analyzer, repository, "Reads Results / Writes Status")
+Rel(analyzer, notifier, " ")
+Rel(notifier, notification_provider, "Uses")
+Rel(notifier, repository, "Reads Contact Info")
+
+' Notification Logic
+Rel(notification_provider, notification_apis, "Sends")
+
+' Checking Logic
+Rel(healthchecker, target_systems, "Pings")
+
+' Persistence
+Rel(repository, db, "SQL")
+Rel(repository, redis, "RESP")
+
+@enduml
+```
+
+### Диаграмма классов (C4 Level 4)
+```plantuml
+@startuml
+skinparam linetype ortho
+'left to right direction
+namespace healthcheck {
+    class "HealthChecker" << (S,Aquamarine) >> {
+        + Run(ctx context.Context) error
+
+    }
+    class "HealthCheckerConfig" << (S,Aquamarine) >> {
+        + WorkerCount int
+        + TaskQueueSize int
+
+    }
+    interface "Prober"  {
+        + Probe(ctx context.Context, target *target.Target) (probe.ProbeResult, error)
+    }
+    class "ProberRegistry" << (S,Aquamarine) >> {
+        + Register(protocol target.Protocol, prober Prober) 
+        + Get(protocol target.Protocol) (Prober, error)
+    }
+    class "Scheduler" << (S,Aquamarine) >> {
+        + Run(ctx context.Context) error
+
+    }
+
+    class "WorkerPool" << (S,Aquamarine) >> {
+        + Run(ctx context.Context) 
+
+    }
+    class "scheduleEntry" << (S,Aquamarine) >> {
+        + Target target.Target
+    }
+}
+
+enum "target.Protocol" {
+    HTTP
+    TCP
+    ICMP
+}
+
+struct target.Target {
+    + ID
+    + Endpoint
+    + Config
+    + IsActive
+    + ProbeIntervalSec
+}
+struct probe.ProbeResult {
+    + ID
+    + Target
+    + LatencyMs
+    + ProbeTime
+    + NetworkFailure
+    + StatusCode
+    + Meta
+    + ProcessingStatus
+}
+
+interface probe.ProbeResultRepository {
+    + Create(probeResult *ProbeResult)
+}
+
+interface "target.TargetRepository" {
+    + Create(ctx context.Context, target *Target) (int64, error)
+    + GetByID(ctx context.Context, id int64) (*Target, error)
+    + GetAllActive(ctx context.Context) ([]Target, error)
+    + Update(ctx context.Context, target *Target) error
+    + DeleteByID(ctx context.Context, id int64) error
+    + Disable(ctx context.Context, id int64) error
+    + Enable(ctx context.Context, id int64) error
+}
+
+namespace repository {
+    class "PostgresTargetRepository" implements "target.TargetRepository"{
+        + Create(ctx context.Context, target *target.Target) (int64, error)
+        + GetByID(ctx context.Context, id int64) (*target.Target, error)
+        + GetAllActive(ctx context.Context) ([]target.Target, error)
+        + Update(ctx context.Context, target *target.Target) error
+        + DeleteByID(ctx context.Context, id int64) error
+        + Disable(ctx context.Context, id int64) error
+        + Enable(ctx context.Context, id int64) error
+    }
+
+    class "PostgresProbeResultRepository" implements "probe.ProbeResultRepository" {
+        + Create(probeResult *probe.ProbeResult)
+    }
+}
+
+"healthcheck.HealthChecker" --> "target.Target"
+"healthcheck.HealthChecker" *-- "healthcheck.Scheduler"
+"healthcheck.HealthChecker" *-- "healthcheck.WorkerPool"
+"healthcheck.ProberRegistry" --> "target.Protocol"
+"healthcheck.ProberRegistry" o-- "healthcheck.Prober"
+"healthcheck.Scheduler" --> "target.Target"
+"healthcheck.Scheduler" o-- "target.TargetRepository"
+"healthcheck.Scheduler" o-- "healthcheck.scheduleEntry"
+"healthcheck.WorkerPool" o-- "probe.ProbeResultRepository"
+"healthcheck.WorkerPool" --> "target.Target"
+"healthcheck.WorkerPool" o-- "healthcheck.ProberRegistry"
+"healthcheck.scheduleEntry" o-- "target.Target"
+"HealthChecker" *-- "HealthCheckerConfig"
+target.Target --> "target.Protocol"
+"target.TargetRepository" --> target.Target
+"probe.ProbeResultRepository" --> probe.ProbeResult
+"probe.ProbeResult" o-- target.Target
+@enduml
+```
