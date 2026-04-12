@@ -117,7 +117,7 @@ func (q *Queries) EnableMonitor(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getAllMonitorsByTargetID = `-- name: GetAllMonitorsByTargetID :many
-SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.password_hash,
+SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.login, u.password_hash,
        COALESCE(
            (SELECT jsonb_agg(ac.*)
             FROM "alert_contact" ac
@@ -137,26 +137,11 @@ WHERE m.target_id = $1
 `
 
 type GetAllMonitorsByTargetIDRow struct {
-	ID                 pgtype.UUID      `json:"id"`
-	TargetID           pgtype.UUID      `json:"target_id"`
-	UserLogin          string           `json:"user_login"`
-	Label              string           `json:"label"`
-	IsActive           bool             `json:"is_active"`
-	ProbeIntervalSec   int32            `json:"probe_interval_sec"`
-	Expectations       []byte           `json:"expectations"`
-	CurrentStatus      StatusType       `json:"current_status"`
-	LastEvaluatedAt    pgtype.Timestamp `json:"last_evaluated_at"`
-	CreatedAt          pgtype.Timestamp `json:"created_at"`
-	ID_2               pgtype.UUID      `json:"id_2"`
-	SignatureHash      string           `json:"signature_hash"`
-	Protocol           ProtocolType     `json:"protocol"`
-	IsActive_2         bool             `json:"is_active_2"`
-	Endpoint           string           `json:"endpoint"`
-	NetworkConfig      []byte           `json:"network_config"`
-	ProbeIntervalSec_2 int32            `json:"probe_interval_sec_2"`
-	PasswordHash       string           `json:"password_hash"`
-	AlertContacts      interface{}      `json:"alert_contacts"`
-	MaintenanceWindows interface{}      `json:"maintenance_windows"`
+	Monitor            Monitor     `json:"monitor"`
+	Target             Target      `json:"target"`
+	User               User        `json:"user"`
+	AlertContacts      interface{} `json:"alert_contacts"`
+	MaintenanceWindows interface{} `json:"maintenance_windows"`
 }
 
 func (q *Queries) GetAllMonitorsByTargetID(ctx context.Context, targetID pgtype.UUID) ([]GetAllMonitorsByTargetIDRow, error) {
@@ -169,24 +154,25 @@ func (q *Queries) GetAllMonitorsByTargetID(ctx context.Context, targetID pgtype.
 	for rows.Next() {
 		var i GetAllMonitorsByTargetIDRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.TargetID,
-			&i.UserLogin,
-			&i.Label,
-			&i.IsActive,
-			&i.ProbeIntervalSec,
-			&i.Expectations,
-			&i.CurrentStatus,
-			&i.LastEvaluatedAt,
-			&i.CreatedAt,
-			&i.ID_2,
-			&i.SignatureHash,
-			&i.Protocol,
-			&i.IsActive_2,
-			&i.Endpoint,
-			&i.NetworkConfig,
-			&i.ProbeIntervalSec_2,
-			&i.PasswordHash,
+			&i.Monitor.ID,
+			&i.Monitor.TargetID,
+			&i.Monitor.UserLogin,
+			&i.Monitor.Label,
+			&i.Monitor.IsActive,
+			&i.Monitor.ProbeIntervalSec,
+			&i.Monitor.Expectations,
+			&i.Monitor.CurrentStatus,
+			&i.Monitor.LastEvaluatedAt,
+			&i.Monitor.CreatedAt,
+			&i.Target.ID,
+			&i.Target.SignatureHash,
+			&i.Target.Protocol,
+			&i.Target.IsActive,
+			&i.Target.Endpoint,
+			&i.Target.NetworkConfig,
+			&i.Target.ProbeIntervalSec,
+			&i.User.Login,
+			&i.User.PasswordHash,
 			&i.AlertContacts,
 			&i.MaintenanceWindows,
 		); err != nil {
@@ -201,7 +187,7 @@ func (q *Queries) GetAllMonitorsByTargetID(ctx context.Context, targetID pgtype.
 }
 
 const getAllMonitorsByUser = `-- name: GetAllMonitorsByUser :many
-SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.password_hash,
+SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.login, u.password_hash,
        COALESCE(
            (SELECT jsonb_agg(ac.*)
             FROM "alert_contact" ac
@@ -221,26 +207,11 @@ WHERE m.user_login = $1
 `
 
 type GetAllMonitorsByUserRow struct {
-	ID                 pgtype.UUID      `json:"id"`
-	TargetID           pgtype.UUID      `json:"target_id"`
-	UserLogin          string           `json:"user_login"`
-	Label              string           `json:"label"`
-	IsActive           bool             `json:"is_active"`
-	ProbeIntervalSec   int32            `json:"probe_interval_sec"`
-	Expectations       []byte           `json:"expectations"`
-	CurrentStatus      StatusType       `json:"current_status"`
-	LastEvaluatedAt    pgtype.Timestamp `json:"last_evaluated_at"`
-	CreatedAt          pgtype.Timestamp `json:"created_at"`
-	ID_2               pgtype.UUID      `json:"id_2"`
-	SignatureHash      string           `json:"signature_hash"`
-	Protocol           ProtocolType     `json:"protocol"`
-	IsActive_2         bool             `json:"is_active_2"`
-	Endpoint           string           `json:"endpoint"`
-	NetworkConfig      []byte           `json:"network_config"`
-	ProbeIntervalSec_2 int32            `json:"probe_interval_sec_2"`
-	PasswordHash       string           `json:"password_hash"`
-	AlertContacts      interface{}      `json:"alert_contacts"`
-	MaintenanceWindows interface{}      `json:"maintenance_windows"`
+	Monitor            Monitor     `json:"monitor"`
+	Target             Target      `json:"target"`
+	User               User        `json:"user"`
+	AlertContacts      interface{} `json:"alert_contacts"`
+	MaintenanceWindows interface{} `json:"maintenance_windows"`
 }
 
 func (q *Queries) GetAllMonitorsByUser(ctx context.Context, userLogin string) ([]GetAllMonitorsByUserRow, error) {
@@ -253,24 +224,25 @@ func (q *Queries) GetAllMonitorsByUser(ctx context.Context, userLogin string) ([
 	for rows.Next() {
 		var i GetAllMonitorsByUserRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.TargetID,
-			&i.UserLogin,
-			&i.Label,
-			&i.IsActive,
-			&i.ProbeIntervalSec,
-			&i.Expectations,
-			&i.CurrentStatus,
-			&i.LastEvaluatedAt,
-			&i.CreatedAt,
-			&i.ID_2,
-			&i.SignatureHash,
-			&i.Protocol,
-			&i.IsActive_2,
-			&i.Endpoint,
-			&i.NetworkConfig,
-			&i.ProbeIntervalSec_2,
-			&i.PasswordHash,
+			&i.Monitor.ID,
+			&i.Monitor.TargetID,
+			&i.Monitor.UserLogin,
+			&i.Monitor.Label,
+			&i.Monitor.IsActive,
+			&i.Monitor.ProbeIntervalSec,
+			&i.Monitor.Expectations,
+			&i.Monitor.CurrentStatus,
+			&i.Monitor.LastEvaluatedAt,
+			&i.Monitor.CreatedAt,
+			&i.Target.ID,
+			&i.Target.SignatureHash,
+			&i.Target.Protocol,
+			&i.Target.IsActive,
+			&i.Target.Endpoint,
+			&i.Target.NetworkConfig,
+			&i.Target.ProbeIntervalSec,
+			&i.User.Login,
+			&i.User.PasswordHash,
 			&i.AlertContacts,
 			&i.MaintenanceWindows,
 		); err != nil {
@@ -285,7 +257,7 @@ func (q *Queries) GetAllMonitorsByUser(ctx context.Context, userLogin string) ([
 }
 
 const getMonitorByID = `-- name: GetMonitorByID :one
-SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.password_hash,
+SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.login, u.password_hash,
        COALESCE(
            (SELECT jsonb_agg(ac.*)
             FROM "alert_contact" ac
@@ -305,50 +277,36 @@ WHERE m.id = $1
 `
 
 type GetMonitorByIDRow struct {
-	ID                 pgtype.UUID      `json:"id"`
-	TargetID           pgtype.UUID      `json:"target_id"`
-	UserLogin          string           `json:"user_login"`
-	Label              string           `json:"label"`
-	IsActive           bool             `json:"is_active"`
-	ProbeIntervalSec   int32            `json:"probe_interval_sec"`
-	Expectations       []byte           `json:"expectations"`
-	CurrentStatus      StatusType       `json:"current_status"`
-	LastEvaluatedAt    pgtype.Timestamp `json:"last_evaluated_at"`
-	CreatedAt          pgtype.Timestamp `json:"created_at"`
-	ID_2               pgtype.UUID      `json:"id_2"`
-	SignatureHash      string           `json:"signature_hash"`
-	Protocol           ProtocolType     `json:"protocol"`
-	IsActive_2         bool             `json:"is_active_2"`
-	Endpoint           string           `json:"endpoint"`
-	NetworkConfig      []byte           `json:"network_config"`
-	ProbeIntervalSec_2 int32            `json:"probe_interval_sec_2"`
-	PasswordHash       string           `json:"password_hash"`
-	AlertContacts      interface{}      `json:"alert_contacts"`
-	MaintenanceWindows interface{}      `json:"maintenance_windows"`
+	Monitor            Monitor     `json:"monitor"`
+	Target             Target      `json:"target"`
+	User               User        `json:"user"`
+	AlertContacts      interface{} `json:"alert_contacts"`
+	MaintenanceWindows interface{} `json:"maintenance_windows"`
 }
 
 func (q *Queries) GetMonitorByID(ctx context.Context, id pgtype.UUID) (GetMonitorByIDRow, error) {
 	row := q.db.QueryRow(ctx, getMonitorByID, id)
 	var i GetMonitorByIDRow
 	err := row.Scan(
-		&i.ID,
-		&i.TargetID,
-		&i.UserLogin,
-		&i.Label,
-		&i.IsActive,
-		&i.ProbeIntervalSec,
-		&i.Expectations,
-		&i.CurrentStatus,
-		&i.LastEvaluatedAt,
-		&i.CreatedAt,
-		&i.ID_2,
-		&i.SignatureHash,
-		&i.Protocol,
-		&i.IsActive_2,
-		&i.Endpoint,
-		&i.NetworkConfig,
-		&i.ProbeIntervalSec_2,
-		&i.PasswordHash,
+		&i.Monitor.ID,
+		&i.Monitor.TargetID,
+		&i.Monitor.UserLogin,
+		&i.Monitor.Label,
+		&i.Monitor.IsActive,
+		&i.Monitor.ProbeIntervalSec,
+		&i.Monitor.Expectations,
+		&i.Monitor.CurrentStatus,
+		&i.Monitor.LastEvaluatedAt,
+		&i.Monitor.CreatedAt,
+		&i.Target.ID,
+		&i.Target.SignatureHash,
+		&i.Target.Protocol,
+		&i.Target.IsActive,
+		&i.Target.Endpoint,
+		&i.Target.NetworkConfig,
+		&i.Target.ProbeIntervalSec,
+		&i.User.Login,
+		&i.User.PasswordHash,
 		&i.AlertContacts,
 		&i.MaintenanceWindows,
 	)
@@ -356,7 +314,7 @@ func (q *Queries) GetMonitorByID(ctx context.Context, id pgtype.UUID) (GetMonito
 }
 
 const getMonitorsToEvaluate = `-- name: GetMonitorsToEvaluate :many
-SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.password_hash,
+SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.login, u.password_hash,
        COALESCE(
            (SELECT jsonb_agg(ac.*)
             FROM "alert_contact" ac
@@ -378,26 +336,11 @@ WHERE m.is_active = TRUE
 `
 
 type GetMonitorsToEvaluateRow struct {
-	ID                 pgtype.UUID      `json:"id"`
-	TargetID           pgtype.UUID      `json:"target_id"`
-	UserLogin          string           `json:"user_login"`
-	Label              string           `json:"label"`
-	IsActive           bool             `json:"is_active"`
-	ProbeIntervalSec   int32            `json:"probe_interval_sec"`
-	Expectations       []byte           `json:"expectations"`
-	CurrentStatus      StatusType       `json:"current_status"`
-	LastEvaluatedAt    pgtype.Timestamp `json:"last_evaluated_at"`
-	CreatedAt          pgtype.Timestamp `json:"created_at"`
-	ID_2               pgtype.UUID      `json:"id_2"`
-	SignatureHash      string           `json:"signature_hash"`
-	Protocol           ProtocolType     `json:"protocol"`
-	IsActive_2         bool             `json:"is_active_2"`
-	Endpoint           string           `json:"endpoint"`
-	NetworkConfig      []byte           `json:"network_config"`
-	ProbeIntervalSec_2 int32            `json:"probe_interval_sec_2"`
-	PasswordHash       string           `json:"password_hash"`
-	AlertContacts      interface{}      `json:"alert_contacts"`
-	MaintenanceWindows interface{}      `json:"maintenance_windows"`
+	Monitor            Monitor     `json:"monitor"`
+	Target             Target      `json:"target"`
+	User               User        `json:"user"`
+	AlertContacts      interface{} `json:"alert_contacts"`
+	MaintenanceWindows interface{} `json:"maintenance_windows"`
 }
 
 func (q *Queries) GetMonitorsToEvaluate(ctx context.Context, targetIds []pgtype.UUID) ([]GetMonitorsToEvaluateRow, error) {
@@ -410,24 +353,25 @@ func (q *Queries) GetMonitorsToEvaluate(ctx context.Context, targetIds []pgtype.
 	for rows.Next() {
 		var i GetMonitorsToEvaluateRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.TargetID,
-			&i.UserLogin,
-			&i.Label,
-			&i.IsActive,
-			&i.ProbeIntervalSec,
-			&i.Expectations,
-			&i.CurrentStatus,
-			&i.LastEvaluatedAt,
-			&i.CreatedAt,
-			&i.ID_2,
-			&i.SignatureHash,
-			&i.Protocol,
-			&i.IsActive_2,
-			&i.Endpoint,
-			&i.NetworkConfig,
-			&i.ProbeIntervalSec_2,
-			&i.PasswordHash,
+			&i.Monitor.ID,
+			&i.Monitor.TargetID,
+			&i.Monitor.UserLogin,
+			&i.Monitor.Label,
+			&i.Monitor.IsActive,
+			&i.Monitor.ProbeIntervalSec,
+			&i.Monitor.Expectations,
+			&i.Monitor.CurrentStatus,
+			&i.Monitor.LastEvaluatedAt,
+			&i.Monitor.CreatedAt,
+			&i.Target.ID,
+			&i.Target.SignatureHash,
+			&i.Target.Protocol,
+			&i.Target.IsActive,
+			&i.Target.Endpoint,
+			&i.Target.NetworkConfig,
+			&i.Target.ProbeIntervalSec,
+			&i.User.Login,
+			&i.User.PasswordHash,
 			&i.AlertContacts,
 			&i.MaintenanceWindows,
 		); err != nil {

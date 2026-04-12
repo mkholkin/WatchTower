@@ -68,11 +68,9 @@ func (r *maintenanceWindowRepositoryPG) GetByID(ctx context.Context, id uuid.UUI
 		return nil, mapPGXErrorToRepo(err)
 	}
 
-	mw, err := mapMaintenanceWindowToDomain(
-		row.ID, row.UserLogin, row.Title, row.Description, row.Type, row.Config, row.PasswordHash, r.mpr,
-	)
+	mw, err := mapMaintenanceWindowToDomain(row.MaintenanceWindow, row.User, r.mpr)
 	if err != nil {
-		r.log.Error("failed to map maintenance window row to domain", "window_id", row.ID, "error", err)
+		r.log.Error("failed to map maintenance window row to domain", "window_id", row.MaintenanceWindow.ID, "error", err)
 		return nil, repo.ErrInternal
 	}
 
@@ -129,11 +127,9 @@ func (r *maintenanceWindowRepositoryPG) GetByIDBulk(ctx context.Context, ids []u
 
 	var result []maintenance.MaintenanceWindow
 	for _, row := range rows {
-		mw, err := mapMaintenanceWindowToDomain(
-			row.ID, row.UserLogin, row.Title, row.Description, row.Type, row.Config, row.PasswordHash, r.mpr,
-		)
+		mw, err := mapMaintenanceWindowToDomain(row.MaintenanceWindow, row.User, r.mpr)
 		if err != nil {
-			r.log.Error("failed to map maintenance window row to domain", "window_id", row.ID, "error", err)
+			r.log.Error("failed to map maintenance window row to domain", "window_id", row.MaintenanceWindow.ID, "error", err)
 			return nil, repo.ErrInternal
 		}
 		result = append(result, *mw)
@@ -171,33 +167,29 @@ func (r *maintenanceWindowRepositoryPG) UnlinkMonitor(ctx context.Context, windo
 // ----------------- Helpers -----------------
 
 func mapMaintenanceWindowToDomain(
-	id pgtype.UUID,
-	userLogin, title string,
-	description pgtype.Text,
-	mwType sqlcgen.MaintenanceType,
-	configJSON []byte,
-	userPasswordHash string,
+	dbWindow sqlcgen.MaintenanceWindow,
+	dbUser sqlcgen.User,
 	mpr *maintenanceWindowTypeMapper,
 ) (*maintenance.MaintenanceWindow, error) {
-	domainType, err := mpr.ToDomainMaintenanceWindowType(mwType)
+	domainType, err := mpr.ToDomainMaintenanceWindowType(dbWindow.Type)
 	if err != nil {
 		return nil, err
 	}
 
-	config, err := mpr.ToDomainMaintenanceWindowConfig(domainType, configJSON)
+	config, err := mpr.ToDomainMaintenanceWindowConfig(domainType, dbWindow.Config)
 	if err != nil {
 		return nil, err
 	}
 
 	return &maintenance.MaintenanceWindow{
-		ID:                      id.Bytes,
-		Title:                   title,
-		Description:             description.String,
-		MaintenanceWindowType:   maintenance.WindowType(mwType),
+		ID:                      dbWindow.ID.Bytes,
+		Title:                   dbWindow.Title,
+		Description:             dbWindow.Description.String,
+		MaintenanceWindowType:   domainType,
 		MaintenanceWindowConfig: config,
 		User: &user.User{
-			Login:        userLogin,
-			PasswordHash: userPasswordHash,
+			Login:        dbUser.Login,
+			PasswordHash: dbUser.PasswordHash,
 		},
 	}, nil
 }

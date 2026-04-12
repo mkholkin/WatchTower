@@ -49,20 +49,15 @@ func (q *Queries) DeleteMaintenanceWindowByID(ctx context.Context, id pgtype.UUI
 }
 
 const geMaintenanceWindowsByIDBulk = `-- name: GeMaintenanceWindowsByIDBulk :many
-SELECT m.id, m.user_login, m.title, m.description, m.type, m.config, u.password_hash
+SELECT m.id, m.user_login, m.title, m.description, m.type, m.config, u.login, u.password_hash
 FROM "maintenance_window" m
          JOIN "user" u ON m.user_login = u.login
 WHERE m.id = ANY ($1::uuid[])
 `
 
 type GeMaintenanceWindowsByIDBulkRow struct {
-	ID           pgtype.UUID     `json:"id"`
-	UserLogin    string          `json:"user_login"`
-	Title        string          `json:"title"`
-	Description  pgtype.Text     `json:"description"`
-	Type         MaintenanceType `json:"type"`
-	Config       []byte          `json:"config"`
-	PasswordHash string          `json:"password_hash"`
+	MaintenanceWindow MaintenanceWindow `json:"maintenance_window"`
+	User              User              `json:"user"`
 }
 
 func (q *Queries) GeMaintenanceWindowsByIDBulk(ctx context.Context, ids []pgtype.UUID) ([]GeMaintenanceWindowsByIDBulkRow, error) {
@@ -75,13 +70,14 @@ func (q *Queries) GeMaintenanceWindowsByIDBulk(ctx context.Context, ids []pgtype
 	for rows.Next() {
 		var i GeMaintenanceWindowsByIDBulkRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.UserLogin,
-			&i.Title,
-			&i.Description,
-			&i.Type,
-			&i.Config,
-			&i.PasswordHash,
+			&i.MaintenanceWindow.ID,
+			&i.MaintenanceWindow.UserLogin,
+			&i.MaintenanceWindow.Title,
+			&i.MaintenanceWindow.Description,
+			&i.MaintenanceWindow.Type,
+			&i.MaintenanceWindow.Config,
+			&i.User.Login,
+			&i.User.PasswordHash,
 		); err != nil {
 			return nil, err
 		}
@@ -94,35 +90,29 @@ func (q *Queries) GeMaintenanceWindowsByIDBulk(ctx context.Context, ids []pgtype
 }
 
 const getMaintenanceWindowByID = `-- name: GetMaintenanceWindowByID :one
-SELECT id, user_login, title, description, type, config, login, password_hash
+SELECT m.id, m.user_login, m.title, m.description, m.type, m.config, u.login, u.password_hash
 FROM "maintenance_window" m
          JOIN "user" u ON m.user_login = u.login
 WHERE id = $1
 `
 
 type GetMaintenanceWindowByIDRow struct {
-	ID           pgtype.UUID     `json:"id"`
-	UserLogin    string          `json:"user_login"`
-	Title        string          `json:"title"`
-	Description  pgtype.Text     `json:"description"`
-	Type         MaintenanceType `json:"type"`
-	Config       []byte          `json:"config"`
-	Login        string          `json:"login"`
-	PasswordHash string          `json:"password_hash"`
+	MaintenanceWindow MaintenanceWindow `json:"maintenance_window"`
+	User              User              `json:"user"`
 }
 
 func (q *Queries) GetMaintenanceWindowByID(ctx context.Context, id pgtype.UUID) (GetMaintenanceWindowByIDRow, error) {
 	row := q.db.QueryRow(ctx, getMaintenanceWindowByID, id)
 	var i GetMaintenanceWindowByIDRow
 	err := row.Scan(
-		&i.ID,
-		&i.UserLogin,
-		&i.Title,
-		&i.Description,
-		&i.Type,
-		&i.Config,
-		&i.Login,
-		&i.PasswordHash,
+		&i.MaintenanceWindow.ID,
+		&i.MaintenanceWindow.UserLogin,
+		&i.MaintenanceWindow.Title,
+		&i.MaintenanceWindow.Description,
+		&i.MaintenanceWindow.Type,
+		&i.MaintenanceWindow.Config,
+		&i.User.Login,
+		&i.User.PasswordHash,
 	)
 	return i, err
 }

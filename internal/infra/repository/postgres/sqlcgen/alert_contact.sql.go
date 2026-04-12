@@ -83,28 +83,22 @@ WHERE id = $1
 `
 
 type GetAlertContactByIDRow struct {
-	ID           pgtype.UUID `json:"id"`
-	UserLogin    string      `json:"user_login"`
-	Type         ContactType `json:"type"`
-	Label        string      `json:"label"`
-	Config       []byte      `json:"config"`
-	IsActive     bool        `json:"is_active"`
-	Login        string      `json:"login"`
-	PasswordHash string      `json:"password_hash"`
+	AlertContact AlertContact `json:"alert_contact"`
+	User         User         `json:"user"`
 }
 
 func (q *Queries) GetAlertContactByID(ctx context.Context, id pgtype.UUID) (GetAlertContactByIDRow, error) {
 	row := q.db.QueryRow(ctx, getAlertContactByID, id)
 	var i GetAlertContactByIDRow
 	err := row.Scan(
-		&i.ID,
-		&i.UserLogin,
-		&i.Type,
-		&i.Label,
-		&i.Config,
-		&i.IsActive,
-		&i.Login,
-		&i.PasswordHash,
+		&i.AlertContact.ID,
+		&i.AlertContact.UserLogin,
+		&i.AlertContact.Type,
+		&i.AlertContact.Label,
+		&i.AlertContact.Config,
+		&i.AlertContact.IsActive,
+		&i.User.Login,
+		&i.User.PasswordHash,
 	)
 	return i, err
 }
@@ -117,14 +111,8 @@ WHERE a.id = ANY ($1::uuid[])
 `
 
 type GetAlertContactsByIDBulkRow struct {
-	ID           pgtype.UUID `json:"id"`
-	UserLogin    string      `json:"user_login"`
-	Type         ContactType `json:"type"`
-	Label        string      `json:"label"`
-	Config       []byte      `json:"config"`
-	IsActive     bool        `json:"is_active"`
-	Login        string      `json:"login"`
-	PasswordHash string      `json:"password_hash"`
+	AlertContact AlertContact `json:"alert_contact"`
+	User         User         `json:"user"`
 }
 
 func (q *Queries) GetAlertContactsByIDBulk(ctx context.Context, ids []pgtype.UUID) ([]GetAlertContactsByIDBulkRow, error) {
@@ -137,14 +125,14 @@ func (q *Queries) GetAlertContactsByIDBulk(ctx context.Context, ids []pgtype.UUI
 	for rows.Next() {
 		var i GetAlertContactsByIDBulkRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.UserLogin,
-			&i.Type,
-			&i.Label,
-			&i.Config,
-			&i.IsActive,
-			&i.Login,
-			&i.PasswordHash,
+			&i.AlertContact.ID,
+			&i.AlertContact.UserLogin,
+			&i.AlertContact.Type,
+			&i.AlertContact.Label,
+			&i.AlertContact.Config,
+			&i.AlertContact.IsActive,
+			&i.User.Login,
+			&i.User.PasswordHash,
 		); err != nil {
 			return nil, err
 		}
@@ -164,14 +152,8 @@ WHERE a.user_login = $1
 `
 
 type GetAlertContactsByUserLoginRow struct {
-	ID           pgtype.UUID `json:"id"`
-	UserLogin    string      `json:"user_login"`
-	Type         ContactType `json:"type"`
-	Label        string      `json:"label"`
-	Config       []byte      `json:"config"`
-	IsActive     bool        `json:"is_active"`
-	Login        string      `json:"login"`
-	PasswordHash string      `json:"password_hash"`
+	AlertContact AlertContact `json:"alert_contact"`
+	User         User         `json:"user"`
 }
 
 func (q *Queries) GetAlertContactsByUserLogin(ctx context.Context, userLogin string) ([]GetAlertContactsByUserLoginRow, error) {
@@ -184,14 +166,14 @@ func (q *Queries) GetAlertContactsByUserLogin(ctx context.Context, userLogin str
 	for rows.Next() {
 		var i GetAlertContactsByUserLoginRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.UserLogin,
-			&i.Type,
-			&i.Label,
-			&i.Config,
-			&i.IsActive,
-			&i.Login,
-			&i.PasswordHash,
+			&i.AlertContact.ID,
+			&i.AlertContact.UserLogin,
+			&i.AlertContact.Type,
+			&i.AlertContact.Label,
+			&i.AlertContact.Config,
+			&i.AlertContact.IsActive,
+			&i.User.Login,
+			&i.User.PasswordHash,
 		); err != nil {
 			return nil, err
 		}

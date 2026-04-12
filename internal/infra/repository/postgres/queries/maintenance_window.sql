@@ -3,7 +3,7 @@ INSERT INTO "maintenance_window" (id, user_login, title, description, type, conf
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetMaintenanceWindowByID :one
-SELECT *
+SELECT sqlc.embed(m), sqlc.embed(u)
 FROM "maintenance_window" m
          JOIN "user" u ON m.user_login = u.login
 WHERE id = $1;
@@ -23,7 +23,7 @@ FROM "maintenance_window"
 WHERE id = $1;
 
 -- name: GeMaintenanceWindowsByIDBulk :many
-SELECT m.*, u.password_hash
+SELECT sqlc.embed(m), sqlc.embed(u)
 FROM "maintenance_window" m
          JOIN "user" u ON m.user_login = u.login
 WHERE m.id = ANY (@ids::uuid[]);

@@ -28,10 +28,11 @@ func TestUserRepository_Integration(t *testing.T) {
 		err := repo.Create(ctx, usr)
 		require.NoError(t, err)
 
-		fetchedUser, err := repo.GetByLogin(ctx, "testuser")
+		var dbLogin, dbPass string
+		err = pool.QueryRow(ctx, `SELECT login, password_hash FROM "user" WHERE login = $1`, usr.Login).Scan(&dbLogin, &dbPass)
 		require.NoError(t, err)
-		assert.Equal(t, usr.Login, fetchedUser.Login)
-		assert.Equal(t, usr.PasswordHash, fetchedUser.PasswordHash)
+		assert.Equal(t, usr.Login, dbLogin)
+		assert.Equal(t, usr.PasswordHash, dbPass)
 	})
 
 	t.Run("Get non-existent user", func(t *testing.T) {
