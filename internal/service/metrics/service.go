@@ -24,23 +24,23 @@ type AnalyticsRepository interface {
 	GetSLAAggregation(ctx context.Context, monitorID uuid.UUID, from, to time.Time) (SLAStats, error)
 }
 
-type ProbeSummaryRepository interface {
-	GetByMonitorID(ctx context.Context, monitorID uuid.UUID, limit int) ([]*probe.Summary, error)
-	GetByMonitorIDForPeriod(ctx context.Context, monitorID uuid.UUID, from, to time.Time) ([]*probe.Summary, error)
+type ProbeSummaryReadRepository interface {
+	GetMonitorLatestSummaries(ctx context.Context, monitorID uuid.UUID, limit int) ([]*probe.Summary, error)
+	GetMonitorSummariesForPeriod(ctx context.Context, monitorID uuid.UUID, from, to time.Time) ([]*probe.Summary, error)
 }
 
 type metricsQueryService struct {
 	monitorRepo      repo.MonitorRepository
 	userProvider     provider.UserProvider
 	analyticsRepo    AnalyticsRepository
-	probeSummaryRepo ProbeSummaryRepository
+	probeSummaryRepo ProbeSummaryReadRepository
 }
 
 func NewMetricsQueryService(
 	monitorRepo repo.MonitorRepository,
 	userProvider provider.UserProvider,
 	analyticsRepo AnalyticsRepository,
-	probeSummaryRepo ProbeSummaryRepository,
+	probeSummaryRepo ProbeSummaryReadRepository,
 ) MetricQueryService {
 	return &metricsQueryService{
 		monitorRepo:      monitorRepo,
@@ -58,7 +58,7 @@ func (m *metricsQueryService) GetLastSummaries(ctx context.Context, monitorID uu
 		return []*probe.Summary{}, nil
 	}
 
-	return m.probeSummaryRepo.GetByMonitorID(ctx, monitorID, n)
+	return m.probeSummaryRepo.GetMonitorLatestSummaries(ctx, monitorID, n)
 
 }
 
@@ -75,7 +75,7 @@ func (m *metricsQueryService) GetSummariesForPeriod(
 		from, to = to, from
 	}
 
-	return m.probeSummaryRepo.GetByMonitorIDForPeriod(ctx, monitorID, from, to)
+	return m.probeSummaryRepo.GetMonitorSummariesForPeriod(ctx, monitorID, from, to)
 }
 
 func (m *metricsQueryService) GetSLA(ctx context.Context, monitorID uuid.UUID, from, to time.Time) (SLAStats, error) {

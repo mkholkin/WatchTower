@@ -1,6 +1,7 @@
 package main
 
 import (
+	"WatchTower/configs"
 	alert "WatchTower/internal/domain/entity/alert_contact"
 	"WatchTower/internal/domain/entity/maintenance"
 	"WatchTower/internal/domain/entity/target"
@@ -23,7 +24,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -36,42 +36,122 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
+func newPgPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err := pool.Ping(ctx); err != nil {
+		return nil, err
+	}
+	return pool, nil
+}
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	logFile, err := os.OpenFile("watchtower-cli.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	cfg, err := configs.Load("configs/config.yaml")
 	if err != nil {
-		if _, writeErr := fmt.Fprintf(os.Stderr, "failed to open log file: %v\n", err); writeErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+		return
+	}
+
+	logger, logCloser, err := configs.NewLoggerFromConfig(cfg.Logging)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init logger: %v\n", err)
+		return
+	}
+	if logCloser != nil {
+		defer func() {
+			_ = logCloser.Close()
+		}()
+	}
+
+	authPool, err := newPgPool(ctx, cfg.Database.Auth.DSN)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init auth db pool: %v\n", err)
+		return
+	}
+	defer authPool.Close()
+	monitoringPool, err := newPgPool(ctx, cfg.Database.Monitoring.DSN)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init monitoring db pool: %v\n", err)
+		return
+	}
+	defer monitoringPool.Close()
+	maintenancePool, err := newPgPool(ctx, cfg.Database.Maintenance.DSN)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init maintenance db pool: %v\n", err)
+		return
+	}
+	defer maintenancePool.Close()
+	contactsPool, err := newPgPool(ctx, cfg.Database.Contacts.DSN)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init contacts db pool: %v\n", err)
+		return
+	}
+	defer contactsPool.Close()
+	metricsPool, err := newPgPool(ctx, cfg.Database.Metrics.DSN)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init metrics db pool: %v\n", err)
+		return
+	}
+	defer metricsPool.Close()
+	healthcheckerPool, err := newPgPool(ctx, cfg.Database.Healthchecker.DSN)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init healthchecker db pool: %v\n", err)
+		return
+	}
+	defer healthcheckerPool.Close()
+	analyzerPool, err := pgxpool.New(ctx, cfg.Database.Analyzer.DSN)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init analyzer db pool: %v\n", err)
+		return
+	}
+	defer analyzerPool.Close()
+
+
+	userRepo := postgres.NewUserRepository(authPool, logger)
+	jwtTTL := time.Duration(cfg.Auth.JWTTTLHours) * time.Hour
+	authService := authsvc.NewService(userRepo, cfg.Auth.JWTSecret, jwtTTL)
+
+	monitoringMonitorRepo := postgres.NewMonitorRepository(monitoringPool, logger)
+	monitoringTargetRepo := postgres.NewTargetRepository(monitoringPool, logger)
+	monitoringAlertContactRepo := postgres.NewAlertContactRepository(monitoringPool, logger)
+	monitoringMWRepo := postgres.NewMaintenanceWindowRepository(monitoringPool, logger)
+
+	maintenanceMonitorRepo := postgres.NewMonitorRepository(maintenancePool, logger)
+	maintenanceMWRepo := postgres.NewMaintenanceWindowRepository(maintenancePool, logger)
+
+	contactsAlertContactRepo := postgres.NewAlertContactRepository(contactsPool, logger)
+
+	metricsMonitorRepo := postgres.NewMonitorRepository(metricsPool, logger)
+	metricsRepo := postgres.NewMetricsRepository(metricsPool, logger)
+
+	healthTargetRepo := postgres.NewTargetRepository(healthcheckerPool, logger)
+	healthProbeResultRepo := postgres.NewProbeResultRepository(healthcheckerPool, logger)
+
+	analyzerMonitorRepo := postgres.NewMonitorRepository(analyzerPool, logger)
+	analyzerProbeResultRepo := postgres.NewProbeResultRepository(analyzerPool, logger)
+	analyzerProbeSummaryRepo := postgres.NewProbeSummaryRepository(analyzerPool, logger)
+
+	metricsProbeSummaryRepo := postgres.NewProbeSummaryRepository(metricsPool, logger)
+
+	redisOpts, err := goredis.ParseURL(cfg.Redis.URL)
+	if err != nil {
+		if _, writeErr := fmt.Fprintf(os.Stderr, "invalid redis url in config: %v\n", err); writeErr != nil {
 			return
 		}
 		return
 	}
+	redisClient := goredis.NewClient(redisOpts)
 	defer func() {
-		_ = logFile.Close()
+		_ = redisClient.Close()
 	}()
-
-	pool, _ := pgxpool.New(
-		ctx,
-		"postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable",
-	)
-	logger := slog.New(slog.NewTextHandler(logFile, &slog.HandlerOptions{AddSource: true, Level: slog.LevelDebug}))
-
-	userRepo := postgres.NewUserRepository(pool, logger)
-	authService := authsvc.NewService(userRepo, "secret", 24*time.Hour)
-	monitorRepo := postgres.NewMonitorRepository(pool, logger)
-	targetRepo := postgres.NewTargetRepository(pool, logger)
-	alertContactRepo := postgres.NewAlertContactRepository(pool, logger)
-	mwRepo := postgres.NewMaintenanceWindowRepository(pool, logger)
-	probeResultRepo := postgres.NewProbeResultRepository(pool, logger)
-	metricsRepo := postgres.NewMetricsRepository(pool, logger)
 	probeSummaryRepo := redis.NewProbeSummaryRepository(
-		goredis.NewClient(&goredis.Options{
-			Addr:     "localhost:6379",
-			Password: "",
-			DB:       0,
-		}),
-		postgres.NewProbeSummaryRepository(pool, logger),
+		redisClient,
+		metricsProbeSummaryRepo,
 		logger,
 	)
 
@@ -85,30 +165,30 @@ func main() {
 	)
 
 	monitoringService := monitoringsvc.NewMonitoringManagementService(
-		monitorRepo,
-		targetRepo,
-		alertContactRepo,
-		mwRepo,
+		monitoringMonitorRepo,
+		monitoringTargetRepo,
+		monitoringAlertContactRepo,
+		monitoringMWRepo,
 		provider.NewUserProvider(userRepo),
 		eventBus,
 		logger,
 	)
 
 	maintenanceService := maintenancesvc.NewMaintenanceService(
-		mwRepo,
-		monitorRepo,
+		maintenanceMWRepo,
+		maintenanceMonitorRepo,
 		provider.NewUserProvider(userRepo),
 		logger,
 	)
 
 	contactService := contactssvc.NewContactService(
-		alertContactRepo,
+		contactsAlertContactRepo,
 		provider.NewUserProvider(userRepo),
 		logger,
 	)
 
 	metricsService := metricssvc.NewMetricsQueryService(
-		monitorRepo,
+		metricsMonitorRepo,
 		provider.NewUserProvider(userRepo),
 		metricsRepo,
 		probeSummaryRepo,
@@ -119,7 +199,7 @@ func main() {
 	notificationService := notificationsvc.NewNotificationService(
 		notificationRegistry,
 		eventBus,
-		monitorRepo,
+		monitoringMonitorRepo,
 		logger,
 	)
 
@@ -127,8 +207,8 @@ func main() {
 	registry.Register(target.ProtocolHTTP, infra.NewHTTPProber())
 
 	healthChecker := healthchecksvc.NewHealthChecker(
-		targetRepo,
-		probeResultRepo,
+		healthTargetRepo,
+		healthProbeResultRepo,
 		eventBus,
 		registry,
 		healthchecksvc.HealthCheckerConfig{WorkerCount: 5, TaskQueueSize: 100},
@@ -137,9 +217,9 @@ func main() {
 
 	evaluator := infra.NewHTTPProbeEvaluator()
 	analyzer := analyzationsvc.NewProbeAnalyzationService(
-		monitorRepo,
-		probeResultRepo,
-		probeSummaryRepo,
+		analyzerMonitorRepo,
+		analyzerProbeResultRepo,
+		analyzerProbeSummaryRepo,
 		evaluator,
 		eventBus,
 		analyzationsvc.ProbeAnalyzationServiceConfig{-1, -1},

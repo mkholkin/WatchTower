@@ -28,7 +28,7 @@ func NewProbeSummaryRepository(pool *pgxpool.Pool, logger *slog.Logger) repo.Pro
 	}
 }
 
-func (r *probeSummaryRepositoryPG) GetByMonitorID(ctx context.Context, monitorID uuid.UUID, limit int) ([]*probe.Summary, error) {
+func (r *probeSummaryRepositoryPG) GetMonitorLatestSummaries(ctx context.Context, monitorID uuid.UUID, limit int) ([]*probe.Summary, error) {
 	if limit <= 0 {
 		return []*probe.Summary{}, nil
 	}
@@ -63,7 +63,7 @@ func (r *probeSummaryRepositoryPG) GetByMonitorID(ctx context.Context, monitorID
 	return result, nil
 }
 
-func (r *probeSummaryRepositoryPG) GetByMonitorIDForPeriod(
+func (r *probeSummaryRepositoryPG) GetMonitorSummariesForPeriod(
 	ctx context.Context,
 	monitorID uuid.UUID,
 	from, to time.Time,

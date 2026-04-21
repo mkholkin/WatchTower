@@ -66,13 +66,21 @@ func NewProbeSummaryRepository(
 	return r
 }
 
-func (r *probeSummaryRepositoryCache) GetByMonitorID(
+func (r *probeSummaryRepositoryCache) GetMonitorLatestSummaries(
 	ctx context.Context,
 	monitorID uuid.UUID,
 	limit int,
 ) ([]*probe.Summary, error) {
 	if limit <= 0 {
 		return []*probe.Summary{}, nil
+	}
+
+	if limit > r.queueMax {
+		summaries, err := r.fallback.GetMonitorLatestSummaries(ctx, monitorID, limit)
+		if err != nil {
+			return nil, err
+		}
+		return summaries, nil
 	}
 
 	key := queueKey(monitorID)
@@ -87,7 +95,7 @@ func (r *probeSummaryRepositoryCache) GetByMonitorID(
 		r.log.Warn("failed to read probe summaries from redis, using fallback", "monitor_id", monitorID, "error", err)
 	}
 
-	summaries, err := r.fallback.GetByMonitorID(ctx, monitorID, limit)
+	summaries, err := r.fallback.GetMonitorLatestSummaries(ctx, monitorID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -104,12 +112,12 @@ func (r *probeSummaryRepositoryCache) GetByMonitorID(
 	return summaries, nil
 }
 
-func (r *probeSummaryRepositoryCache) GetByMonitorIDForPeriod(
+func (r *probeSummaryRepositoryCache) GetMonitorSummariesForPeriod(
 	ctx context.Context,
 	monitorID uuid.UUID,
 	from, to time.Time,
 ) ([]*probe.Summary, error) {
-	return r.fallback.GetByMonitorIDForPeriod(ctx, monitorID, from, to)
+	return r.fallback.GetMonitorSummariesForPeriod(ctx, monitorID, from, to)
 }
 
 func (r *probeSummaryRepositoryCache) Create(ctx context.Context, summary *probe.Summary) error {

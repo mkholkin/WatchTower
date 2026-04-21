@@ -1,0 +1,27 @@
+logging:
+  level: "info"
+  format: "json"
+  output: "watchtower.log"
+
+auth:
+  jwt_secret: "1234567890abcdef1234567890abcdef"
+  jwt_ttl_hours: 24
+
+database:
+  monitoring:
+    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+  maintenance:
+    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+  auth:
+    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+  metrics:
+    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+  healthchecker:
+    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+  analyzer:
+    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+  contacts:
+    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+
+redis:
+  url: "redis://localhost:6379/0"
