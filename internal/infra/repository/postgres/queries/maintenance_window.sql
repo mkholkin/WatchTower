@@ -28,6 +28,13 @@ FROM "maintenance_window" m
          JOIN "user" u ON m.user_login = u.login
 WHERE m.id = ANY (@ids::uuid[]);
 
+-- name: GetMaintenanceWindowsByUserLogin :many
+SELECT sqlc.embed(m), sqlc.embed(u)
+FROM "maintenance_window" m
+         JOIN "user" u ON m.user_login = u.login
+WHERE m.user_login = $1
+ORDER BY m.title;
+
 -- name: LinkMonitor :exec
 INSERT INTO "maintenance_window_monitor" (monitor_id, window_id)
 VALUES ($1, $2);

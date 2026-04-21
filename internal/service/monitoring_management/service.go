@@ -1,4 +1,4 @@
-package service
+package monitoring_service
 
 import (
 	"WatchTower/internal/domain/entity/alert_contact"
@@ -8,6 +8,7 @@ import (
 	"WatchTower/internal/domain/entity/user"
 	"WatchTower/internal/domain/repo"
 	"WatchTower/internal/service"
+	"WatchTower/internal/service/common/ownership"
 	"WatchTower/internal/service/common/provider"
 	healthchecksvc "WatchTower/internal/service/healthcheck"
 	monitordto "WatchTower/internal/service/monitoring_management/dto"
@@ -23,6 +24,7 @@ import (
 )
 
 type MonitoringManagementService interface {
+	GetAllMonitors(ctx context.Context) ([]*monitor.Monitor, error)
 	DisableMonitor(ctx context.Context, monitorId uuid.UUID) error
 	EnableMonitor(ctx context.Context, monitorId uuid.UUID) error
 	DeleteMonitor(ctx context.Context, monitorId uuid.UUID) error
@@ -93,19 +95,10 @@ func (s *monitoringManagementService) GetAllMonitors(ctx context.Context) ([]*mo
 }
 
 func (s *monitoringManagementService) getOwnedMonitor(ctx context.Context, monitorID uuid.UUID) (*monitor.Monitor, error) {
-	usr, err := s.userProvider.GetAuthorizedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	mon, err := s.monitorRepo.GetByID(ctx, monitorID)
+	mon, err := ownership.GetOwnedMonitor(ctx, s.userProvider, s.monitorRepo, monitorID)
 	if err != nil {
 		s.log.Error("failed to get monitor", "monitor_id", monitorID, "error", err)
 		return nil, err
-	}
-
-	if usr.Login != mon.User.Login {
-		return nil, service.ErrPermissionDenied
 	}
 
 	return mon, nil
@@ -125,8 +118,9 @@ func (s *monitoringManagementService) DisableMonitor(ctx context.Context, monito
 		return nil
 	}
 
-	mon.IsActive = false
-	if err := s.monitorRepo.Enable(ctx, monitorId); err != nil {
+	mon.Disable()
+
+	if err := s.monitorRepo.Disable(ctx, monitorId); err != nil {
 		s.log.Error("failed to disable monitor", "monitor_id", monitorId, "error", err)
 		return err
 	}
@@ -153,7 +147,7 @@ func (s *monitoringManagementService) EnableMonitor(ctx context.Context, monitor
 		return nil
 	}
 
-	mon.IsActive = true
+	mon.Enable()
 
 	if err := s.monitorRepo.Enable(ctx, monitorId); err != nil {
 		s.log.Error("failed to enable monitor", "monitor_id", monitorId, "error", err)
@@ -447,8 +441,10 @@ func (s *monitoringManagementService) getOrCreateTarget(
 		if tgt, err = target.NewTarget(endpoint, probeIntervalSec, config); err != nil {
 			return nil, err
 		}
-
 		if err := s.targetRepo.Create(ctx, tgt); err != nil {
+			return nil, err
+		}
+		if err := s.publishTargetEvent(healthchecksvc.TopicTargetCreated, tgt.ID); err != nil {
 			return nil, err
 		}
 	case err != nil:
@@ -467,13 +463,13 @@ func (s *monitoringManagementService) publishTargetEvent(topic string, targetID 
 	payload, err := json.Marshal(healthchecksvc.TargetEvent{ID: targetID})
 	if err != nil {
 		s.log.Error("marshal target event failed", "target_id", targetID, "error", err)
-		return service.ErrEventMarshalFailed
+		return errors.Join(service.ErrEventMarshalFailed, err)
 	}
 
 	msg := message.NewMessage(watermill.NewUUID(), payload)
 	if err := s.publisher.Publish(topic, msg); err != nil {
 		s.log.Error("publish target event failed", "target_id", targetID, "topic", topic, "error", err)
-		return service.ErrEventPublishFailed
+		return errors.Join(service.ErrEventPublishFailed, err)
 	}
 
 	s.log.Debug("target event published", "topic", topic, "target_id", targetID)
@@ -504,7 +500,7 @@ func (s *monitoringManagementService) maintainTargetConsistency(ctx context.Cont
 				minProbeInterval = mon.ProbeIntervalSec
 			}
 		}
-		if minProbeInterval < target.ProbeIntervalSec {
+		if minProbeInterval != target.ProbeIntervalSec {
 			target.ProbeIntervalSec = minProbeInterval
 			targetUpdated = true
 		}

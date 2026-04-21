@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -35,7 +37,7 @@ func NewProbeResultRepository(pool *pgxpool.Pool, logger *slog.Logger) repo.Prob
 func (r *probeResultRepositoryPG) Create(probeResult *probe.Result) error {
 	if probeResult == nil || probeResult.Target == nil {
 		r.log.Error("invalid probe result: nil value")
-		return repo.ErrInternal
+		return fmt.Errorf("invalid probe result: nil value %w", repo.ErrInternal)
 	}
 
 	params := sqlcgen.CreateProbeResultParams{
@@ -46,7 +48,7 @@ func (r *probeResultRepositoryPG) Create(probeResult *probe.Result) error {
 		StatusCode:     toPGInt4(probeResult.StatusCode),
 		NetworkFailure: probeResult.NetworkFailure,
 		ErrorMessage:   pgtype.Text{},
-		Meta:           []byte(probeResult.Meta),
+		Meta:           probeResult.Meta,
 	}
 
 	if err := r.queries.CreateProbeResult(context.Background(), params); err != nil {
@@ -56,24 +58,24 @@ func (r *probeResultRepositoryPG) Create(probeResult *probe.Result) error {
 	return nil
 }
 
-func (r *probeResultRepositoryPG) FetchUnprocessed(ctx context.Context, limit int) ([]probe.Result, error) {
+func (r *probeResultRepositoryPG) FetchUnprocessed(ctx context.Context, limit int) ([]*probe.Result, error) {
 	rows, err := r.queries.GetUnprocessedProbeResults(ctx, int32(limit))
 	if err != nil {
 		return nil, mapPGXErrorToRepo(err)
 	}
 
-	result := make([]probe.Result, len(rows))
+	result := make([]*probe.Result, len(rows))
 	for i, row := range rows {
-		domainStatus, mapErr := r.mpr.ToDomainProcessingStatus(row.ProcessingStatus)
-		if mapErr != nil {
-			r.log.Error("failed to map processing status to domain", "status", row.ProcessingStatus, "error", mapErr)
-			return nil, repo.ErrInternal
+		domainStatus, err := r.mpr.ToDomainProcessingStatus(row.ProcessingStatus)
+		if err != nil {
+			r.log.Error("failed to map processing status to domain", "status", row.ProcessingStatus, "error", err)
+			return nil, errors.Join(repo.ErrInternal, err)
 		}
 
-		result[i] = probe.Result{
+		result[i] = &probe.Result{
 			ID:               row.ID.Bytes,
 			LatencyMs:        row.LatencyMs,
-			Meta:             string(row.Meta),
+			Meta:             row.Meta,
 			NetworkFailure:   row.NetworkFailure,
 			StatusCode:       toNullInt32(row.StatusCode),
 			Target:           &target.Target{ID: row.TargetID.Bytes},
@@ -89,7 +91,7 @@ func (r *probeResultRepositoryPG) BulkUpdateStatus(ctx context.Context, ids []uu
 	dbStatus, err := r.mpr.ToDBProcessingStatus(status)
 	if err != nil {
 		r.log.Error("failed to map processing status to DB", "status", status, "error", err)
-		return repo.ErrInternal
+		return fmt.Errorf("failed to map processing status to DB: %w", repo.ErrInternal)
 	}
 
 	pgIDs := make([]pgtype.UUID, len(ids))
@@ -158,4 +160,3 @@ func toPGInt4(v sql.NullInt32) pgtype.Int4 {
 func toNullInt32(v pgtype.Int4) sql.NullInt32 {
 	return sql.NullInt32{Int32: v.Int32, Valid: v.Valid}
 }
-

@@ -1,7 +1,7 @@
 -- name: CreateMonitor :exec
 INSERT INTO "monitor" (id, target_id, user_login, label, is_active, probe_interval_sec, expectations, current_status,
-                       created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+                       last_evaluated_at, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: GetMonitorByID :one
 SELECT sqlc.embed(m), sqlc.embed(t), sqlc.embed(u),
@@ -95,7 +95,7 @@ FROM "monitor" m
          JOIN "target" t ON m.target_id = t.id
          JOIN "user" u ON m.user_login = u.login
 WHERE m.is_active = TRUE
-  AND m.last_evaluated_at + (m.probe_interval_sec || ' seconds') :: interval <= NOW()
+  AND m.last_evaluated_at + (m.probe_interval_sec * INTERVAL '1 second') <= NOW() at time zone 'Europe/Moscow' -- TODO: убрать
   AND m.target_id = ANY (@target_ids::uuid[]);
 
 -- name: BulkUpdateEvaluation :exec
@@ -104,7 +104,7 @@ SET current_status    = c.current_status,
     last_evaluated_at = c.last_evaluated_at
 FROM (
     SELECT unnest(@ids::uuid[]) AS id,
-           unnest(@statuses::status_type[]) AS current_status,
+           unnest(@statuses::text[])::status_type AS current_status,
            unnest(@evaluated_ats::TIMESTAMP[]) AS last_evaluated_at
 ) AS c
 WHERE m.id = c.id

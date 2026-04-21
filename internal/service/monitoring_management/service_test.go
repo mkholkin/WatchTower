@@ -1,4 +1,4 @@
-package service
+package monitoring_service
 
 import (
 	alert "WatchTower/internal/domain/entity/alert_contact"

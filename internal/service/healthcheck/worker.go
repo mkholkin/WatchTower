@@ -1,4 +1,4 @@
-package service
+package healtcheck_service
 
 import (
 	"WatchTower/internal/domain/entity/target"
@@ -18,7 +18,7 @@ const (
 // WorkerPool reads targets from the task queue, probes them using the appropriate
 // protocol-specific Prober and saves the raw result to the repository.
 type WorkerPool struct {
-	proberRegistry  *ProberRegistry
+	proberRegistry  ProberRegistry
 	probeResultRepo repo.ProbeResultRepository
 	taskQueue       <-chan target.Target
 	workerCount     int
@@ -27,7 +27,7 @@ type WorkerPool struct {
 
 // NewWorkerPool creates a new WorkerPool.
 func NewWorkerPool(
-	proberRegistry *ProberRegistry,
+	proberRegistry ProberRegistry,
 	probeResultRepo repo.ProbeResultRepository,
 	taskQueue <-chan target.Target,
 	workerCount int,
@@ -81,6 +81,7 @@ func (wp *WorkerPool) loop(ctx context.Context) {
 
 // probeAndSave performs a single probe against the target and persists the raw result.
 func (wp *WorkerPool) probeAndSave(ctx context.Context, target target.Target) {
+	probeTime := time.Now()
 	prober, err := wp.proberRegistry.Get(target.Config.Protocol())
 	if err != nil {
 		wp.log.Error("no prober for protocol", "protocol", target.Config.Protocol(), "target_id", target.ID, "error", err)
@@ -101,8 +102,9 @@ func (wp *WorkerPool) probeAndSave(ctx context.Context, target target.Target) {
 		wp.log.Error("probe failed", "target_id", target.ID, "endpoint", target.Endpoint, "error", err)
 		return
 	}
+	result.ProbeTime = probeTime
 
-	if err := wp.probeResultRepo.Create(&result); err != nil {
+	if err := wp.probeResultRepo.Create(result); err != nil {
 		wp.log.Error("failed to save probe result", "target_id", target.ID, "error", err)
 	}
 }

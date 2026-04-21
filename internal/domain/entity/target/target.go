@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -21,7 +20,11 @@ type Target struct {
 func NewTarget(endpoint string, probeIntervalSec int32, config NetworkConfig) (*Target, error) {
 	// TODO: validate endpoint
 	if probeIntervalSec <= 0 {
-		return nil, fmt.Errorf("invalid probe interval %d", probeIntervalSec)
+		return nil, wrapValidationf("invalid probe interval %d", probeIntervalSec)
+	}
+
+	if config == nil {
+		return nil, wrapValidation("network config is required")
 	}
 
 	if err := config.Validate(); err != nil {
@@ -40,7 +43,7 @@ func NewTarget(endpoint string, probeIntervalSec int32, config NetworkConfig) (*
 
 func (t *Target) UpdateProbeInterval(probeIntervalSec int32) error {
 	if probeIntervalSec <= 0 {
-		return fmt.Errorf("invalid probe interval %d", probeIntervalSec)
+		return wrapValidationf("invalid probe interval %d", probeIntervalSec)
 	}
 
 	t.ProbeIntervalSec = probeIntervalSec

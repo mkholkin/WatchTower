@@ -1,4 +1,4 @@
-package service
+package maintenance_service
 
 import (
 	"WatchTower/internal/domain/entity/maintenance"

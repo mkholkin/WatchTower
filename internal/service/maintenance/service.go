@@ -1,4 +1,4 @@
-package service
+package maintenance_service
 
 import (
 	"WatchTower/internal/domain/entity/maintenance"
@@ -6,6 +6,7 @@ import (
 	baseservice "WatchTower/internal/service"
 	"WatchTower/internal/service/common/provider"
 	"context"
+	"errors"
 	"log/slog"
 	"slices"
 
@@ -13,11 +14,28 @@ import (
 )
 
 type MaintenanceService interface {
+	GetAllMaintenanceWindows(ctx context.Context) ([]maintenance.MaintenanceWindow, error)
 	CreateOneTimeMaintenanceWindow(ctx context.Context, dto CreateOneTimeMaintenanceWindowDTO) (*maintenance.MaintenanceWindow, error)
 	CreateManualMaintenanceWindow(ctx context.Context, dto CreateManualMaintenanceWindowDTO) (*maintenance.MaintenanceWindow, error)
 	AddMonitorToMaintenanceWindow(ctx context.Context, monitorID uuid.UUID, windowID uuid.UUID) error
 	RemoveMonitorFromMaintenanceWindow(ctx context.Context, monitorID uuid.UUID, windowID uuid.UUID) error
 	UpdateMaintenanceWindow(ctx context.Context, dto UpdateMaintenanceWindowDTO) error
+	DeleteMaintenanceWindow(ctx context.Context, windowID uuid.UUID) error
+}
+
+func (s *maintenanceService) GetAllMaintenanceWindows(ctx context.Context) ([]maintenance.MaintenanceWindow, error) {
+	usr, err := s.userProvider.GetAuthorizedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	windows, err := s.MWRepo.GetByUserLogin(ctx, usr.Login)
+	if err != nil {
+		s.log.Error("failed to get maintenance windows for user", "user", usr.Login, "error", err)
+		return nil, err
+	}
+
+	return windows, nil
 }
 
 type maintenanceService struct {
@@ -122,7 +140,7 @@ func (s *maintenanceService) DeleteMaintenanceWindow(ctx context.Context, window
 
 	if mw.User.Login != usr.Login {
 		s.log.Warn("user attempted to delete maintenance window they do not own", "window_id", windowID, "user", usr.Login)
-		return baseservice.ErrPermissionDenied
+		return errors.Join(baseservice.ErrPermissionDenied, err)
 	}
 
 	if err := s.MWRepo.DeleteByID(ctx, mw.ID); err != nil {
@@ -163,7 +181,7 @@ func (s *maintenanceService) AddMonitorToMaintenanceWindow(
 		return nil
 	}
 
-	if err := s.MWRepo.UnlinkMonitor(ctx, maintenanceWindow, mon.ID); err != nil {
+	if err := s.MWRepo.LinkMonitor(ctx, maintenanceWindow, mon.ID); err != nil {
 		s.log.Error("failed to link monitor to maintenance window", "window_id", windowID, "monitor_id", monitorID, "error", err)
 		return err
 	}
@@ -231,7 +249,7 @@ func (s *maintenanceService) UpdateMaintenanceWindow(
 
 	if mw.User.Login != usr.Login {
 		s.log.Warn("user attempted to update maintenance window they do not own", "window_id", dto.WindowID, "user", usr.Login)
-		return baseservice.ErrPermissionDenied
+		return errors.Join(baseservice.ErrPermissionDenied, err)
 	}
 
 	if err := mw.ApplyUpdate(maintenance.MaintenanceWindowUpdate{

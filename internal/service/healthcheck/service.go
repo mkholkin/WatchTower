@@ -1,4 +1,4 @@
-package service
+package healtcheck_service
 
 import (
 	"WatchTower/internal/domain/entity/target"
@@ -44,7 +44,7 @@ func NewHealthChecker(
 	targetRepo repo.TargetRepository,
 	probeResultRepo repo.ProbeResultRepository,
 	subscriber message.Subscriber,
-	proberRegistry *ProberRegistry,
+	proberRegistry ProberRegistry,
 	cfg HealthCheckerConfig,
 	logger *slog.Logger,
 ) HealthChecker {

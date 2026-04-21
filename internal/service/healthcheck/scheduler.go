@@ -1,4 +1,4 @@
-package service
+package healtcheck_service
 
 import (
 	"WatchTower/internal/domain/entity/target"
@@ -87,7 +87,7 @@ func (s *Scheduler) loadActiveTargets(ctx context.Context) error {
 	}
 
 	for _, t := range targets {
-		s.addTargetToSchedule(t)
+		s.addTargetToSchedule(&t)
 	}
 
 	s.log.Info("loaded active targets", "count", len(targets))
@@ -95,19 +95,16 @@ func (s *Scheduler) loadActiveTargets(ctx context.Context) error {
 }
 
 // addTargetToSchedule adds a target to the in-memory schedule.
-func (s *Scheduler) addTargetToSchedule(t target.Target) {
+func (s *Scheduler) addTargetToSchedule(t *target.Target) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	now := s.clock.Now()
-	startIn := time.Duration(t.ProbeIntervalSec) * time.Second
 	s.schedule[t.ID] = &scheduleEntry{
-		Target:   t,
-		NextTick: now.Add(startIn),
+		Target: *t,
 	}
 }
 
-// tickLoop runs every second and dispatches due targets into the task queue.
+// tickLoop runs every tick and dispatches due targets into the task queue.
 func (s *Scheduler) tickLoop(ctx context.Context) {
 	ticker := s.clock.NewTicker(SchedulerTickInterval)
 	defer ticker.Stop()
@@ -209,7 +206,7 @@ func (s *Scheduler) onTargetCreated(evt TargetEvent) {
 		return
 	}
 
-	s.addTargetToSchedule(*tgt)
+	s.addTargetToSchedule(tgt)
 	s.log.Info("target added", "target_id", evt.ID)
 }
 

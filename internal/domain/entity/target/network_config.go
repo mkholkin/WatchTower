@@ -32,13 +32,39 @@ type HTTPConfig struct {
 	FollowRedirects bool              `json:"follow_redirects"`
 }
 
+var httpMethods = map[string]bool{
+	"GET":     true,
+	"POST":    true,
+	"PUT":     true,
+	"DELETE":  true,
+	"PATCH":   true,
+	"HEAD":    true,
+	"OPTIONS": true,
+}
+
+func NewHTTPConfig(method string, headers map[string]string, body string, followRedirects bool) (NetworkConfig, error) {
+	cfg := HTTPConfig{
+		Method:          method,
+		Headers:         headers,
+		Body:            body,
+		FollowRedirects: followRedirects,
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
 func (c HTTPConfig) Protocol() Protocol {
 	return ProtocolHTTP
 }
 
 func (c HTTPConfig) Validate() error {
-	//TODO implement me
-	panic("implement me")
+	if !httpMethods[c.Method] {
+		return wrapValidationf("invalid HTTP method: %s", c.Method)
+	}
+
+	return nil
 }
 
 // ----- TCP -------
@@ -49,13 +75,25 @@ type TCPConfig struct {
 	Port int
 }
 
+func NewTCPConfig(port int) (NetworkConfig, error) {
+	cfg := TCPConfig{
+		Port: port,
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
 func (c TCPConfig) Protocol() Protocol {
 	return ProtocolTCP
 }
 
 func (c TCPConfig) Validate() error {
-	//TODO implement me
-	panic("implement me")
+	if c.Port <= 0 || c.Port > 65535 {
+		return wrapValidationf("invalid port %d", c.Port)
+	}
+	return nil
 }
 
 // ----- ICMP -------

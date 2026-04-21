@@ -14,9 +14,8 @@ func mapPGXErrorToRepo(err error) error {
 	}
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		return repo.ErrNotFound
+		return errors.Join(repo.ErrNotFound, err)
 	}
 
-	return repo.ErrDB
+	return errors.Join(repo.ErrDB, err)
 }
-

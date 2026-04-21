@@ -1,7 +1,5 @@
 package alert
 
-import "errors"
-
 // ContactConfig is the polymorphic interface for alert contact configurations.
 // Each contact type (Telegram, etc.) provides its own implementation.
 type ContactConfig interface {
@@ -38,18 +36,18 @@ type TelegramConfigUpdate struct {
 func (u TelegramConfigUpdate) Apply(cfg ContactConfig) (ContactConfig, error) {
 	c, ok := cfg.(TelegramContactConfig)
 	if !ok {
-		return nil, errors.New("telegram config update is not applicable to this contact type")
+		return nil, wrapValidation("telegram config update is not applicable to this contact type")
 	}
 
 	if u.ChatID != nil {
 		if *u.ChatID == 0 {
-			return nil, errors.New("chat_id cannot be zero")
+			return nil, wrapValidation("chat_id cannot be zero")
 		}
 		c.ChatID = *u.ChatID
 	}
 	if u.BotToken != nil {
 		if *u.BotToken == "" {
-			return nil, errors.New("bot_token cannot be empty")
+			return nil, wrapValidation("bot_token cannot be empty")
 		}
 		c.BotToken = *u.BotToken
 	}

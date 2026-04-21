@@ -32,7 +32,7 @@ SET current_status    = c.current_status,
     last_evaluated_at = c.last_evaluated_at
 FROM (
     SELECT unnest($1::uuid[]) AS id,
-           unnest($2::status_type[]) AS current_status,
+           unnest($2::text[])::status_type AS current_status,
            unnest($3::TIMESTAMP[]) AS last_evaluated_at
 ) AS c
 WHERE m.id = c.id
@@ -41,7 +41,7 @@ WHERE m.id = c.id
 
 type BulkUpdateEvaluationParams struct {
 	Ids          []pgtype.UUID      `json:"ids"`
-	Statuses     []StatusType       `json:"statuses"`
+	Statuses     []string           `json:"statuses"`
 	EvaluatedAts []pgtype.Timestamp `json:"evaluated_ats"`
 }
 
@@ -52,8 +52,8 @@ func (q *Queries) BulkUpdateEvaluation(ctx context.Context, arg BulkUpdateEvalua
 
 const createMonitor = `-- name: CreateMonitor :exec
 INSERT INTO "monitor" (id, target_id, user_login, label, is_active, probe_interval_sec, expectations, current_status,
-                       created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                       last_evaluated_at, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `
 
 type CreateMonitorParams struct {
@@ -65,6 +65,7 @@ type CreateMonitorParams struct {
 	ProbeIntervalSec int32            `json:"probe_interval_sec"`
 	Expectations     []byte           `json:"expectations"`
 	CurrentStatus    StatusType       `json:"current_status"`
+	LastEvaluatedAt  pgtype.Timestamp `json:"last_evaluated_at"`
 	CreatedAt        pgtype.Timestamp `json:"created_at"`
 }
 
@@ -78,6 +79,7 @@ func (q *Queries) CreateMonitor(ctx context.Context, arg CreateMonitorParams) er
 		arg.ProbeIntervalSec,
 		arg.Expectations,
 		arg.CurrentStatus,
+		arg.LastEvaluatedAt,
 		arg.CreatedAt,
 	)
 	return err
@@ -331,7 +333,7 @@ FROM "monitor" m
          JOIN "target" t ON m.target_id = t.id
          JOIN "user" u ON m.user_login = u.login
 WHERE m.is_active = TRUE
-  AND m.last_evaluated_at + (m.probe_interval_sec || ' seconds') :: interval <= NOW()
+  AND m.last_evaluated_at + (m.probe_interval_sec * INTERVAL '1 second') <= NOW() at time zone 'Europe/Moscow' -- TODO: убрать
   AND m.target_id = ANY ($1::uuid[])
 `
 

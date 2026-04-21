@@ -8,6 +8,7 @@ import (
 	"WatchTower/pkg/mapper"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -36,13 +37,13 @@ func (r *alertContactRepositoryPG) Create(ctx context.Context, contact *alert.Co
 	dbType, err := r.mpr.ToDBContactType(contact.Type)
 	if err != nil {
 		r.log.Error("failed to convert contact type to DB type", "contact_type", contact.Type, "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	dbConfig, err := r.mpr.ToDBContactConfig(contact.Config)
 	if err != nil {
 		r.log.Error("failed to convert contact config to DB config", "contact_type", contact.Type, "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	params := sqlcgen.CreateAlertContactParams{
@@ -55,7 +56,7 @@ func (r *alertContactRepositoryPG) Create(ctx context.Context, contact *alert.Co
 	}
 
 	if err := r.queries.CreateAlertContact(ctx, params); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 
 	return nil
@@ -74,13 +75,13 @@ func (r *alertContactRepositoryPG) Update(ctx context.Context, contact *alert.Co
 	dbType, err := r.mpr.ToDBContactType(contact.Type)
 	if err != nil {
 		r.log.Error("failed to convert contact type to DB type", "contact_type", contact.Type, "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	dbConfig, err := r.mpr.ToDBContactConfig(contact.Config)
 	if err != nil {
 		r.log.Error("failed to convert contact config to DB config", "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	params := sqlcgen.UpdateAlertContactParams{
@@ -92,7 +93,7 @@ func (r *alertContactRepositoryPG) Update(ctx context.Context, contact *alert.Co
 	}
 
 	if err := r.queries.UpdateAlertContact(ctx, params); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 
 	return nil
@@ -100,7 +101,7 @@ func (r *alertContactRepositoryPG) Update(ctx context.Context, contact *alert.Co
 
 func (r *alertContactRepositoryPG) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	if err := r.queries.DeleteAlertContactByID(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 	return nil
 }
@@ -113,7 +114,7 @@ func (r *alertContactRepositoryPG) GetByIDBulk(ctx context.Context, ids []uuid.U
 
 	rows, err := r.queries.GetAlertContactsByIDBulk(ctx, pgIDs)
 	if err != nil {
-		return nil, repo.ErrDB
+		return nil, errors.Join(repo.ErrDB, err)
 	}
 
 	contacts := make([]alert.Contact, len(rows))
@@ -129,14 +130,14 @@ func (r *alertContactRepositoryPG) GetByIDBulk(ctx context.Context, ids []uuid.U
 
 func (r *alertContactRepositoryPG) Enable(ctx context.Context, id uuid.UUID) error {
 	if err := r.queries.EnableAlertContact(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 	return nil
 }
 
 func (r *alertContactRepositoryPG) Disable(ctx context.Context, id uuid.UUID) error {
 	if err := r.queries.DisableAlertContact(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 	return nil
 }
@@ -144,7 +145,7 @@ func (r *alertContactRepositoryPG) Disable(ctx context.Context, id uuid.UUID) er
 func (r *alertContactRepositoryPG) GetByUserLogin(ctx context.Context, userLogin string) ([]alert.Contact, error) {
 	rows, err := r.queries.GetAlertContactsByUserLogin(ctx, userLogin)
 	if err != nil {
-		return nil, repo.ErrDB
+		return nil, errors.Join(repo.ErrDB, err)
 	}
 
 	contacts := make([]alert.Contact, len(rows))
@@ -162,13 +163,13 @@ func (r *alertContactRepositoryPG) mapAlertContactToDomain(dbContact sqlcgen.Ale
 	domainType, err := r.mpr.ToDomainContactType(dbContact.Type)
 	if err != nil {
 		r.log.Error("failed to convert contact type to domain contact", "error", err)
-		return nil, repo.ErrInternal
+		return nil, errors.Join(repo.ErrInternal, err)
 	}
 
 	domainConfig, err := r.mpr.ToDomainContactConfig(domainType, dbContact.Config)
 	if err != nil {
 		r.log.Error("failed to convert contact config to domain config", "error", err)
-		return nil, repo.ErrDB
+		return nil, errors.Join(repo.ErrDB, err)
 	}
 
 	return &alert.Contact{

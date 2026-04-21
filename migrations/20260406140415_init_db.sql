@@ -81,7 +81,7 @@ CREATE TABLE "monitor"
 
 CREATE TABLE "monitor_status_log"
 (
-    "id"         uuid PRIMARY KEY,
+    "id"         bigserial PRIMARY KEY,
     "monitor_id" uuid        NOT NULL REFERENCES monitor (id) ON DELETE CASCADE,
     "status"     status_type NOT NULL,
     "start_time" timestamp   NOT NULL,
@@ -100,8 +100,8 @@ CREATE TABLE "maintenance_window"
 
 CREATE TABLE "maintenance_window_monitor"
 (
-    "monitor_id" uuid NOT NULL REFERENCES monitor (id),
-    "window_id"  uuid NOT NULL REFERENCES maintenance_window (id),
+    "monitor_id" uuid NOT NULL REFERENCES monitor (id) ON DELETE CASCADE,
+    "window_id"  uuid NOT NULL REFERENCES maintenance_window (id) ON DELETE CASCADE,
     PRIMARY KEY ("window_id", "monitor_id")
 );
 
@@ -117,11 +117,10 @@ CREATE TABLE "alert_contact"
 
 CREATE TABLE "monitor_alert_contact"
 (
-    "monitor_id" uuid NOT NULL REFERENCES monitor (id),
-    "contact_id" uuid NOT NULL REFERENCES alert_contact (id),
+    "monitor_id" uuid NOT NULL REFERENCES monitor (id) ON DELETE CASCADE,
+    "contact_id" uuid NOT NULL REFERENCES alert_contact (id) ON DELETE CASCADE,
     PRIMARY KEY ("monitor_id", "contact_id")
 );
-
 
 
 -- +goose Down

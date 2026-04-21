@@ -5,7 +5,6 @@ import (
 	"WatchTower/internal/domain/entity/maintenance"
 	"WatchTower/internal/domain/entity/target"
 	"WatchTower/internal/domain/entity/user"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,15 +44,15 @@ func NewMonitor(
 	expectations Expectations,
 ) (*Monitor, error) {
 	if name == "" {
-		return nil, fmt.Errorf("monitor name is required")
+		return nil, wrapValidation("monitor name is required")
 	}
 
 	if target == nil {
-		return nil, fmt.Errorf("monitor target is required")
+		return nil, wrapValidation("monitor target is required")
 	}
 
 	if user == nil {
-		return nil, fmt.Errorf("monitor user is required")
+		return nil, wrapValidation("monitor user is required")
 	}
 
 	return &Monitor{
@@ -84,3 +83,11 @@ func (m *Monitor) OnMaintenance() bool {
 	return false
 }
 
+func (m *Monitor) Enable() {
+	m.IsActive = true
+}
+
+func (m *Monitor) Disable() {
+	m.IsActive = false
+	m.CurrentStatus = StatusUnknown
+}
