@@ -78,6 +78,7 @@ func (ac *Contact) ApplyUpdate(upd ContactUpdate) error {
 			return err
 		}
 		ac.Config = newCfg
+		ac.Type = newCfg.Type()
 	}
 
 	return nil

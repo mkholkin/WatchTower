@@ -4,18 +4,20 @@ INSERT INTO "monitor" (id, target_id, user_login, label, is_active, probe_interv
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: GetMonitorByID :one
-SELECT sqlc.embed(m), sqlc.embed(t), sqlc.embed(u),
+SELECT sqlc.embed(m),
+       sqlc.embed(t),
+       sqlc.embed(u),
        COALESCE(
-           (SELECT jsonb_agg(ac.*)
-            FROM "alert_contact" ac
-            JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
-            WHERE mac.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(ac.*)
+                FROM "alert_contact" ac
+                         JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
+                WHERE mac.monitor_id = m.id), '[]'::jsonb
        ) AS alert_contacts,
        COALESCE(
-           (SELECT jsonb_agg(mw.*)
-            FROM "maintenance_window" mw
-            JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
-            WHERE mwm.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(mw.*)
+                FROM "maintenance_window" mw
+                         JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
+                WHERE mwm.monitor_id = m.id), '[]'::jsonb
        ) AS maintenance_windows
 FROM "monitor" m
          JOIN "target" t ON m.target_id = t.id
@@ -40,18 +42,20 @@ FROM "monitor"
 WHERE id = $1;
 
 -- name: GetAllMonitorsByUser :many
-SELECT sqlc.embed(m), sqlc.embed(t), sqlc.embed(u),
+SELECT sqlc.embed(m),
+       sqlc.embed(t),
+       sqlc.embed(u),
        COALESCE(
-           (SELECT jsonb_agg(ac.*)
-            FROM "alert_contact" ac
-            JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
-            WHERE mac.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(ac.*)
+                FROM "alert_contact" ac
+                         JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
+                WHERE mac.monitor_id = m.id), '[]'::jsonb
        ) AS alert_contacts,
        COALESCE(
-           (SELECT jsonb_agg(mw.*)
-            FROM "maintenance_window" mw
-            JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
-            WHERE mwm.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(mw.*)
+                FROM "maintenance_window" mw
+                         JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
+                WHERE mwm.monitor_id = m.id), '[]'::jsonb
        ) AS maintenance_windows
 FROM "monitor" m
          JOIN "target" t ON m.target_id = t.id
@@ -59,18 +63,20 @@ FROM "monitor" m
 WHERE m.user_login = $1;
 
 -- name: GetAllMonitorsByTargetID :many
-SELECT sqlc.embed(m), sqlc.embed(t), sqlc.embed(u),
+SELECT sqlc.embed(m),
+       sqlc.embed(t),
+       sqlc.embed(u),
        COALESCE(
-           (SELECT jsonb_agg(ac.*)
-            FROM "alert_contact" ac
-            JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
-            WHERE mac.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(ac.*)
+                FROM "alert_contact" ac
+                         JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
+                WHERE mac.monitor_id = m.id), '[]'::jsonb
        ) AS alert_contacts,
        COALESCE(
-           (SELECT jsonb_agg(mw.*)
-            FROM "maintenance_window" mw
-            JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
-            WHERE mwm.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(mw.*)
+                FROM "maintenance_window" mw
+                         JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
+                WHERE mwm.monitor_id = m.id), '[]'::jsonb
        ) AS maintenance_windows
 FROM "monitor" m
          JOIN "target" t ON m.target_id = t.id
@@ -78,35 +84,39 @@ FROM "monitor" m
 WHERE m.target_id = $1;
 
 -- name: GetMonitorsToEvaluate :many
-SELECT sqlc.embed(m), sqlc.embed(t), sqlc.embed(u),
+SELECT sqlc.embed(m),
+       sqlc.embed(t),
+       sqlc.embed(u),
        COALESCE(
-           (SELECT jsonb_agg(ac.*)
-            FROM "alert_contact" ac
-            JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
-            WHERE mac.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(ac.*)
+                FROM "alert_contact" ac
+                         JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
+                WHERE mac.monitor_id = m.id), '[]'::jsonb
        ) AS alert_contacts,
        COALESCE(
-           (SELECT jsonb_agg(mw.*)
-            FROM "maintenance_window" mw
-            JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
-            WHERE mwm.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(mw.*)
+                FROM "maintenance_window" mw
+                         JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
+                WHERE mwm.monitor_id = m.id), '[]'::jsonb
        ) AS maintenance_windows
 FROM "monitor" m
          JOIN "target" t ON m.target_id = t.id
          JOIN "user" u ON m.user_login = u.login
 WHERE m.is_active = TRUE
-  AND m.last_evaluated_at + (m.probe_interval_sec * INTERVAL '1 second') <= NOW() at time zone 'Europe/Moscow' -- TODO: убрать
+  AND (
+    current_status = 'UNKNOWN'
+        OR m.last_evaluated_at + (m.probe_interval_sec * INTERVAL '1 second') <=
+           NOW()
+    )
   AND m.target_id = ANY (@target_ids::uuid[]);
 
 -- name: BulkUpdateEvaluation :exec
 UPDATE "monitor" AS m
 SET current_status    = c.current_status,
     last_evaluated_at = c.last_evaluated_at
-FROM (
-    SELECT unnest(@ids::uuid[]) AS id,
-           unnest(@statuses::text[])::status_type AS current_status,
-           unnest(@evaluated_ats::TIMESTAMP[]) AS last_evaluated_at
-) AS c
+FROM (SELECT unnest(@ids::uuid[])                   AS id,
+             unnest(@statuses::text[])::status_type AS current_status,
+             unnest(@evaluated_ats::TIMESTAMP[])    AS last_evaluated_at) AS c
 WHERE m.id = c.id
   AND m.is_active = TRUE;
 
@@ -127,6 +137,7 @@ WHERE id = $1;
 
 -- name: DisableMonitor :exec
 UPDATE "monitor"
-SET is_active = FALSE
+SET is_active      = FALSE,
+    current_status = 'UNKNOWN'
 WHERE id = $1;
 

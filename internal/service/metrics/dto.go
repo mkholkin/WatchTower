@@ -8,11 +8,11 @@ import (
 )
 
 type SLAStats struct {
-	MonitorID     uuid.UUID `json:"monitor_id"`
-	UptimePercent float64   `json:"uptime_percent"`
-	TotalDowntime int       `json:"total_downtime_sec"`
-	PeriodStart   time.Time `json:"period_start"`
-	PeriodEnd     time.Time `json:"period_end"`
+	MonitorID        uuid.UUID `json:"monitor_id"`
+	UptimePercent    float64   `json:"uptime_percent"`
+	TotalDowntimeSec int
+	PeriodStart      time.Time `json:"period_start"`
+	PeriodEnd        time.Time `json:"period_end"`
 }
 
 type StatusEvent struct {

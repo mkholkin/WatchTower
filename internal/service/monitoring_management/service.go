@@ -25,10 +25,11 @@ import (
 
 type MonitoringManagementService interface {
 	GetAllMonitors(ctx context.Context) ([]*monitor.Monitor, error)
+	GetMonitor(ctx context.Context, monitorId uuid.UUID) (*monitor.Monitor, error)
 	DisableMonitor(ctx context.Context, monitorId uuid.UUID) error
 	EnableMonitor(ctx context.Context, monitorId uuid.UUID) error
 	DeleteMonitor(ctx context.Context, monitorId uuid.UUID) error
-	CreateMonitor(ctx context.Context, createDTO monitordto.CreateMonitorDTO) error
+	CreateMonitor(ctx context.Context, createDTO monitordto.CreateMonitorDTO) (*monitor.Monitor, error)
 	UpdateMonitor(ctx context.Context, dto monitordto.UpdateMonitorDTO) error
 	LinkAlertContact(ctx context.Context, monitorID uuid.UUID, alertContactID uuid.UUID) error
 	UnlinkAlertContact(ctx context.Context, monitorID uuid.UUID, alertContactID uuid.UUID) error
@@ -92,6 +93,27 @@ func (s *monitoringManagementService) GetAllMonitors(ctx context.Context) ([]*mo
 	}
 
 	return monitors, nil
+}
+
+func (s *monitoringManagementService) GetMonitor(ctx context.Context, monitorId uuid.UUID) (*monitor.Monitor, error) {
+	usr, err := s.userProvider.GetAuthorizedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	slog.Debug("getting monitor", "monitor_id", monitorId, "user", usr.Login)
+
+	mon, err := s.monitorRepo.GetByID(ctx, monitorId)
+	if err != nil {
+		slog.Error("failed to get monitor", "monitor_id", monitorId, "error", err)
+		return nil, err
+	}
+
+	if mon.User.Login != usr.Login {
+		slog.Warn("user attempted to access monitor they do not own", "monitor_id", monitorId, "user", usr.Login)
+		return nil, errors.Join(service.ErrPermissionDenied, errors.New("monitor does not belong to user"))
+	}
+
+	return mon, nil
 }
 
 func (s *monitoringManagementService) getOwnedMonitor(ctx context.Context, monitorID uuid.UUID) (*monitor.Monitor, error) {
@@ -186,40 +208,40 @@ func (s *monitoringManagementService) DeleteMonitor(ctx context.Context, monitor
 }
 
 // CreateMonitor creates a new monitor.
-func (s *monitoringManagementService) CreateMonitor(ctx context.Context, createDTO monitordto.CreateMonitorDTO) error {
+func (s *monitoringManagementService) CreateMonitor(ctx context.Context, createDTO monitordto.CreateMonitorDTO) (*monitor.Monitor, error) {
 	s.log.Debug("creating monitor", "name", createDTO.Label, "endpoint", createDTO.Endpoint)
 
 	usr, err := s.userProvider.GetAuthorizedUser(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	networkConfig, expectations, err := s.resolveCreateMonitorConfig(createDTO)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	windows, alertContacts, err := s.loadCreateMonitorRelations(ctx, createDTO)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	tgt, err := s.getOrCreateTarget(ctx, createDTO.Endpoint, createDTO.ProbeIntervalSec, networkConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	mon, err := s.createAndStoreMonitor(ctx, createDTO, tgt, alertContacts, windows, expectations, usr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := s.syncTargetAfterMonitorLinkage(ctx, tgt, createDTO.ProbeIntervalSec); err != nil {
-		return err
+		return nil, err
 	}
 
 	s.log.Info("monitor created", "monitor_id", mon.ID, "target_id", tgt.ID)
-	return nil
+	return mon, nil
 }
 
 func (s *monitoringManagementService) resolveCreateMonitorConfig(createDTO monitordto.CreateMonitorDTO) (target.NetworkConfig, monitor.Expectations, error) {
@@ -468,8 +490,8 @@ func (s *monitoringManagementService) publishTargetEvent(topic string, targetID 
 
 	msg := message.NewMessage(watermill.NewUUID(), payload)
 	if err := s.publisher.Publish(topic, msg); err != nil {
-		s.log.Error("publish target event failed", "target_id", targetID, "topic", topic, "error", err)
 		return errors.Join(service.ErrEventPublishFailed, err)
+		return service.ErrEventPublishFailed
 	}
 
 	s.log.Debug("target event published", "topic", topic, "target_id", targetID)

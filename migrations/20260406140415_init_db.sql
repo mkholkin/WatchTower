@@ -50,7 +50,7 @@ CREATE TABLE "probe_result"
 (
     "id"                uuid PRIMARY KEY,
     "target_id"         uuid                   NOT NULL REFERENCES target (id) ON DELETE CASCADE,
-    "probe_time"        timestamp              NOT NULL,
+    "probe_time"        timestamptz            NOT NULL,
     "latency_ms"        int                    NOT NULL CHECK (latency_ms >= 0),
     "status_code"       int,
     "network_failure"   boolean                NOT NULL,
@@ -75,8 +75,8 @@ CREATE TABLE "monitor"
     "probe_interval_sec" int         NOT NULL CHECK ( probe_interval_sec > 0),
     "expectations"       jsonb       NOT NULL,
     "current_status"     status_type NOT NULL DEFAULT 'UNKNOWN',
-    "last_evaluated_at"  timestamp,
-    "created_at"         timestamp   NOT NULL DEFAULT NOW()
+    "last_evaluated_at"  timestamptz,
+    "created_at"         timestamptz   NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE "monitor_status_log"
@@ -84,8 +84,8 @@ CREATE TABLE "monitor_status_log"
     "id"         bigserial PRIMARY KEY,
     "monitor_id" uuid        NOT NULL REFERENCES monitor (id) ON DELETE CASCADE,
     "status"     status_type NOT NULL,
-    "start_time" timestamp   NOT NULL,
-    "end_time"   timestamp   NOT NULL DEFAULT 'infinity'
+    "start_time" timestamptz   NOT NULL,
+    "end_time"   timestamptz   NOT NULL DEFAULT 'infinity'
 );
 
 CREATE TABLE "maintenance_window"

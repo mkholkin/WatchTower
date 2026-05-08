@@ -43,7 +43,7 @@ func (r *probeResultRepositoryPG) Create(probeResult *probe.Result) error {
 	params := sqlcgen.CreateProbeResultParams{
 		ID:             pgtype.UUID{Bytes: probeResult.ID, Valid: true},
 		TargetID:       pgtype.UUID{Bytes: probeResult.Target.ID, Valid: true},
-		ProbeTime:      pgtype.Timestamp{Time: probeResult.ProbeTime, Valid: true},
+		ProbeTime:      pgtype.Timestamptz{Time: probeResult.ProbeTime, Valid: true},
 		LatencyMs:      probeResult.LatencyMs,
 		StatusCode:     toPGInt4(probeResult.StatusCode),
 		NetworkFailure: probeResult.NetworkFailure,

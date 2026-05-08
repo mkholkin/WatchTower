@@ -71,7 +71,7 @@ func TestAuthService_ParseToken(t *testing.T) {
 		t.Fatalf("sign token error: %v", err)
 	}
 
-	login, err := svc.ParseToken(context.Background(), tokenString)
+	login, err := svc.ParseToken(tokenString)
 	if err != nil {
 		t.Fatalf("ParseToken() error = %v", err)
 	}

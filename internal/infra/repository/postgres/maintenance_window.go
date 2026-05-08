@@ -35,15 +35,15 @@ func NewMaintenanceWindowRepository(pool *pgxpool.Pool, logger *slog.Logger) rep
 }
 
 func (r *maintenanceWindowRepositoryPG) Create(ctx context.Context, mw *maintenance.MaintenanceWindow) error {
-	dbType, err := r.mpr.ToDBMaintenanceWindowType(mw.MaintenanceWindowType)
+	dbType, err := r.mpr.ToDBMaintenanceWindowType(mw.Type)
 	if err != nil {
-		r.log.Error("failed to convert maintenance window type to DB type", "window_type", mw.MaintenanceWindowType, "error", err)
+		r.log.Error("failed to convert maintenance window type to DB type", "window_type", mw.Type, "error", err)
 		return errors.Join(repo.ErrInternal, err)
 	}
 
-	dbConfig, err := r.mpr.ToDBMaintenanceWindowConfig(mw.MaintenanceWindowConfig)
+	dbConfig, err := r.mpr.ToDBMaintenanceWindowConfig(mw.Config)
 	if err != nil {
-		r.log.Error("failed to convert maintenance window config to DB config", "window_type", mw.MaintenanceWindowType, "error", err)
+		r.log.Error("failed to convert maintenance window config to DB config", "window_type", mw.Type, "error", err)
 		return errors.Join(repo.ErrInternal, err)
 	}
 
@@ -79,15 +79,15 @@ func (r *maintenanceWindowRepositoryPG) GetByID(ctx context.Context, id uuid.UUI
 }
 
 func (r *maintenanceWindowRepositoryPG) Update(ctx context.Context, mw *maintenance.MaintenanceWindow) error {
-	dbType, err := r.mpr.ToDBMaintenanceWindowType(mw.MaintenanceWindowType)
+	dbType, err := r.mpr.ToDBMaintenanceWindowType(mw.Type)
 	if err != nil {
-		r.log.Error("failed to convert maintenance window type to DB type", "window_type", mw.MaintenanceWindowType, "error", err)
+		r.log.Error("failed to convert maintenance window type to DB type", "window_type", mw.Type, "error", err)
 		return errors.Join(repo.ErrInternal, err)
 	}
 
-	dbConfig, err := r.mpr.ToDBMaintenanceWindowConfig(mw.MaintenanceWindowConfig)
+	dbConfig, err := r.mpr.ToDBMaintenanceWindowConfig(mw.Config)
 	if err != nil {
-		r.log.Error("failed to convert maintenance window config to DB config", "window_type", mw.MaintenanceWindowType, "error", err)
+		r.log.Error("failed to convert maintenance window config to DB config", "window_type", mw.Type, "error", err)
 		return errors.Join(repo.ErrInternal, err)
 	}
 
@@ -203,11 +203,11 @@ func mapMaintenanceWindowToDomain(
 	}
 
 	return &maintenance.MaintenanceWindow{
-		ID:                      dbWindow.ID.Bytes,
-		Title:                   dbWindow.Title,
-		Description:             dbWindow.Description.String,
-		MaintenanceWindowType:   domainType,
-		MaintenanceWindowConfig: config,
+		ID:          dbWindow.ID.Bytes,
+		Title:       dbWindow.Title,
+		Description: dbWindow.Description.String,
+		Type:        domainType,
+		Config:      config,
 		User: &user.User{
 			Login:        dbUser.Login,
 			PasswordHash: dbUser.PasswordHash,

@@ -9,6 +9,7 @@ import (
 	contactdto "WatchTower/internal/service/contacts/dto"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -18,6 +19,7 @@ import (
 type ContactService interface {
 	CreateTelegramAlertContact(ctx context.Context, dto contactdto.CreateTelegramAlertContactDTO) (*alert.Contact, error)
 	GetAllAlertContacts(ctx context.Context) ([]alert.Contact, error)
+	GetAlertContact(ctx context.Context, contactId uuid.UUID) (*alert.Contact, error)
 	UpdateAlertContact(ctx context.Context, dto contactdto.UpdateAlertContactDTO) error
 	DeleteAlertContact(ctx context.Context, contactID uuid.UUID) error
 	EnableAlertContact(ctx context.Context, contactID uuid.UUID) error
@@ -202,7 +204,7 @@ func (s *contactService) DisableAlertContact(ctx context.Context, contactID uuid
 	return nil
 }
 
-// GetAlertContacts retrieves all alert contacts for the authorized user.
+// GetAllAlertContacts retrieves all alert contacts for the authorized user.
 func (s *contactService) GetAllAlertContacts(ctx context.Context) ([]alert.Contact, error) {
 	usr, err := s.userProvider.GetAuthorizedUser(ctx)
 	if err != nil {
@@ -218,4 +220,26 @@ func (s *contactService) GetAllAlertContacts(ctx context.Context) ([]alert.Conta
 	}
 
 	return contacts, nil
+}
+
+func (s *contactService) GetAlertContact(ctx context.Context, contactID uuid.UUID) (*alert.Contact, error) {
+	usr, err := s.userProvider.GetAuthorizedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Debug("retrieving alert contact", "contact_id", contactID, "user_login", usr.Login)
+
+	contact, err := s.ContactRepo.GetByID(ctx, contactID)
+
+	if err != nil {
+		s.log.Error("failed to get alert contact for get", "contact_id", contactID, "error", err)
+		return nil, err
+	}
+
+	if usr.Login != contact.User.Login {
+		return nil, fmt.Errorf("user has no access to object %w", service.ErrPermissionDenied)
+	}
+
+	return contact, nil
 }

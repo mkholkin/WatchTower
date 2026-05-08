@@ -40,7 +40,7 @@ func NewMonitor(
 	user *user.User,
 	alertContacts []alert.Contact,
 	maintenanceWindows []maintenance.MaintenanceWindow,
-	ProbeIntervalSec int32,
+	probeIntervalSec int32,
 	expectations Expectations,
 ) (*Monitor, error) {
 	if name == "" {
@@ -55,6 +55,10 @@ func NewMonitor(
 		return nil, wrapValidation("monitor user is required")
 	}
 
+	if target.Config.Protocol() != expectations.Protocol() {
+		return nil, wrapValidation("expectations protocol doesn't match target protocol")
+	}
+
 	return &Monitor{
 		ID:                 uuid.New(),
 		Label:              name,
@@ -64,7 +68,7 @@ func NewMonitor(
 		MaintenanceWindows: maintenanceWindows,
 		CurrentStatus:      StatusUnknown,
 		LastEvaluatedAt:    time.Time{},
-		ProbeIntervalSec:   ProbeIntervalSec,
+		ProbeIntervalSec:   probeIntervalSec,
 		IsActive:           true,
 		CreatedAt:          time.Now(),
 		Expectations:       expectations,

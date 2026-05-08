@@ -14,16 +14,18 @@ tags:
     description: Endpoints for managing alert contacts.
   - name: Maintenance Windows
     description: Endpoints for managing maintenance windows.
+  - name: Metrics
+    description: Endpoints for retrieving monitoring metrics and status information.
 
 security:
-  - BearerAuth: []
+  - BearerAuth: [ ]
 
 paths:
   /auth/register:
     post:
       tags:
         - Auth
-      security: []
+      security: [ ]
       summary: User registration
       description: Register a new user account with the provided credentials and information.
       operationId: RegisterUser
@@ -39,22 +41,18 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  login:
-                    type: string
-                    description: The username of the newly created user.
+                $ref: '#/components/schemas/UserCreatedResponse'
         400:
-          description: Bad Request - Invalid input data or missing required fields
+          $ref: '#/components/responses/400'
         409:
-          description: Conflict - A user with the provided username already exists
+          $ref: '#/components/responses/409'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
   /auth/login:
     post:
       tags:
         - Auth
-      security: []
+      security: [ ]
       summary: User login
       description: Authenticate a user with the provided credentials and return an access token for authorized API requests.
       operationId: LoginUser
@@ -70,17 +68,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-                    description: A JWT or similar token that can be used for authenticated API requests.
+                $ref: '#/components/schemas/JWTTokenResponse'
         400:
-          description: Bad Request - Invalid input data or missing required fields
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication failed due to invalid credentials
+          $ref: '#/components/responses/401'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
   /monitors:
     get:
       tags:
@@ -98,9 +92,9 @@ paths:
                 items:
                   $ref: '#/components/schemas/Monitor'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
     post:
       tags:
         - Monitors
@@ -121,11 +115,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Monitor'
         400:
-          description: Bad Request - Invalid input data
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
   /monitors/{monitorId}:
     get:
       tags:
@@ -148,15 +142,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Monitor'
         400:
-          description: Bad Request - Invalid monitor ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this monitor
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No monitor found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
     patch:
       tags:
         - Monitors
@@ -184,15 +178,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Monitor'
         400:
-          description: Bad Request - Invalid input data or monitor ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this monitor
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No monitor found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
     delete:
       tags:
         - Monitors
@@ -210,15 +204,159 @@ paths:
         204:
           description: Monitor deleted successfully
         400:
-          description: Bad Request - Invalid monitor ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this monitor
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No monitor found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
+
+  /monitors/{monitorId}/checks:
+    get:
+      tags:
+        - Metrics
+      summary: Get monitor checks history
+      parameters:
+        - name: monitorId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+          description: The unique identifier of the monitor for which to retrieve the checks history.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+          description: The maximum number of check records to return. Default is 100, and the maximum allowed is 1000.
+        - name: from
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Timestamp'
+          description: The starting timestamp for filtering check records. Only checks performed at or after this time will be included in the response.
+        - name: to
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Timestamp'
+          description: The ending timestamp for filtering check records. Only checks performed at or before this time will be included in the response.
+      responses:
+        200:
+          description: A list of monitor checks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MonitorCheck'
+        400:
+          $ref: '#/components/responses/400'
+        401:
+          $ref: '#/components/responses/401'
+        403:
+          $ref: '#/components/responses/403'
+        404:
+          $ref: '#/components/responses/404'
+        500:
+          $ref: '#/components/responses/500'
+
+  /monitors/{monitorId}/sla:
+    get:
+      tags:
+        - Metrics
+      summary: Get monitor SLA
+      parameters:
+        - name: monitorId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+          description: The unique identifier of the monitor for which to retrieve the SLA information.
+        - name: from
+          in: query
+          required: false
+          default: '1970-01-01T00:00:00Z'
+          schema:
+            $ref: '#/components/schemas/Timestamp'
+          description: The starting timestamp for filtering check records used to calculate the SLA. Only checks performed at or after this time will be included in the SLA calculation.
+        - name: to
+          in: query
+          required: false
+          default: '9999-12-31T23:59:59Z'
+          schema:
+            $ref: '#/components/schemas/Timestamp'
+          description: The ending timestamp for filtering check records used to calculate the SLA. Only checks performed at or before this time will be included in the SLA calculation.
+      responses:
+        200:
+          description: Monitor SLA information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorSLA'
+        400:
+          $ref: '#/components/responses/400'
+        401:
+          $ref: '#/components/responses/401'
+        403:
+          $ref: '#/components/responses/403'
+        404:
+          $ref: '#/components/responses/404'
+        500:
+          $ref: '#/components/responses/500'
+
+  /monitors/{monitorId}/status-history:
+    get:
+      operationId: GetMonitorStatusHistory
+      tags:
+        - Metrics
+      summary: Get monitor status history
+      parameters:
+        - name: monitorId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+          description: The unique identifier of the monitor for which to retrieve the status history.
+        - name: from
+          in: query
+          required: false
+          default: '1970-01-01T00:00:00Z'
+          schema:
+            $ref: '#/components/schemas/Timestamp'
+          description: The starting timestamp for filtering status records. Only status changes that occurred at or after this time will be included in the response.
+        - name: to
+          in: query
+          required: false
+          default: '9999-12-31T23:59:59Z'
+          schema:
+            $ref: '#/components/schemas/Timestamp'
+          description: The ending timestamp for filtering status records. Only status changes that occurred at or before this time will be included in the response.
+      responses:
+        200:
+          description: A list of monitor status changes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MonitorStatusEvent'
+        400:
+          $ref: '#/components/responses/400'
+        401:
+          $ref: '#/components/responses/401'
+        403:
+          $ref: '#/components/responses/403'
+        404:
+          $ref: '#/components/responses/404'
+        500:
+          $ref: '#/components/responses/500'
+
 
   /monitors/{monitorId}/enable:
     post:
@@ -242,15 +380,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         400:
-          description: Bad Request - Invalid monitor ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this monitor
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No monitor found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
 
   /monitors/{monitorId}/disable:
     post:
@@ -274,15 +412,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         400:
-          description: Bad Request - Invalid monitor ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this monitor
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No monitor found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
 
   /monitors/{monitorId}/alert-contacts:
     post:
@@ -308,6 +446,7 @@ paths:
                 alert_contact_id:
                   $ref: '#/components/schemas/UUID'
                   description: The unique identifier of the alert contact to add to the monitor.
+              required: [ alert_contact_id ]
       responses:
         200:
           description: Alert contact added to monitor successfully
@@ -316,15 +455,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         400:
-          description: Bad Request - Invalid input data or monitor ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this monitor or alert contact
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No monitor or alert contact found with the specified IDs
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
 
     delete:
       tags:
@@ -349,6 +488,7 @@ paths:
                 alert_contact_id:
                   $ref: '#/components/schemas/UUID'
                   description: The unique identifier of the alert contact to remove from the monitor.
+              required: [ alert_contact_id ]
       responses:
         200:
           description: Alert contact removed from monitor successfully
@@ -357,15 +497,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         400:
-          description: Bad Request - Invalid input data or monitor ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this monitor or alert contact
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No monitor or alert contact found with the specified IDs
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
 
   /alert-contacts:
     get:
@@ -384,9 +524,9 @@ paths:
                 items:
                   $ref: '#/components/schemas/AlertContact'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
     post:
       tags:
         - Alert Contacts
@@ -407,12 +547,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/AlertContact'
         400:
-          description: Bad Request - Invalid input data
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         500:
-          description: Internal Server Error - An error occurred on the server
-  /alert-contacts/{id}:
+          $ref: '#/components/responses/500'
+  /alert-contacts/{contactId}:
     get:
       tags:
         - Alert Contacts
@@ -420,7 +560,7 @@ paths:
       description: Retrieve detailed information about a specific alert contact identified by its unique ID.
       operationId: GetAlertContactDetails
       parameters:
-        - name: id
+        - name: contactId
           in: path
           required: true
           schema:
@@ -434,15 +574,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/AlertContact'
         400:
-          description: Bad Request - Invalid alert contact ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this alert contact
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No alert contact found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
     patch:
       tags:
         - Alert Contacts
@@ -450,7 +590,7 @@ paths:
       description: Update an existing alert contact identified by its unique ID. Only the provided fields will be updated, and all other fields will remain unchanged.
       operationId: UpdateAlertContact
       parameters:
-        - name: id
+        - name: contactId
           in: path
           required: true
           schema:
@@ -470,15 +610,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/AlertContact'
         400:
-          description: Bad Request - Invalid input data or alert contact ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this alert contact
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No alert contact found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
     delete:
       tags:
         - Alert Contacts
@@ -486,7 +626,7 @@ paths:
       description: Delete a specific alert contact identified by its unique ID, removing it from the system and disassociating it from any monitors.
       operationId: DeleteAlertContact
       parameters:
-        - name: id
+        - name: contactId
           in: path
           required: true
           schema:
@@ -496,16 +636,16 @@ paths:
         204:
           description: Alert contact deleted successfully
         400:
-          description: Bad Request - Invalid alert contact ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this alert contact
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No alert contact found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
-  /alert-contacts/{id}/enable:
+          $ref: '#/components/responses/500'
+  /alert-contacts/{contactId}/enable:
     post:
       tags:
         - Alert Contacts
@@ -513,7 +653,7 @@ paths:
       description: Enable a specific alert contact identified by its unique ID, allowing it to receive notifications for monitor status changes or issues.
       operationId: EnableAlertContact
       parameters:
-        - name: id
+        - name: contactId
           in: path
           required: true
           schema:
@@ -527,16 +667,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         400:
-          description: Bad Request - Invalid alert contact ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this alert contact
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No alert contact found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
-  /alert-contacts/{id}/disable:
+          $ref: '#/components/responses/500'
+  /alert-contacts/{contactId}/disable:
     post:
       tags:
         - Alert Contacts
@@ -544,7 +684,7 @@ paths:
       description: Disable a specific alert contact identified by its unique ID, preventing it from receiving notifications for monitor status changes or issues until it is enabled again.
       operationId: DisableAlertContact
       parameters:
-        - name: id
+        - name: contactId
           in: path
           required: true
           schema:
@@ -558,15 +698,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         400:
-          description: Bad Request - Invalid alert contact ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this alert contact
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No alert contact found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
 
   /maintenance-windows:
     get:
@@ -585,14 +725,36 @@ paths:
                 items:
                   $ref: '#/components/schemas/MaintenanceWindow'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
     post:
       tags:
         - Maintenance Windows
+      summary: Create a new maintenance window
+      description: Create a new maintenance window with the specified configuration and associate it with the authenticated user.
+      operationId: CreateMaintenanceWindow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaintenanceWindowCreate'
+      responses:
+        201:
+          description: Maintenance window created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceWindow'
+        400:
+          $ref: '#/components/responses/400'
+        401:
+          $ref: '#/components/responses/401'
+        500:
+          $ref: '#/components/responses/500'
 
-  /maintenance-windows/{id}:
+  /maintenance-windows/{windowId}:
     get:
       tags:
         - Maintenance Windows
@@ -600,7 +762,7 @@ paths:
       description: Retrieve detailed information about a specific maintenance window identified by its unique ID.
       operationId: GetMaintenanceWindowDetails
       parameters:
-        - name: id
+        - name: windowId
           in: path
           required: true
           schema:
@@ -614,23 +776,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/MaintenanceWindow'
         400:
-          description: Bad Request - Invalid maintenance window ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this maintenance window
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No maintenance window found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
     patch:
       tags:
         - Maintenance Windows
       summary: Update maintenance window
-      description: Update an existing maintenance window identified by its unique ID. Only the provided fields will
+      description: Update an existing maintenance window identified by its unique ID. Only the provided fields will be updated.
       operationId: UpdateMaintenanceWindow
       parameters:
-        - name: id
+        - name: windowId
           in: path
           required: true
           schema:
@@ -650,15 +812,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/MaintenanceWindow'
         400:
-          description: Bad Request - Invalid input data or maintenance window ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this maintenance window
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No maintenance window found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
     delete:
       tags:
         - Maintenance Windows
@@ -666,7 +828,7 @@ paths:
       description: Delete a specific maintenance window identified by its unique ID, removing it from the system and disassociating it from any monitors.
       operationId: DeleteMaintenanceWindow
       parameters:
-        - name: id
+        - name: windowId
           in: path
           required: true
           schema:
@@ -676,16 +838,16 @@ paths:
         204:
           description: Maintenance window deleted successfully
         400:
-          description: Bad Request - Invalid maintenance window ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this maintenance window
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No maintenance window found with the specified ID
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
-  /maintenance-windows/{id}/add-monitor:
+          $ref: '#/components/responses/500'
+  /maintenance-windows/{windowId}/monitors/:
     post:
       tags:
         - Maintenance Windows
@@ -693,7 +855,7 @@ paths:
       description: Add a specific monitor to a maintenance window, causing the monitor to be temporarily disabled or have its status ignored during the maintenance period defined by the window.
       operationId: AddMonitorToMaintenanceWindow
       parameters:
-        - name: id
+        - name: windowId
           in: path
           required: true
           schema:
@@ -709,6 +871,7 @@ paths:
                 monitor_id:
                   $ref: '#/components/schemas/UUID'
                   description: The unique identifier of the monitor to add to the maintenance window.
+              required: [ monitor_id ]
       responses:
         200:
           description: Monitor added to maintenance window successfully
@@ -717,24 +880,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         400:
-          description: Bad Request - Invalid input data or maintenance window ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this maintenance window or monitor
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No maintenance window or monitor found with the specified IDs
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
-  /maintenance-windows/{id}/remove-monitor:
-    post:
+          $ref: '#/components/responses/500'
+    delete:
       tags:
         - Maintenance Windows
       summary: Remove monitor from maintenance window
       description: Remove a specific monitor from a maintenance window, allowing the monitor to resume normal monitoring behavior outside of the maintenance period defined by the window.
       operationId: RemoveMonitorFromMaintenanceWindow
       parameters:
-        - name: id
+        - name: windowId
           in: path
           required: true
           schema:
@@ -750,6 +912,7 @@ paths:
                 monitor_id:
                   $ref: '#/components/schemas/UUID'
                   description: The unique identifier of the monitor to remove from the maintenance window.
+              required: [ monitor_id ]
       responses:
         200:
           description: Monitor removed from maintenance window successfully
@@ -758,17 +921,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         400:
-          description: Bad Request - Invalid input data or maintenance window ID format
+          $ref: '#/components/responses/400'
         401:
-          description: Unauthorized - Authentication required
+          $ref: '#/components/responses/401'
         403:
-          description: Forbidden - The authenticated user does not have access to this maintenance window or monitor
+          $ref: '#/components/responses/403'
         404:
-          description: Not Found - No maintenance window or monitor found with the specified IDs
+          $ref: '#/components/responses/404'
         500:
-          description: Internal Server Error - An error occurred on the server
+          $ref: '#/components/responses/500'
 
 components:
+  responses:
+    400:
+      description: Bad Request - The request could not be understood or was missing required parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    401:
+      description: Unauthorized - Authentication failed or user does not have permissions for the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    403:
+      description: Forbidden - Authentication succeeded but authenticated user does not have access to the requested resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    404:
+      description: Not Found - The requested resource could not be found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    409:
+      description: Conflict - A user with the provided username already exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    500:
+      description: Internal Server Error - An error occurred on the server.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+
   securitySchemes:
     BearerAuth:
       type: http
@@ -786,7 +988,20 @@ components:
           type: string
           format: password
           description: The password for the account to authenticate.
-
+    UserCreatedResponse:
+      type: object
+      properties:
+        login:
+          type: string
+          description: The username of the newly created user.
+      required: [ login ]
+    JWTTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: A JWT or similar token that can be used for authenticated API requests.
+      required: [ access_token ]
     MonitorBase:
       type: object
       properties:
@@ -794,14 +1009,12 @@ components:
           type: string
           description: A user-specified name for the monitor.
         description:
-          type: [ string, 'null' ]
+          type: string
+          nullable: true
           description: A detailed description of the monitor's purpose and configuration.
         endpoint:
           type: string
           description: The URL or address that the monitor is configured to check.
-        protocol:
-          $ref: '#/components/schemas/MonitorProtocol'
-          description: The protocol used for monitoring (e.g., HTTP, HTTPS, TCP).
         probe_interval:
           type: integer
           description: The frequency (in seconds) at which the monitor checks the specified endpoint.
@@ -835,7 +1048,16 @@ components:
       allOf:
         - $ref: '#/components/schemas/MonitorBase'
         - type: object
-          required: [ label, endpoint, protocol, probe_interval, network_config ]
+          properties:
+            alert_contact_ids:
+              type: array
+              items:
+                $ref: '#/components/schemas/UUID'
+            maintenance_window_ids:
+              type: array
+              items:
+                $ref: '#/components/schemas/UUID'
+          required: [ label, endpoint, protocol, probe_interval, network_config, alert_contact_ids, maintenance_window_ids ]
 
     Monitor:
       title: Monitor
@@ -848,7 +1070,6 @@ components:
             - label
             - description
             - endpoint
-            - protocol
             - network_config
             - expectations
             - probe_interval
@@ -865,16 +1086,14 @@ components:
               type: boolean
               description: Indicates whether the monitor is currently active and monitoring the specified conditions.
             created_at:
-              type: string
-              format: date-time
+              $ref: '#/components/schemas/Timestamp'
               description: The timestamp when the monitor was created.
             updated_at:
-              type: string
-              format: date-time
+              $ref: '#/components/schemas/Timestamp'
               description: The timestamp when the monitor was last updated.
             status:
               $ref: '#/components/schemas/MonitorStatus'
-              description: The current status of the monitor (e.g., "active", "inactive", "error").
+              description: The current status of the monitor (e.g., "up", "down", "maintenance").
             alert_contacts:
               type: array
               items:
@@ -886,44 +1105,68 @@ components:
                 $ref: '#/components/schemas/MaintenanceWindow'
               description: A list of maintenance windows during which the monitor will be temporarily disabled or have its status ignored.
 
-    HTTPConfig:
+    NetworkConfigBase:
       type: object
       properties:
-        method:
-          type: string
-          enum: [ GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS ]
-          description: The HTTP method to use when making requests to the monitored endpoint.
-        headers:
-          type: object
-          additionalProperties:
-            type: string
-          description: A set of HTTP headers to include in requests made to the monitored endpoint.
-          body:
-            type: string
-            description: An optional request body to include in HTTP requests made to the monitored endpoint, typically used for POST or PUT requests.
-        follow_redirects:
-          type: boolean
-          description: Indicates whether the monitor should follow HTTP redirects when checking the endpoint.
+        protocol:
+          $ref: '#/components/schemas/MonitorProtocol'
+          description: The protocol used for monitoring, which determines the structure of the network configuration.
+      required: [ protocol ]
+
+    ExpectationsBase:
+      type: object
+      properties:
+        protocol:
+          $ref: '#/components/schemas/MonitorProtocol'
+          description: The protocol used for monitoring, which determines the structure of the expectations.
+      required: [ protocol ]
+
+    HTTPConfig:
+      allOf:
+        - $ref: '#/components/schemas/NetworkConfigBase'
+        - type: object
+          properties:
+            method:
+              type: string
+              enum: [ GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS ]
+              description: The HTTP method to use when making requests to the monitored endpoint.
+            headers:
+              type: object
+              nullable: true
+              additionalProperties:
+                type: string
+              description: A set of HTTP headers to include in requests made to the monitored endpoint.
+            body:
+              type: string
+              nullable: true
+              description: An optional request body to include in HTTP requests made to the monitored endpoint, typically used for POST or PUT requests.
+            follow_redirects:
+              type: boolean
+              description: Indicates whether the monitor should follow HTTP redirects when checking the endpoint.
+          required: [ method, follow_redirects, headers, body ]
 
     HTTPExpectations:
-      type: object
-      properties:
-        expected_status_codes:
-          type: array
-          items:
-            type: integer
-          description: A list of HTTP status codes that are considered successful responses for the monitored endpoint.
-        expected_response_time_ms:
-          type: integer
-          description: The maximum acceptable response time (in milliseconds) for the monitored endpoint to be considered healthy.
+      allOf:
+        - $ref: '#/components/schemas/ExpectationsBase'
+        - type: object
+          properties:
+            expected_status_codes:
+              type: array
+              items:
+                type: integer
+              description: A list of HTTP status codes that are considered successful responses for the monitored endpoint.
+            expected_response_time_ms:
+              type: integer
+              description: The maximum acceptable response time (in milliseconds) for the monitored endpoint to be considered healthy.
+          required: [ expected_status_codes, expected_response_time_ms ]
 
     MonitorStatus:
       type: string
-      enum: [ up, down, maintenance ]
+      enum: [ up, down, maintenance, unknown ]
 
     MonitorProtocol:
       type: string
-      enum: [ HTTP, HTTPS, TCP ]
+      enum: [ HTTP ]
 
     AlertContactBase:
       type: object
@@ -931,9 +1174,6 @@ components:
         name:
           type: string
           description: A user-defined name for the alert contact.
-        platform:
-          $ref: '#/components/schemas/AlertContactPlatform'
-          description: The type of alert contact.
         config:
           oneOf:
             - $ref: '#/components/schemas/TelegramConfig'
@@ -952,6 +1192,9 @@ components:
       allOf:
         - $ref: '#/components/schemas/AlertContactBase'
         - type: object
+          properties:
+            is_enabled:
+              type: boolean
           dependentRequired:
             platform: [ config ]
             config: [ platform ]
@@ -965,7 +1208,6 @@ components:
           required:
             - id
             - name
-            - platform
             - config
             - is_enabled
           properties:
@@ -979,15 +1221,26 @@ components:
       type: string
       enum: [ telegram, cmd ]
 
-    TelegramConfig:
+    AlertContactConfigBase:
       type: object
       properties:
-        chat_id:
-          type: string
-          description: The unique identifier for the Telegram chat where alerts will be sent.
-        token:
-          type: string
-          description: The authentication token for the Telegram bot used to send alerts.
+        platform:
+          $ref: '#/components/schemas/AlertContactPlatform'
+          description: The type of alert contact, which determines the structure of the configuration.
+      required: [ platform ]
+
+    TelegramConfig:
+      allOf:
+        - $ref: '#/components/schemas/AlertContactConfigBase'
+        - type: object
+          properties:
+            chat_id:
+              type: integer
+              description: The unique identifier for the Telegram chat where alerts will be sent.
+            token:
+              type: string
+              description: The authentication token for the Telegram bot used to send alerts.
+          required: [ platform, chat_id, token ]
 
     MaintenanceWindowBase:
       type: object
@@ -996,11 +1249,9 @@ components:
           type: string
           description: A user-defined name for the maintenance window.
         description:
-          type: [ string, 'null' ]
+          type: string
+          nullable: true
           description: A detailed description of the maintenance window's purpose and schedule.
-        type:
-          $ref: '#/components/schemas/MaintenanceWindowType'
-          description: The type of maintenance window, which determines how the schedule is defined.
         config:
           oneOf:
             - $ref: '#/components/schemas/OneTimeMaintenanceConfig'
@@ -1014,16 +1265,13 @@ components:
     MaintenanceWindowUpdate:
       allOf:
         - $ref: '#/components/schemas/MaintenanceWindowBase'
-        - type: object
-          dependentRequired:
-            type: [ config ]
-            config: [ type ]
 
     MaintenanceWindowCreate:
       allOf:
         - $ref: '#/components/schemas/MaintenanceWindowBase'
         - type: object
-          required: [ title, type, config ]
+          required: [ title, config ]
+    #          TODO: при создании ручного окна is_active не нужен
 
     MaintenanceWindow:
       title: Maintenance window
@@ -1035,35 +1283,143 @@ components:
             - id
             - title
             - description
-            - type
             - config
           properties:
             id:
               $ref: '#/components/schemas/UUID'
 
-
     MaintenanceWindowType:
       type: string
       enum: [ one_time, manual ]
 
-    OneTimeMaintenanceConfig:
+    MaintenanceWindowConfigBase:
       type: object
       properties:
-        start_time:
-          type: string
-          format: date-time
-          description: The starting timestamp of the one-time maintenance window.
-        end_time:
-          type: string
-          format: date-time
-          description: The ending timestamp of the one-time maintenance window.
+        type:
+          $ref: '#/components/schemas/MaintenanceWindowType'
+          description: The type of maintenance window, which determines the structure of the configuration.
+      required: [ type ]
+
+    MaintenanceWindowConfig:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/MaintenanceWindowType'
+          description: The type of maintenance window, which determines the structure of the configuration.
+      required: [ type ]
+
+    OneTimeMaintenanceConfig:
+      allOf:
+        - $ref: '#/components/schemas/MaintenanceWindowConfig'
+        - type: object
+          properties:
+            start_time:
+              $ref: '#/components/schemas/Timestamp'
+              description: The starting timestamp of the one-time maintenance window.
+            end_time:
+              $ref: '#/components/schemas/Timestamp'
+              description: The ending timestamp of the one-time maintenance window.
+          required: [ start_time, end_time ]
 
     ManualMaintenanceConfig:
+      allOf:
+        - $ref: '#/components/schemas/MaintenanceWindowConfig'
+        - type: object
+          properties:
+            is_active:
+              type: boolean
+              description: Indicates whether the manual maintenance window is currently active. When set to true, the associated monitor will be considered in maintenance mode until this flag is set to false.
+          required: [ is_active ]
+
+    MonitorCheck:
       type: object
+      description: A single probe summary record for a monitor.
+      required:
+        - monitor_id
+        - check_time
+        - status
+        - latency_ms
+        - status_code
+        - network_failure
+        - failure_reason
       properties:
-        is_active:
+        monitor_id:
+          $ref: '#/components/schemas/UUID'
+          description: The unique identifier of the monitor.
+        check_time:
+          $ref: '#/components/schemas/Timestamp'
+          description: The time when the probe was executed.
+        status:
+          $ref: '#/components/schemas/MonitorStatus'
+          description: The resulting status of the monitor for this probe.
+        latency_ms:
+          type: integer
+          description: Response latency in milliseconds.
+        status_code:
+          nullable: true
+          type: integer
+          description: Response status code, if applicable.
+        network_failure:
           type: boolean
-          description: Indicates whether the manual maintenance window is currently active. When set to true, the associated monitor will be considered in maintenance mode until this flag is set to false.
+          description: Indicates whether the probe failed due to a network error.
+        failure_reason:
+          nullable: true
+          type: string
+          description: A human-readable failure reason when the probe did not succeed.
+
+    MonitorStatusEvent:
+      type: object
+      description: Represents a change in the status of a monitor, including the previous and new status, as well as the timestamp of the change.
+      required:
+        - monitor_id
+        - status
+        - start_time
+        - end_time
+        - reason
+      properties:
+        monitor_id:
+          $ref: '#/components/schemas/UUID'
+          description: The unique identifier of the monitor whose status has changed.
+        status:
+          $ref: '#/components/schemas/MonitorStatus'
+          description: The new status of the monitor after the change.
+        start_time:
+          $ref: '#/components/schemas/Timestamp'
+          description: The time when the monitor's status changed to the new status.
+        end_time:
+          $ref: '#/components/schemas/Timestamp'
+          description: The time when the monitor's status changed from the new status to another status, or null if the monitor is currently in the new status.
+        reason:
+          type: string
+          nullable: true
+          description: A human-readable reason for the status change, if available.
+
+    MonitorSLA:
+      type: object
+      description: Represents the Service Level Agreement (SLA) for a monitor over a specified time period, including the percentage of time the monitor was considered "up" and the total downtime.
+      required:
+        - monitor_id
+        - start_time
+        - end_time
+        - uptime_percentage
+        - downtime_duration_sec
+      properties:
+        monitor_id:
+          $ref: '#/components/schemas/UUID'
+          description: The unique identifier of the monitor for which the SLA is calculated.
+        start_time:
+          $ref: '#/components/schemas/Timestamp'
+          description: The starting timestamp of the period for which the SLA is calculated.
+        end_time:
+          $ref: '#/components/schemas/Timestamp'
+          description: The ending timestamp of the period for which the SLA is calculated.
+        uptime_percentage:
+          type: number
+          format: float
+          description: The percentage of time during the specified period that the monitor was considered "up".
+        downtime_duration_sec:
+          type: integer
+          description: The total duration of downtime in seconds during the specified period.
 
     SuccessResponse:
       type: object
@@ -1078,6 +1434,7 @@ components:
     ErrorResponse:
       type: object
       required:
+        - code
         - message
       properties:
         code:
@@ -1090,10 +1447,9 @@ components:
     Timestamp:
       type: string
       format: date-time
-      description: A timestamp in ISO 8601 format.
       x-go-type: time.Time
-      x-go-type-import:
-        path: time
+    #      x-go-type-import:
+    #        path: time
 
     UUID:
       type: string

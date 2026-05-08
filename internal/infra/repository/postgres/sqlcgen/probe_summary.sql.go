@@ -38,13 +38,13 @@ type GetProbeSummaryByMonitorIDParams struct {
 }
 
 type GetProbeSummaryByMonitorIDRow struct {
-	MonitorID      pgtype.UUID      `json:"monitor_id"`
-	LatencyMs      int32            `json:"latency_ms"`
-	ProbeTime      pgtype.Timestamp `json:"probe_time"`
-	MonitorStatus  StatusType       `json:"monitor_status"`
-	StatusCode     int32            `json:"status_code"`
-	NetworkFailure bool             `json:"network_failure"`
-	FailureReason  string           `json:"failure_reason"`
+	MonitorID      pgtype.UUID        `json:"monitor_id"`
+	LatencyMs      int32              `json:"latency_ms"`
+	ProbeTime      pgtype.Timestamptz `json:"probe_time"`
+	MonitorStatus  StatusType         `json:"monitor_status"`
+	StatusCode     int32              `json:"status_code"`
+	NetworkFailure bool               `json:"network_failure"`
+	FailureReason  string             `json:"failure_reason"`
 }
 
 func (q *Queries) GetProbeSummaryByMonitorID(ctx context.Context, arg GetProbeSummaryByMonitorIDParams) ([]GetProbeSummaryByMonitorIDRow, error) {
@@ -98,19 +98,19 @@ ORDER BY pr.probe_time DESC
 `
 
 type GetProbeSummaryByMonitorIDForPeriodParams struct {
-	ID          pgtype.UUID      `json:"id"`
-	ProbeTime   pgtype.Timestamp `json:"probe_time"`
-	ProbeTime_2 pgtype.Timestamp `json:"probe_time_2"`
+	ID          pgtype.UUID        `json:"id"`
+	ProbeTime   pgtype.Timestamptz `json:"probe_time"`
+	ProbeTime_2 pgtype.Timestamptz `json:"probe_time_2"`
 }
 
 type GetProbeSummaryByMonitorIDForPeriodRow struct {
-	MonitorID      pgtype.UUID      `json:"monitor_id"`
-	LatencyMs      int32            `json:"latency_ms"`
-	ProbeTime      pgtype.Timestamp `json:"probe_time"`
-	MonitorStatus  StatusType       `json:"monitor_status"`
-	StatusCode     int32            `json:"status_code"`
-	NetworkFailure bool             `json:"network_failure"`
-	FailureReason  string           `json:"failure_reason"`
+	MonitorID      pgtype.UUID        `json:"monitor_id"`
+	LatencyMs      int32              `json:"latency_ms"`
+	ProbeTime      pgtype.Timestamptz `json:"probe_time"`
+	MonitorStatus  StatusType         `json:"monitor_status"`
+	StatusCode     int32              `json:"status_code"`
+	NetworkFailure bool               `json:"network_failure"`
+	FailureReason  string             `json:"failure_reason"`
 }
 
 func (q *Queries) GetProbeSummaryByMonitorIDForPeriod(ctx context.Context, arg GetProbeSummaryByMonitorIDForPeriodParams) ([]GetProbeSummaryByMonitorIDForPeriodRow, error) {

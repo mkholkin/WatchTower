@@ -33,14 +33,14 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type CreateProbeResultParams struct {
-	ID             pgtype.UUID      `json:"id"`
-	TargetID       pgtype.UUID      `json:"target_id"`
-	ProbeTime      pgtype.Timestamp `json:"probe_time"`
-	LatencyMs      int32            `json:"latency_ms"`
-	StatusCode     pgtype.Int4      `json:"status_code"`
-	NetworkFailure bool             `json:"network_failure"`
-	ErrorMessage   pgtype.Text      `json:"error_message"`
-	Meta           []byte           `json:"meta"`
+	ID             pgtype.UUID        `json:"id"`
+	TargetID       pgtype.UUID        `json:"target_id"`
+	ProbeTime      pgtype.Timestamptz `json:"probe_time"`
+	LatencyMs      int32              `json:"latency_ms"`
+	StatusCode     pgtype.Int4        `json:"status_code"`
+	NetworkFailure bool               `json:"network_failure"`
+	ErrorMessage   pgtype.Text        `json:"error_message"`
+	Meta           []byte             `json:"meta"`
 }
 
 func (q *Queries) CreateProbeResult(ctx context.Context, arg CreateProbeResultParams) error {

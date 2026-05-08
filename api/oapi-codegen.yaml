@@ -1,0 +1,10 @@
+package: apigen
+generate:
+  models: true
+  gin-server: true
+  strict-server: true
+output: internal/api/http/v1/gen/openapi.gen.go
+
+import-mapping:
+  uuid.UUID: github.com/google/uuid
+  time.Time: time
