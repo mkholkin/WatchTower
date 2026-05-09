@@ -221,7 +221,7 @@ func (a *ApiHandler) GetMonitorsList(ctx context.Context, request apigen.GetMoni
 		return v1.ResponseFromFactory(getMonitorsListResponseFactory, err), nil
 	}
 
-	var responseList apigen.GetMonitorsList200JSONResponse
+	responseList := apigen.GetMonitorsList200JSONResponse{}
 	for _, m := range monitors {
 		responseList = append(responseList, mapDomainMonitorToAPI(m))
 	}
