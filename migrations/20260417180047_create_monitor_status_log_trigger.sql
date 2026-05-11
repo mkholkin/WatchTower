@@ -15,7 +15,10 @@ begin
     end if;
     return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql
+security definer;
+
+REVOKE ALL ON FUNCTION update_monitor_status_log() FROM public;
 -- +goose StatementEnd
 
 create trigger monitor_status_log_trigger
