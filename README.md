@@ -1,93 +1,334 @@
-# PPO
+# WatchTower
 
+## 1. Идея проекта
+WatchTower — это self-hosted система для многопользовательского мониторинга доступности веб-ресурсов. Проект реализует архитектуру с дедупликацией целей мониторинга, что позволяет множеству пользователей отслеживать одни и те же ресурсы без кратного увеличения сетевой нагрузки и объема хранимых данных.
 
+## 2. Описание предметной области
+Предметная область охватывает автоматизацию контроля состояния распределенных информационных систем и сетевой инфраструктуры. Основной акцент делается на разделении физического опроса ресурсов и логического представления результатов для пользователей.
 
-## Getting started
+Ключевыми сущностями предметной области являются: **Users** (владельцы конфигураций), **Targets** (физические ресурсы: URL или IP, подлежащие проверке), **UserMonitors** (персонализированные настройки мониторинга), **CheckResults** (хронологические записи телеметрии), **MaintenanceWindows** (интервалы планового обслуживания, исключаемые из оповещений подсчета sla).
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 3. Анализ аналогичных решений
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+| Критерий сравнения                                    | UptimeRobot (SaaS)                           | Uptime Kuma (Open Source)                | Gatus (Open Source)                           | **WatchTower (Разрабатываемое)**                              |
+|:------------------------------------------------------|:---------------------------------------------|:-----------------------------------------|:----------------------------------------------|:--------------------------------------------------------------|
+| **Приватность данных**                                | Низкая (Данные хранятся в облаке провайдера) | Высокая (Self-hosted)                    | Высокая (Self-hosted)                         | **Высокая (Self-hosted)**                                     |
+| **Архитектура и производительность**                  | Закрытый код                                 | Node.js (Однопоточная модель, SQLite)    | Go (Высокая производительность, YAML конфиги) | **Go (Высокая производительность, PostgreSQL + Redis)**       |
+| **Оптимизация опроса (Дедупликация)**                 | Нет данных (SaaS)                            | Нет (Каждый монитор — отдельный процесс) | Нет (Config-as-Code)                          | **Да (Объединение одинаковых целей от разных пользователей)** |
+| **Возможность мониторинга ресурсов в локальной сети** | Нет (Saas)                                   | Да                                       | Да                                            | **Да**                                                        |
+| **Многопользовательский режим**                       | Есть (Платный тариф)                         | Есть                                     | Отсутствует                                   | **Есть**                                                      |
 
-## Add your files
+## 4. Обоснование целесообразности и актуальности
+Разработка WatchTower обусловлена потребностью в инструменте, который сочетает простоту использования SaaS-решений с безопасностью и контролем self-hosted систем, при этом превосходя существующие Open Source аналоги в производительности.
 
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## 5. Краткое описание акторов (ролей)
+*   **Пользователь (User):** Основной потребитель системы. Создает и настраивает мониторы (`UserMonitors`), задает периоды обслуживания (`SuspendIntervals`), просматривает дашборды и получает уведомления об инцидентах.
+*   **Неавторизованный пользователь (Admin):** Ничего не может. Только авторизоваться.
 
+## 6. Use-case диаграмма
+```plantuml
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Пользователь" as User
+actor "Неавторизованный\nПользователь" as UnauthorizedUser
+
+package "Система WatchTower" {
+    usecase "Авторизация и регистрация" as UC_Auth
+    usecase "Управление каналами оповещения" as UC_Contacts
+
+    usecase "Создание монитора" as UC_CreateMon
+    usecase "Настройка частоты опроса" as UC_SetInterval
+    usecase "Управление окнами обслуживания" as UC_SetSuspend
+    usecase "Включение/Пауза монитора" as UC_Pause
+
+    usecase "Просмотр дашборда\n(Текущие статусы)" as UC_Dashboard
+    usecase "Просмотр графиков истории" as UC_History
+    usecase "Расчет SLA" as UC_CalcSLA
+}
+
+User --> UC_Contacts
+User --> UC_CreateMon
+User --> UC_SetSuspend
+User --> UC_Pause
+User --> UC_Dashboard
+
+UnauthorizedUser --> UC_Auth
+UC_CreateMon ..> UC_SetInterval : <<include>>
+UC_Dashboard ..> UC_History : <<extend>>
+UC_History ..> UC_CalcSLA : <<include>>
+
+@enduml
 ```
-cd existing_repo
-git remote add origin https://git.iu7.bmstu.ru/khma23u1069/ppo.git
-git branch -M main
-git push -uf origin main
+
+## 7. ER-диаграмма
+```plantuml
+@startchen
+!theme plain
+left to right direction
+
+entity Пользователь {
+    Логин <<key>>
+    Хеш пароля
+}
+
+entity Монитор {
+    ID <<key>>
+    Название
+    Статус
+    Expectations
+    Интервал опроса
+    Включен ли
+}
+
+entity Цель {
+    ID <<key>>
+    endpoint
+    протокол или тип
+    конфигурация
+}
+
+entity Результат_опроса {
+    ID <<key>>
+    Ошибка сети флаг
+    Status code
+    Время задержки latency
+    Метаинформация
+    Время создания
+}
+
+entity Check_Summary {
+    ID <<key>>
+    Статус
+}
+
+entity История_Изменений_Монитора {
+    Статус
+    Время начала
+    Время конца
+}
+
+entity Канал_Оповещения {
+    ID <<key>>
+    Тип
+    Конфигурация
+}
+
+entity Окно_Обслуживания {
+    ID <<key>>
+    Название
+    Описание
+    Тип
+    Конфигурация
+}
+
+relationship "Владеет" as owns1 {
+}
+
+relationship "Владеет" as owns2 {
+}
+
+relationship "Ссылается" as refs1 {
+}
+
+relationship "Ссылается" as refs2 {
+}
+
+relationship "Ссылается" as refs3 {
+}
+
+relationship "Ссылается" as refs4 {
+}
+
+relationship "Ссылается" as refs5 {
+}
+
+relationship "Ссылается" as refs6 {
+}
+
+relationship "Оповещает через" as alerts {
+}
+
+Пользователь =1= owns1
+owns1 =N= Монитор
+
+Пользователь =1= owns2
+owns2 =N= Канал_Оповещения
+
+Монитор =N= refs1
+refs1 =1= Цель
+
+Результат_опроса =n= refs2
+refs2 =1= Цель
+
+Монитор =N= alerts
+alerts =N= Канал_Оповещения
+
+История_Изменений_Монитора =N= refs3
+refs3 =1= Монитор
+
+Окно_Обслуживания =N= refs4
+refs4 =N= Монитор
+
+Check_Summary =1= refs5
+Результат_опроса =1= refs5
+
+Check_Summary =N= refs6
+Монитор =1= refs6
+
+@endchen
 ```
 
-## Integrate with your tools
+## 8. Краткое описание сценариев использования
 
-* [Set up project integrations](https://git.iu7.bmstu.ru/khma23u1069/ppo/-/settings/integrations)
+### Сценарий 1. Добавление монитора для популярного ресурса
+> Этот сценарий демонстрирует ключевую архитектурную особенность системы — **дедупликацию целей**.
 
-## Collaborate with your team
+1.  **Пользователь** инициирует создание нового Монитора, указывая адрес ресурса (URL), желаемую частоту проверок (например, раз в 30 секунд) и конфигурацию.
+2.  **Пользователь** выбирает каналы для получения уведомлений (Telegram, Email).
+3.  **Система** проверяет, находится ли указанный URL уже под наблюдением (существует ли активная Цель).
+4.  **Система** обнаруживает существующую Цель, которая в данный момент опрашивается реже (например, раз в 60 секунд).
+5.  **Система** обновляет конфигурацию Цели: устанавливает новую, более высокую частоту опроса (30 секунд), чтобы удовлетворить требования всех подписчиков.
+6.  **Система** создает новую подписку (Пользовательский Монитор), связывая Пользователя с данной Целью.
+7.  **Система** подтверждает успешное создание монитора.
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+---
 
-## Test and Deploy
+### Сценарий 2. Настройка планового окна обслуживания
+1. **Пользователь** инициирует создание нового окна обслуживания.
+2. **Пользователь** выбирает тип окна, вводит название и описание, выбирает мониторы, к которым применяется окно.
+3. **Система** создает новое окно обслуживания для заданных мониторов.
+4. **Система** подтверждает успешное создание окна.
 
-Use the built-in continuous integration in GitLab.
+---
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### Сценарий 3. Обнаружение сбоя и маршрутизация уведомлений
+*   **Предусловия:**
+    *   Получено событие об изменении статуса на "DOWN" для ресурса `api.myservice.com`.
+    *   На ресурс подписаны два пользователя:
+        *   Пользователь A (Окно обслуживания сейчас активно).
+        *   Пользователь B (Окон обслуживания нет, мониторинг активен).
+        
+1.  **Сервис Оповещений** получает сигнал об инциденте.
+2.  **Сервис Оповещений** определяет список всех мониторов, связанных с этим ресурсом.
+3.  **Сервис Оповещений** начинает итерацию по мониторам для применения фильтров:
+4.  *Обработка монитора пользователя A:
+    *   Статус монитора определяется, как "MAINTAINING"
+    *   **Действие:** Уведомление блокируется (Skipped).
+5.  *Обработка монитора пользователя B:*
+    *   Статус монитора определяется, как "DOWN"
+    *   **Действие:** отправка оповещения в каналы связи связанные с монитором пользователя B.
 
-***
+## 9 Формализация ключевых бизнес-процессов
+### Процесс добавления монитора с дедупликацией целей
+```plantuml
+@startuml
+!theme plain
+title BPMN: Бизнес-процесс добавления нового монитора
 
-# Editing this README
+' --- Стилизация под классический BPMN ---
+skinparam conditionStyle diamond
+skinparam swimlane {
+    BorderColor Black
+    BorderThickness 1
+    TitleBackgroundColor LightGray
+    TitleFontColor Black
+}
+skinparam activity {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+' Объявление параллельных дорожек
+|Пользователь|
+|Система|
 
-## Suggestions for a good README
+' --- Ход процесса ---
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+|Пользователь|
+start
+:Ввод параметров монитора\n(Адрес, Протокол, Интервал,\n параметры спецефичные для протокола);
+:Выбор контактов для оповещения;
+:Отправка запроса на создание;
 
-## Name
-Choose a self-explaining name for your project.
+|Система|
+:Валидация входных параметров;
+:Поиск существующей физической Цели (ресурса);
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+if (Цель уже существует?) then (Да)
+    if (Запрошенный интервал\nопроса меньше текущего?) then (Да)
+        :Обновление конфигурации Цели\n(Применение минимального интервала);
+    else (Нет)
+'        :Сохранение текущего интервала Цели;
+    endif
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+else (Нет)
+    :Регистрация новой физической Цели\n(Target);
+endif
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+:Создание логического Монитора,\nпривязанного к Цели;
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+|Пользователь|
+:Получение уведомления\nоб успешном создании;
+stop
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+@enduml
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### Процесс опроса ресурса и обработки результатов
+```plantuml
+@startuml
+!theme plain
+title BPMN: Бизнес-процесс проверки ресурса и оповещения
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+' --- Стилизация под классический BPMN ---
+skinparam conditionStyle diamond
+skinparam swimlane {
+    BorderColor Black
+    BorderThickness 1
+    TitleBackgroundColor LightGray
+    TitleFontColor Black
+}
+skinparam activity {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+' Объявление параллельных дорожек
+|Планировщик (Scheduler)|
+|Сервис Анализа (Analyzer)|
+|Сервис Оповещений (Notifier)|
+|Отслеживаемый ресурс|
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+' --- Ход процесса ---
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+|Планировщик (Scheduler)|
+start
+:Триггер по расписанию;
+:Выполнение сетевого запроса;
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+|Отслеживаемый ресурс|
+: Ответ (или таймаут));
 
-## License
-For open source projects, say how it is licensed.
+|Планировщик (Scheduler)|
+: Сохранение результата проверки\nв персистентное хранилище;
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+|Сервис Анализа (Analyzer)|
+:Получение результата;
+:Определение текущего состояния\n цели на мониторе\n(UP / DOWN / MAINTENANCE));
+
+if (Статус изменился на DOWN) then (Да)
+    |Сервис Оповещений (Notifier)|
+    :Отправка уведомлений о сбое\nпо включенным каналам оповещения\nна мониторе;
+    stop
+else (Нет)
+    |Сервис Анализа (Analyzer)|
+    stop
+endif
+
+@enduml
+```

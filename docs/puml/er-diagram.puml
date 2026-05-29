@@ -1,0 +1,120 @@
+@startchen
+!theme plain
+left to right direction
+
+entity Пользователь {
+    Логин <<key>>
+    Хеш пароля
+}
+
+entity Монитор {
+    ID <<key>>
+    Название
+    Статус
+    Expectations
+    Интервал опроса
+    Включен ли
+}
+
+entity Цель {
+    ID <<key>>
+    endpoint
+    протокол или тип
+    конфигурация
+}
+
+entity Результат_опроса {
+    ID <<key>>
+    Ошибка сети флаг
+    Status code
+    Время задержки latency
+    Метаинформация
+    Время создания
+}
+
+entity "Check Summary\n(не персистентная сущность)" as Check_Summary {
+    ID <<key>>
+    Статус
+    Ошибка сети флаг
+    Status code
+    Время задержки latency
+    Время проверки
+    Причина ошибки
+}
+
+entity История_Изменений_Монитора {
+    Статус
+    Время начала
+    Время конца
+}
+
+entity Канал_Оповещения {
+    ID <<key>>
+    Тип
+    Конфигурация
+}
+
+entity Окно_Обслуживания {
+    ID <<key>>
+    Название
+    Описание
+    Тип
+    Конфигурация
+}
+
+relationship "Владеет" as owns1 {
+}
+
+relationship "Владеет" as owns2 {
+}
+
+relationship "Ссылается" as refs1 {
+}
+
+relationship "Ссылается" as refs2 {
+}
+
+relationship "Ссылается" as refs3 {
+}
+
+relationship "Ссылается" as refs4 {
+}
+
+'relationship "Ссылается" as refs5 {
+'}
+
+relationship "Ссылается" as refs6 {
+}
+
+relationship "Оповещает через" as alerts {
+}
+
+Пользователь =1= owns1
+owns1 =N= Монитор
+
+Пользователь =1= owns2
+owns2 =N= Канал_Оповещения
+
+Монитор =N= refs1
+refs1 =1= Цель
+
+Результат_опроса =n= refs2
+refs2 =1= Цель
+
+Монитор =N= alerts
+alerts =N= Канал_Оповещения
+
+История_Изменений_Монитора =N= refs3
+refs3 =1= Монитор
+
+Окно_Обслуживания =N= refs4
+refs4 =N= Монитор
+
+'Check_Summary =1= refs5
+'Результат_опроса =1= refs5
+
+Check_Summary =N= refs6
+Монитор =1= refs6
+
+
+@endchen
