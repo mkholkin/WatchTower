@@ -51,9 +51,16 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg, err := configs.Load("configs/config.yaml")
+	if len(os.Args) < 2 {
+		fmt.Fprintf(os.Stderr, "usage: %s <path-to-config.yaml>\n", os.Args[0])
+		return
+	}
+
+	configPath := os.Args[1]
+
+	cfg, err := configs.Load(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to load config %q: %v\n", configPath, err)
 		return
 	}
 
@@ -110,7 +117,6 @@ func main() {
 		return
 	}
 	defer analyzerPool.Close()
-
 
 	userRepo := postgres.NewUserRepository(authPool, logger)
 	jwtTTL := time.Duration(cfg.Auth.JWTTTLHours) * time.Hour
@@ -194,7 +200,7 @@ func main() {
 		probeSummaryRepo,
 	)
 
-	notificationRegistry := notificationsvc.NewProberRegistry()
+	notificationRegistry := notificationsvc.NewProviderRegistry()
 	notificationRegistry.Register(alert.ContactTypeTelegram, notifinfra.NewTelegramNotificationProvider(nil))
 	notificationService := notificationsvc.NewNotificationService(
 		notificationRegistry,
@@ -564,7 +570,7 @@ func handleGetSummariesForPeriod(
 		return
 	}
 
-	summaries, err := metricsService.GetSummariesForPeriod(authorizedCtx, monitorID, from, to)
+	summaries, err := metricsService.GetSummaries(authorizedCtx, monitorID, nil, &from, &to)
 	if err != nil {
 		fmt.Printf("Get summaries for period failed: %v\n", err)
 		return
@@ -1283,7 +1289,7 @@ func handleListMaintenanceWindows(
 		fmt.Printf("- id=%s title=%s type=%s active=%t\n",
 			window.ID,
 			window.Title,
-			window.MaintenanceWindowType,
+			window.Type,
 			window.IsActive(),
 		)
 	}
@@ -1310,7 +1316,7 @@ func handleGetLastSummaries(
 		return
 	}
 
-	summaries, err := metricsService.GetLastSummaries(authorizedCtx, monitorID, limit)
+	summaries, err := metricsService.GetSummaries(authorizedCtx, monitorID, &limit, nil, nil)
 	if err != nil {
 		fmt.Printf("Get summaries failed: %v\n", err)
 		return

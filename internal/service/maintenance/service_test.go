@@ -111,10 +111,10 @@ func TestMaintenanceService_UpdateMaintenanceWindow(t *testing.T) {
 
 	provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
 	mw := &maintenance.MaintenanceWindow{
-		ID:                      windowID,
-		User:                    &user.User{Login: "alice"},
-		Title:                   "old",
-		MaintenanceWindowConfig: maintenance.ManualMaintenanceWindowConfig{Active: false},
+		ID:     windowID,
+		User:   &user.User{Login: "alice"},
+		Title:  "old",
+		Config: maintenance.ManualMaintenanceWindowConfig{Active: false},
 	}
 	mwRepo.EXPECT().GetByID(gomock.Any(), windowID).Return(mw, nil)
 	mwRepo.EXPECT().Update(gomock.Any(), mw).Return(nil)

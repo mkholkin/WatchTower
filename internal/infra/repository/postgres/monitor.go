@@ -57,7 +57,7 @@ func (r *monitorRepositoryPG) Create(ctx context.Context, mon *monitor.Monitor) 
 		ProbeIntervalSec: mon.ProbeIntervalSec,
 		Expectations:     dbExpectations,
 		CurrentStatus:    dbStatus,
-		CreatedAt:        pgtype.Timestamp{Time: mon.CreatedAt, Valid: true},
+		CreatedAt:        pgtype.Timestamptz{Time: mon.CreatedAt, Valid: true},
 	}
 
 	if err := r.queries.CreateMonitor(ctx, params); err != nil {
@@ -111,7 +111,7 @@ func (r *monitorRepositoryPG) Update(ctx context.Context, mon *monitor.Monitor) 
 		ProbeIntervalSec: mon.ProbeIntervalSec,
 		Expectations:     dbExpectations,
 		CurrentStatus:    dbStatus,
-		LastEvaluatedAt:  pgtype.Timestamp{Time: mon.LastEvaluatedAt, Valid: true},
+		LastEvaluatedAt:  pgtype.Timestamptz{Time: mon.LastEvaluatedAt, Valid: true},
 	}
 
 	if err := r.queries.UpdateMonitor(ctx, params); err != nil {
@@ -361,12 +361,12 @@ func mapMonitorRowToDomain(
 		}
 
 		mappedWindows = append(mappedWindows, maintenance.MaintenanceWindow{
-			ID:                      w.ID,
-			User:                    &user.User{Login: w.UserLogin},
-			Title:                   w.Title,
-			Description:             description,
-			MaintenanceWindowType:   domainType,
-			MaintenanceWindowConfig: domainConfig,
+			ID:          w.ID,
+			User:        &user.User{Login: w.UserLogin},
+			Title:       w.Title,
+			Description: description,
+			Type:        domainType,
+			Config:      domainConfig,
 		})
 	}
 

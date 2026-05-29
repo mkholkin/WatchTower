@@ -31,8 +31,8 @@ func NewMetricsRepository(pool *pgxpool.Pool, logger *slog.Logger) *MetricsRepos
 func (m *MetricsRepository) GetStatusEvents(ctx context.Context, monitorID uuid.UUID, from, to time.Time) ([]metrics.StatusEvent, error) {
 	rows, err := m.queries.GetStatusHistory(ctx, sqlcgen.GetStatusHistoryParams{
 		MonitorID: pgtype.UUID{Bytes: monitorID, Valid: true},
-		EndTime:   pgtype.Timestamp{Time: from, Valid: true},
-		StartTime: pgtype.Timestamp{Time: to, Valid: true},
+		EndTime:   pgtype.Timestamptz{Time: from, Valid: true},
+		StartTime: pgtype.Timestamptz{Time: to, Valid: true},
 	})
 	if err != nil {
 		m.log.Error("failed to get status history", "monitor_id", monitorID, "from", from, "to", to, "error", err)
@@ -60,8 +60,8 @@ func (m *MetricsRepository) GetStatusEvents(ctx context.Context, monitorID uuid.
 func (m *MetricsRepository) GetSLAAggregation(ctx context.Context, monitorID uuid.UUID, from, to time.Time) (metrics.SLAStats, error) {
 	row, err := m.queries.GetSLAStat(ctx, sqlcgen.GetSLAStatParams{
 		Column1: pgtype.UUID{Bytes: monitorID, Valid: true},
-		Column2: pgtype.Timestamp{Time: from, Valid: true},
-		Column3: pgtype.Timestamp{Time: to, Valid: true},
+		Column2: pgtype.Timestamptz{Time: from, Valid: true},
+		Column3: pgtype.Timestamptz{Time: to, Valid: true},
 	})
 	if err != nil {
 		return metrics.SLAStats{}, mapPGXErrorToRepo(err)
@@ -74,11 +74,11 @@ func (m *MetricsRepository) GetSLAAggregation(ctx context.Context, monitorID uui
 	}
 
 	return metrics.SLAStats{
-		MonitorID:     row.MonitorID.Bytes,
-		UptimePercent: uptimePercent,
-		TotalDowntime: int(row.TotalDowntimeSec),
-		PeriodStart:   row.PeriodStart.Time,
-		PeriodEnd:     row.PeriodEnd.Time,
+		MonitorID:        row.MonitorID.Bytes,
+		UptimePercent:    uptimePercent,
+		TotalDowntimeSec: int(row.TotalDowntimeSec),
+		PeriodStart:      row.PeriodStart.Time,
+		PeriodEnd:        row.PeriodEnd.Time,
 	}, nil
 }
 

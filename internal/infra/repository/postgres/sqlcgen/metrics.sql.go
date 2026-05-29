@@ -12,71 +12,76 @@ import (
 )
 
 const getSLAStat = `-- name: GetSLAStat :one
-with bounds as (
-    select
-        $1::uuid as monitor_id,
-        $2::timestamp as period_start,
-        $3::timestamp as period_end
-), clipped as (
-    select
-        b.monitor_id,
-        greatest(msl.start_time, b.period_start) as interval_start,
-        least(msl.end_time, b.period_end) as interval_end,
-        msl.status
-    from bounds b
-             left join monitor_status_log msl
-                       on msl.monitor_id = b.monitor_id
-                           and msl.end_time > b.period_start
-                           and msl.start_time < b.period_end
-), totals as (
-    select
-        c.monitor_id,
-        coalesce(sum(
-                         case
-                             when c.status = 'UP' and c.interval_end > c.interval_start
-                                 then extract(epoch from (c.interval_end - c.interval_start))
-                             else 0
-                             end
-                 ), 0)::double precision as uptime_sec,
-        coalesce(sum(
-                         case
-                             when c.status is not null
-                                 and c.status <> 'UP'
-                                 and c.interval_end > c.interval_start
-                                 then extract(epoch from (c.interval_end - c.interval_start))
-                             else 0
-                             end
-                 ), 0)::double precision as downtime_sec
-    from clipped c
-    group by c.monitor_id
-)
-select
+WITH bounds AS (
+    SELECT
+        $1::uuid AS monitor_id,
+        -- Clamp start to the greater of requested start or the earliest possible data
+        -- You can replace '1970-01-01' with a subquery if you have a specific min date
+        $2::timestamptz as period_start,
+        least($3::timestamptz, now())::timestamptz AS period_end
+),
+     clipped AS (
+         SELECT
+             b.monitor_id,
+             -- Use the clamped bounds to define the window
+             greatest(msl.start_time, b.period_start) AS interval_start,
+             least(msl.end_time, b.period_end) AS interval_end,
+             msl.status
+         FROM bounds b
+                  LEFT JOIN monitor_status_log msl
+                            ON msl.monitor_id = b.monitor_id
+                                AND msl.end_time > b.period_start
+                                AND msl.start_time < b.period_end
+     ),
+     totals AS (
+         SELECT
+             b.monitor_id,
+             COALESCE(SUM(
+                              CASE
+                                  WHEN c.status = 'UP' AND c.interval_end > c.interval_start
+                                      THEN EXTRACT(EPOCH FROM (c.interval_end - c.interval_start))
+                                  ELSE 0
+                                  END
+                      ), 0)::double precision AS uptime_sec,
+             COALESCE(SUM(
+                              CASE
+                                  WHEN c.status = 'DOWN' AND c.interval_end > c.interval_start
+                                      THEN EXTRACT(EPOCH FROM (c.interval_end - c.interval_start))
+                                  ELSE 0
+                                  END
+                      ), 0)::double precision AS downtime_sec
+         FROM bounds b
+                  LEFT JOIN clipped c ON b.monitor_id = c.monitor_id
+         GROUP BY b.monitor_id
+     )
+SELECT
     b.monitor_id,
-    case
-        when b.period_end <= b.period_start then 0::double precision
-        else (t.uptime_sec * 100.0) / extract(epoch from (b.period_end - b.period_start))
-        end as uptime_percent,
-    t.downtime_sec::int as total_downtime_sec,
+    CASE
+        WHEN (t.uptime_sec + t.downtime_sec) <= 0 THEN 0::double precision
+        ELSE (t.uptime_sec * 100.0) / (t.uptime_sec + t.downtime_sec)
+        END AS uptime_percent,
+    t.downtime_sec::bigint AS total_downtime_sec,
     b.period_start,
     b.period_end
-from bounds b
-         join totals t on t.monitor_id = b.monitor_id
+FROM bounds b
+         JOIN totals t ON t.monitor_id = b.monitor_id
 `
 
 type GetSLAStatParams struct {
-	Column1 pgtype.UUID      `json:"column_1"`
-	Column2 pgtype.Timestamp `json:"column_2"`
-	Column3 pgtype.Timestamp `json:"column_3"`
+	Column1 pgtype.UUID        `json:"column_1"`
+	Column2 pgtype.Timestamptz `json:"column_2"`
+	Column3 pgtype.Timestamptz `json:"column_3"`
 }
 
 type GetSLAStatRow struct {
-	MonitorID        pgtype.UUID      `json:"monitor_id"`
-	UptimePercent    interface{}      `json:"uptime_percent"`
-	TotalDowntimeSec int32            `json:"total_downtime_sec"`
-	PeriodStart      pgtype.Timestamp `json:"period_start"`
-	PeriodEnd        pgtype.Timestamp `json:"period_end"`
+	MonitorID        pgtype.UUID        `json:"monitor_id"`
+	UptimePercent    interface{}        `json:"uptime_percent"`
+	TotalDowntimeSec int64              `json:"total_downtime_sec"`
+	PeriodStart      pgtype.Timestamptz `json:"period_start"`
+	PeriodEnd        pgtype.Timestamptz `json:"period_end"`
 }
 
+// greatest($2::timestamptz, '1970-01-01 00:00:00+00'::timestamptz) AS period_start,
 func (q *Queries) GetSLAStat(ctx context.Context, arg GetSLAStatParams) (GetSLAStatRow, error) {
 	row := q.db.QueryRow(ctx, getSLAStat, arg.Column1, arg.Column2, arg.Column3)
 	var i GetSLAStatRow
@@ -100,9 +105,9 @@ order by msl.start_time desc
 `
 
 type GetStatusHistoryParams struct {
-	MonitorID pgtype.UUID      `json:"monitor_id"`
-	EndTime   pgtype.Timestamp `json:"end_time"`
-	StartTime pgtype.Timestamp `json:"start_time"`
+	MonitorID pgtype.UUID        `json:"monitor_id"`
+	EndTime   pgtype.Timestamptz `json:"end_time"`
+	StartTime pgtype.Timestamptz `json:"start_time"`
 }
 
 func (q *Queries) GetStatusHistory(ctx context.Context, arg GetStatusHistoryParams) ([]MonitorStatusLog, error) {

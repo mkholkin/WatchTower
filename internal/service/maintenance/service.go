@@ -8,34 +8,19 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"slices"
 
 	"github.com/google/uuid"
 )
 
 type MaintenanceService interface {
 	GetAllMaintenanceWindows(ctx context.Context) ([]maintenance.MaintenanceWindow, error)
+	GetMaintenanceWindow(ctx context.Context, windowId uuid.UUID) (*maintenance.MaintenanceWindow, error)
 	CreateOneTimeMaintenanceWindow(ctx context.Context, dto CreateOneTimeMaintenanceWindowDTO) (*maintenance.MaintenanceWindow, error)
 	CreateManualMaintenanceWindow(ctx context.Context, dto CreateManualMaintenanceWindowDTO) (*maintenance.MaintenanceWindow, error)
 	AddMonitorToMaintenanceWindow(ctx context.Context, monitorID uuid.UUID, windowID uuid.UUID) error
 	RemoveMonitorFromMaintenanceWindow(ctx context.Context, monitorID uuid.UUID, windowID uuid.UUID) error
 	UpdateMaintenanceWindow(ctx context.Context, dto UpdateMaintenanceWindowDTO) error
 	DeleteMaintenanceWindow(ctx context.Context, windowID uuid.UUID) error
-}
-
-func (s *maintenanceService) GetAllMaintenanceWindows(ctx context.Context) ([]maintenance.MaintenanceWindow, error) {
-	usr, err := s.userProvider.GetAuthorizedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	windows, err := s.MWRepo.GetByUserLogin(ctx, usr.Login)
-	if err != nil {
-		s.log.Error("failed to get maintenance windows for user", "user", usr.Login, "error", err)
-		return nil, err
-	}
-
-	return windows, nil
 }
 
 type maintenanceService struct {
@@ -176,9 +161,11 @@ func (s *maintenanceService) AddMonitorToMaintenanceWindow(
 
 	// If the monitor is already linked to the maintenance window, do nothing.
 	// TODO: optimize by checking the relation in the repository instead of fetching the whole monitor with all maintenance windows.
-	if slices.Contains(mon.MaintenanceWindows, *maintenanceWindow) {
-		s.log.Debug("monitor already linked to maintenance window", "window_id", windowID, "monitor_id", monitorID)
-		return nil
+	for i := range mon.MaintenanceWindows {
+		if mon.MaintenanceWindows[i].ID == windowID {
+			s.log.Debug("monitor already linked to maintenance window", "window_id", windowID, "monitor_id", monitorID)
+			return nil
+		}
 	}
 
 	if err := s.MWRepo.LinkMonitor(ctx, maintenanceWindow, mon.ID); err != nil {
@@ -214,8 +201,15 @@ func (s *maintenanceService) RemoveMonitorFromMaintenanceWindow(
 
 	// If the monitor is not linked to the maintenance window, do nothing.
 	// TODO: optimize by checking the relation in the repository instead of fetching the whole monitor with all maintenance windows.
-	if !slices.Contains(mon.MaintenanceWindows, *maintenanceWindow) {
-		s.log.Debug("monitor not linked to maintenance window", "window_id", windowID, "monitor_id", monitorID)
+	alreadyUnlinked := true
+	for i := range mon.MaintenanceWindows {
+		if mon.MaintenanceWindows[i].ID == windowID {
+			alreadyUnlinked = false
+			break
+		}
+	}
+	if alreadyUnlinked {
+		s.log.Debug("monitor already unlinked from maintenance window", "window_id", windowID, "monitor_id", monitorID)
 		return nil
 	}
 
@@ -268,4 +262,39 @@ func (s *maintenanceService) UpdateMaintenanceWindow(
 
 	s.log.Debug("maintenance window updated", "window_id", dto.WindowID)
 	return nil
+}
+
+func (s *maintenanceService) GetAllMaintenanceWindows(ctx context.Context) ([]maintenance.MaintenanceWindow, error) {
+	usr, err := s.userProvider.GetAuthorizedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	windows, err := s.MWRepo.GetByUserLogin(ctx, usr.Login)
+	if err != nil {
+		s.log.Error("failed to get maintenance windows for user", "user", usr.Login, "error", err)
+		return nil, err
+	}
+
+	return windows, nil
+}
+
+func (s *maintenanceService) GetMaintenanceWindow(ctx context.Context, windowId uuid.UUID) (*maintenance.MaintenanceWindow, error) {
+	usr, err := s.userProvider.GetAuthorizedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	window, err := s.MWRepo.GetByID(ctx, windowId)
+	if err != nil {
+		s.log.Error("failed to get maintenance window", "window_id", windowId, "error", err)
+		return nil, err
+	}
+
+	if window.User.Login != usr.Login {
+		s.log.Warn("user attempted to access maintenance window they do not own", "window_id", windowId, "user", usr.Login)
+		return nil, errors.Join(baseservice.ErrPermissionDenied, err)
+	}
+
+	return window, nil
 }

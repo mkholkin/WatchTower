@@ -11,13 +11,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type userContextKey struct{}
+const UserContextKey = "login"
 
 // AuthService defines the interface for the authentication authService.
 type AuthService interface {
 	Register(ctx context.Context, login, password string) error
 	Login(ctx context.Context, login, password string) (string, error)
-	ParseToken(ctx context.Context, tokenString string) (string, error)
+	ParseToken(tokenString string) (string, error)
 }
 
 type authService struct {
@@ -85,7 +85,7 @@ func (s *authService) Login(ctx context.Context, login, password string) (string
 }
 
 // ParseToken validates a JWT token and returns the login (subject).
-func (s *authService) ParseToken(ctx context.Context, tokenString string) (string, error) {
+func (s *authService) ParseToken(tokenString string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -108,12 +108,12 @@ func (s *authService) ParseToken(ctx context.Context, tokenString string) (strin
 
 // ContextWithUser adds user login to context
 func ContextWithUser(ctx context.Context, login string) context.Context {
-	return context.WithValue(ctx, userContextKey{}, login)
+	return context.WithValue(ctx, UserContextKey, login)
 }
 
 // UserFromContext retrieves user login from context
 func UserFromContext(ctx context.Context) (string, bool) {
-	val := ctx.Value(userContextKey{})
+	val := ctx.Value(UserContextKey)
 	if login, ok := val.(string); ok {
 		return login, true
 	}

@@ -30,11 +30,9 @@ const bulkUpdateEvaluation = `-- name: BulkUpdateEvaluation :exec
 UPDATE "monitor" AS m
 SET current_status    = c.current_status,
     last_evaluated_at = c.last_evaluated_at
-FROM (
-    SELECT unnest($1::uuid[]) AS id,
-           unnest($2::text[])::status_type AS current_status,
-           unnest($3::TIMESTAMP[]) AS last_evaluated_at
-) AS c
+FROM (SELECT unnest($1::uuid[])                   AS id,
+             unnest($2::text[])::status_type AS current_status,
+             unnest($3::TIMESTAMP[])    AS last_evaluated_at) AS c
 WHERE m.id = c.id
   AND m.is_active = TRUE
 `
@@ -57,16 +55,16 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `
 
 type CreateMonitorParams struct {
-	ID               pgtype.UUID      `json:"id"`
-	TargetID         pgtype.UUID      `json:"target_id"`
-	UserLogin        string           `json:"user_login"`
-	Label            string           `json:"label"`
-	IsActive         bool             `json:"is_active"`
-	ProbeIntervalSec int32            `json:"probe_interval_sec"`
-	Expectations     []byte           `json:"expectations"`
-	CurrentStatus    StatusType       `json:"current_status"`
-	LastEvaluatedAt  pgtype.Timestamp `json:"last_evaluated_at"`
-	CreatedAt        pgtype.Timestamp `json:"created_at"`
+	ID               pgtype.UUID        `json:"id"`
+	TargetID         pgtype.UUID        `json:"target_id"`
+	UserLogin        string             `json:"user_login"`
+	Label            string             `json:"label"`
+	IsActive         bool               `json:"is_active"`
+	ProbeIntervalSec int32              `json:"probe_interval_sec"`
+	Expectations     []byte             `json:"expectations"`
+	CurrentStatus    StatusType         `json:"current_status"`
+	LastEvaluatedAt  pgtype.Timestamptz `json:"last_evaluated_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) CreateMonitor(ctx context.Context, arg CreateMonitorParams) error {
@@ -98,7 +96,8 @@ func (q *Queries) DeleteMonitorByID(ctx context.Context, id pgtype.UUID) error {
 
 const disableMonitor = `-- name: DisableMonitor :exec
 UPDATE "monitor"
-SET is_active = FALSE
+SET is_active      = FALSE,
+    current_status = 'UNKNOWN'
 WHERE id = $1
 `
 
@@ -119,18 +118,20 @@ func (q *Queries) EnableMonitor(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getAllMonitorsByTargetID = `-- name: GetAllMonitorsByTargetID :many
-SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.login, u.password_hash,
+SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at,
+       t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec,
+       u.login, u.password_hash,
        COALESCE(
-           (SELECT jsonb_agg(ac.*)
-            FROM "alert_contact" ac
-            JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
-            WHERE mac.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(ac.*)
+                FROM "alert_contact" ac
+                         JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
+                WHERE mac.monitor_id = m.id), '[]'::jsonb
        ) AS alert_contacts,
        COALESCE(
-           (SELECT jsonb_agg(mw.*)
-            FROM "maintenance_window" mw
-            JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
-            WHERE mwm.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(mw.*)
+                FROM "maintenance_window" mw
+                         JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
+                WHERE mwm.monitor_id = m.id), '[]'::jsonb
        ) AS maintenance_windows
 FROM "monitor" m
          JOIN "target" t ON m.target_id = t.id
@@ -189,18 +190,20 @@ func (q *Queries) GetAllMonitorsByTargetID(ctx context.Context, targetID pgtype.
 }
 
 const getAllMonitorsByUser = `-- name: GetAllMonitorsByUser :many
-SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.login, u.password_hash,
+SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at,
+       t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec,
+       u.login, u.password_hash,
        COALESCE(
-           (SELECT jsonb_agg(ac.*)
-            FROM "alert_contact" ac
-            JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
-            WHERE mac.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(ac.*)
+                FROM "alert_contact" ac
+                         JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
+                WHERE mac.monitor_id = m.id), '[]'::jsonb
        ) AS alert_contacts,
        COALESCE(
-           (SELECT jsonb_agg(mw.*)
-            FROM "maintenance_window" mw
-            JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
-            WHERE mwm.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(mw.*)
+                FROM "maintenance_window" mw
+                         JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
+                WHERE mwm.monitor_id = m.id), '[]'::jsonb
        ) AS maintenance_windows
 FROM "monitor" m
          JOIN "target" t ON m.target_id = t.id
@@ -259,18 +262,20 @@ func (q *Queries) GetAllMonitorsByUser(ctx context.Context, userLogin string) ([
 }
 
 const getMonitorByID = `-- name: GetMonitorByID :one
-SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.login, u.password_hash,
+SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at,
+       t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec,
+       u.login, u.password_hash,
        COALESCE(
-           (SELECT jsonb_agg(ac.*)
-            FROM "alert_contact" ac
-            JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
-            WHERE mac.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(ac.*)
+                FROM "alert_contact" ac
+                         JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
+                WHERE mac.monitor_id = m.id), '[]'::jsonb
        ) AS alert_contacts,
        COALESCE(
-           (SELECT jsonb_agg(mw.*)
-            FROM "maintenance_window" mw
-            JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
-            WHERE mwm.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(mw.*)
+                FROM "maintenance_window" mw
+                         JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
+                WHERE mwm.monitor_id = m.id), '[]'::jsonb
        ) AS maintenance_windows
 FROM "monitor" m
          JOIN "target" t ON m.target_id = t.id
@@ -316,24 +321,30 @@ func (q *Queries) GetMonitorByID(ctx context.Context, id pgtype.UUID) (GetMonito
 }
 
 const getMonitorsToEvaluate = `-- name: GetMonitorsToEvaluate :many
-SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at, t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec, u.login, u.password_hash,
+SELECT m.id, m.target_id, m.user_login, m.label, m.is_active, m.probe_interval_sec, m.expectations, m.current_status, m.last_evaluated_at, m.created_at,
+       t.id, t.signature_hash, t.protocol, t.is_active, t.endpoint, t.network_config, t.probe_interval_sec,
+       u.login, u.password_hash,
        COALESCE(
-           (SELECT jsonb_agg(ac.*)
-            FROM "alert_contact" ac
-            JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
-            WHERE mac.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(ac.*)
+                FROM "alert_contact" ac
+                         JOIN "monitor_alert_contact" mac ON ac.id = mac.contact_id
+                WHERE mac.monitor_id = m.id), '[]'::jsonb
        ) AS alert_contacts,
        COALESCE(
-           (SELECT jsonb_agg(mw.*)
-            FROM "maintenance_window" mw
-            JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
-            WHERE mwm.monitor_id = m.id), '[]'::jsonb
+               (SELECT jsonb_agg(mw.*)
+                FROM "maintenance_window" mw
+                         JOIN "maintenance_window_monitor" mwm ON mw.id = mwm.window_id
+                WHERE mwm.monitor_id = m.id), '[]'::jsonb
        ) AS maintenance_windows
 FROM "monitor" m
          JOIN "target" t ON m.target_id = t.id
          JOIN "user" u ON m.user_login = u.login
 WHERE m.is_active = TRUE
-  AND m.last_evaluated_at + (m.probe_interval_sec * INTERVAL '1 second') <= NOW() at time zone 'Europe/Moscow' -- TODO: убрать
+  AND (
+    current_status = 'UNKNOWN'
+        OR m.last_evaluated_at + (m.probe_interval_sec * INTERVAL '1 second') <=
+           NOW()
+    )
   AND m.target_id = ANY ($1::uuid[])
 `
 
@@ -418,15 +429,15 @@ WHERE id = $1
 `
 
 type UpdateMonitorParams struct {
-	ID               pgtype.UUID      `json:"id"`
-	TargetID         pgtype.UUID      `json:"target_id"`
-	UserLogin        string           `json:"user_login"`
-	Label            string           `json:"label"`
-	IsActive         bool             `json:"is_active"`
-	ProbeIntervalSec int32            `json:"probe_interval_sec"`
-	Expectations     []byte           `json:"expectations"`
-	CurrentStatus    StatusType       `json:"current_status"`
-	LastEvaluatedAt  pgtype.Timestamp `json:"last_evaluated_at"`
+	ID               pgtype.UUID        `json:"id"`
+	TargetID         pgtype.UUID        `json:"target_id"`
+	UserLogin        string             `json:"user_login"`
+	Label            string             `json:"label"`
+	IsActive         bool               `json:"is_active"`
+	ProbeIntervalSec int32              `json:"probe_interval_sec"`
+	Expectations     []byte             `json:"expectations"`
+	CurrentStatus    StatusType         `json:"current_status"`
+	LastEvaluatedAt  pgtype.Timestamptz `json:"last_evaluated_at"`
 }
 
 func (q *Queries) UpdateMonitor(ctx context.Context, arg UpdateMonitorParams) error {

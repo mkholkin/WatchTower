@@ -248,16 +248,16 @@ type MaintenanceWindowMonitor struct {
 }
 
 type Monitor struct {
-	ID               pgtype.UUID      `json:"id"`
-	TargetID         pgtype.UUID      `json:"target_id"`
-	UserLogin        string           `json:"user_login"`
-	Label            string           `json:"label"`
-	IsActive         bool             `json:"is_active"`
-	ProbeIntervalSec int32            `json:"probe_interval_sec"`
-	Expectations     []byte           `json:"expectations"`
-	CurrentStatus    StatusType       `json:"current_status"`
-	LastEvaluatedAt  pgtype.Timestamp `json:"last_evaluated_at"`
-	CreatedAt        pgtype.Timestamp `json:"created_at"`
+	ID               pgtype.UUID        `json:"id"`
+	TargetID         pgtype.UUID        `json:"target_id"`
+	UserLogin        string             `json:"user_login"`
+	Label            string             `json:"label"`
+	IsActive         bool               `json:"is_active"`
+	ProbeIntervalSec int32              `json:"probe_interval_sec"`
+	Expectations     []byte             `json:"expectations"`
+	CurrentStatus    StatusType         `json:"current_status"`
+	LastEvaluatedAt  pgtype.Timestamptz `json:"last_evaluated_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
 type MonitorAlertContact struct {
@@ -266,17 +266,17 @@ type MonitorAlertContact struct {
 }
 
 type MonitorStatusLog struct {
-	ID        int64            `json:"id"`
-	MonitorID pgtype.UUID      `json:"monitor_id"`
-	Status    StatusType       `json:"status"`
-	StartTime pgtype.Timestamp `json:"start_time"`
-	EndTime   pgtype.Timestamp `json:"end_time"`
+	ID        int64              `json:"id"`
+	MonitorID pgtype.UUID        `json:"monitor_id"`
+	Status    StatusType         `json:"status"`
+	StartTime pgtype.Timestamptz `json:"start_time"`
+	EndTime   pgtype.Timestamptz `json:"end_time"`
 }
 
 type ProbeResult struct {
 	ID               pgtype.UUID          `json:"id"`
 	TargetID         pgtype.UUID          `json:"target_id"`
-	ProbeTime        pgtype.Timestamp     `json:"probe_time"`
+	ProbeTime        pgtype.Timestamptz   `json:"probe_time"`
 	LatencyMs        int32                `json:"latency_ms"`
 	StatusCode       pgtype.Int4          `json:"status_code"`
 	NetworkFailure   bool                 `json:"network_failure"`

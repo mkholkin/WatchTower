@@ -15,12 +15,12 @@ const (
 )
 
 type MaintenanceWindow struct {
-	ID                      uuid.UUID
-	User                    *user.User
-	Title                   string
-	Description             string
-	MaintenanceWindowType   WindowType
-	MaintenanceWindowConfig MaintenanceWindowConfig
+	ID          uuid.UUID
+	User        *user.User
+	Title       string
+	Description string
+	Type        WindowType
+	Config      MaintenanceWindowConfig
 }
 
 // NewOneTimeMaintenanceWindow creates a one-time maintenance window with a fixed start and end time.
@@ -48,12 +48,12 @@ func NewOneTimeMaintenanceWindow(
 	}
 
 	return &MaintenanceWindow{
-		ID:                    uuid.New(),
-		User:                  user,
-		Title:                 title,
-		Description:           description,
-		MaintenanceWindowType: WindowTypeOneTime,
-		MaintenanceWindowConfig: OneTimeMaintenanceWindowConfig{
+		ID:          uuid.New(),
+		User:        user,
+		Title:       title,
+		Description: description,
+		Type:        WindowTypeOneTime,
+		Config: OneTimeMaintenanceWindowConfig{
 			StartTime: startTime,
 			EndTime:   endTime,
 		},
@@ -74,12 +74,12 @@ func NewManualMaintenanceWindow(
 	}
 
 	return &MaintenanceWindow{
-		ID:                    uuid.New(),
-		User:                  user,
-		Title:                 title,
-		Description:           description,
-		MaintenanceWindowType: WindowTypeManual,
-		MaintenanceWindowConfig: ManualMaintenanceWindowConfig{
+		ID:          uuid.New(),
+		User:        user,
+		Title:       title,
+		Description: description,
+		Type:        WindowTypeManual,
+		Config: ManualMaintenanceWindowConfig{
 			Active: false,
 		},
 	}, nil
@@ -107,11 +107,12 @@ func (mw *MaintenanceWindow) ApplyUpdate(upd MaintenanceWindowUpdate) error {
 	}
 
 	if upd.ConfigUpdate != nil {
-		newCfg, err := upd.ConfigUpdate.Apply(mw.MaintenanceWindowConfig)
+		newCfg, err := upd.ConfigUpdate.Apply(mw.Config)
 		if err != nil {
 			return err
 		}
-		mw.MaintenanceWindowConfig = newCfg
+		mw.Config = newCfg
+		mw.Type = newCfg.Type()
 	}
 
 	return nil
@@ -119,5 +120,5 @@ func (mw *MaintenanceWindow) ApplyUpdate(upd MaintenanceWindowUpdate) error {
 
 // IsActive checks if the maintenance window is currently active based on its configuration.
 func (mw *MaintenanceWindow) IsActive() bool {
-	return mw.MaintenanceWindowConfig.IsActive()
+	return mw.Config.IsActive()
 }

@@ -1,15 +1,10 @@
 package alert
 
 import (
-	"errors"
+	"WatchTower/internal/service"
 	"fmt"
 )
 
-var (
-	ErrValidation = errors.New("validation failed")
-)
-
 func wrapValidation(reason string) error {
-	return fmt.Errorf("%w: %s", ErrValidation, reason)
+	return fmt.Errorf("%w: %s", service.ErrInvalidData, reason)
 }
-

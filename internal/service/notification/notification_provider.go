@@ -20,8 +20,8 @@ type notificationProviderRegistryImpl struct {
 	probers map[alert.ContactType]NotificationProvider
 }
 
-// NewProberRegistry creates an empty ProberRegistry.
-func NewProberRegistry() NotificationProviderRegistry {
+// NewProviderRegistry creates an empty ProberRegistry.
+func NewProviderRegistry() NotificationProviderRegistry {
 	return &notificationProviderRegistryImpl{
 		probers: make(map[alert.ContactType]NotificationProvider),
 	}

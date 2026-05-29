@@ -9,19 +9,19 @@ auth:
 
 database:
   monitoring:
-    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+    dsn: "postgresql://monitoring_svc:password@localhost:5432/watchtower?sslmode=disable"
   maintenance:
-    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+    dsn: "postgresql://maintenance_svc:password@localhost:5432/watchtower?sslmode=disable"
   auth:
-    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+    dsn: "postgresql://auth_svc:password@localhost:5432/watchtower?sslmode=disable"
   metrics:
-    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+    dsn: "postgresql://metrics_query_svc:password@localhost:5432/watchtower?sslmode=disable"
   healthchecker:
-    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+    dsn: "postgresql://healthchecker:password@localhost:5432/watchtower?sslmode=disable"
   analyzer:
-    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+    dsn: "postgresql://analyzer:password@localhost:5432/watchtower?sslmode=disable"
   contacts:
-    dsn: "postgresql://postgres:postgres@localhost:5432/watchtower?sslmode=disable"
+    dsn: "postgresql://alert_contacts_svc:password@localhost:5432/watchtower?sslmode=disable"
 
 redis:
   url: "redis://localhost:6379/0"

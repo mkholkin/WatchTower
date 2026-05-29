@@ -74,8 +74,8 @@ func (r *probeSummaryRepositoryPG) GetMonitorSummariesForPeriod(
 
 	rows, err := r.queries.GetProbeSummaryByMonitorIDForPeriod(ctx, sqlcgen.GetProbeSummaryByMonitorIDForPeriodParams{
 		ID:          pgtype.UUID{Bytes: monitorID, Valid: true},
-		ProbeTime:   pgtype.Timestamp{Time: from, Valid: true},
-		ProbeTime_2: pgtype.Timestamp{Time: to, Valid: true},
+		ProbeTime:   pgtype.Timestamptz{Time: from, Valid: true},
+		ProbeTime_2: pgtype.Timestamptz{Time: to, Valid: true},
 	})
 	if err != nil {
 		return nil, mapPGXErrorToRepo(err)
