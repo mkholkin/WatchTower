@@ -3,9 +3,9 @@ SELECT m.id                         AS monitor_id,
        pr.latency_ms                AS latency_ms,
        pr.probe_time                AS probe_time,
        msl.status                   AS monitor_status,
-       COALESCE(pr.status_code, 0)  AS status_code,
+       pr.status_code               AS status_code,
        pr.network_failure           AS network_failure,
-       COALESCE(pr.error_message, '') AS failure_reason
+       pr.error_message             AS failure_reason
 FROM "probe_result" pr
          JOIN monitor m
               on m.target_id = pr.target_id

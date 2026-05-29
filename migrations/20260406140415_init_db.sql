@@ -63,7 +63,8 @@ CREATE TABLE "probe_result"
                 OR
             network_failure = FALSE AND status_code IS NOT NULL
             ),
-    PRIMARY KEY (id, probe_time)
+    PRIMARY KEY (id, probe_time),
+    UNIQUE (target_id, probe_time)
 )
     PARTITION BY RANGE (probe_time);
 
@@ -78,7 +79,8 @@ CREATE TABLE "monitor"
     "expectations"       jsonb       NOT NULL,
     "current_status"     status_type NOT NULL DEFAULT 'UNKNOWN',
     "last_evaluated_at"  timestamptz,
-    "created_at"         timestamptz NOT NULL DEFAULT NOW()
+    "created_at"         timestamptz NOT NULL DEFAULT NOW(),
+    UNIQUE (user_login, label)
 );
 
 CREATE TABLE "monitor_status_log"
@@ -87,7 +89,8 @@ CREATE TABLE "monitor_status_log"
     "monitor_id" uuid        NOT NULL REFERENCES monitor (id) ON DELETE CASCADE,
     "status"     status_type NOT NULL,
     "start_time" timestamptz NOT NULL,
-    "end_time"   timestamptz NOT NULL DEFAULT 'infinity'
+    "end_time"   timestamptz NOT NULL DEFAULT 'infinity',
+    UNIQUE (monitor_id, start_time)
 );
 
 CREATE TABLE "maintenance_window"
@@ -97,7 +100,8 @@ CREATE TABLE "maintenance_window"
     "title"       varchar          NOT NULL CHECK ( title <> '' ),
     "description" text CHECK ( description <> '' ),
     "type"        maintenance_type NOT NULL,
-    "config"      jsonb            NOT NULL
+    "config"      jsonb            NOT NULL,
+    UNIQUE (user_login, title)
 );
 
 CREATE TABLE "maintenance_window_monitor"
@@ -114,7 +118,8 @@ CREATE TABLE "alert_contact"
     "type"       contact_type NOT NULL,
     "label"      varchar      NOT NULL CHECK ( label <> '' ),
     "config"     jsonb        NOT NULL,
-    "is_active"  boolean      NOT NULL DEFAULT TRUE
+    "is_active"  boolean      NOT NULL DEFAULT TRUE,
+    UNIQUE (user_login, label)
 );
 
 CREATE TABLE "monitor_alert_contact"

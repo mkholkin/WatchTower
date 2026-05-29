@@ -28,9 +28,14 @@ func Load(path string) (*Config, error) {
 // Expected variables:
 // WT_LOGGING_LEVEL, WT_LOGGING_FORMAT, WT_LOGGING_OUTPUT,
 // WT_AUTH_JWT_SECRET, WT_AUTH_JWT_TTL_HOURS,
-// WT_DATABASE_MONITORING_DSN, WT_DATABASE_MAINTENANCE_DSN, WT_DATABASE_AUTH_DSN,
-// WT_DATABASE_METRICS_DSN, WT_DATABASE_HEALTHCHECKER_DSN, WT_DATABASE_ANALYZER_DSN,
-// WT_DATABASE_CONTACTS_DSN, WT_REDIS_URL.
+// WT_DATABASE_MONITORING_DSN, WT_DATABASE_MONITORING_TYPE,
+// WT_DATABASE_MAINTENANCE_DSN, WT_DATABASE_MAINTENANCE_TYPE,
+// WT_DATABASE_AUTH_DSN, WT_DATABASE_AUTH_TYPE,
+// WT_DATABASE_METRICS_DSN, WT_DATABASE_METRICS_TYPE,
+// WT_DATABASE_HEALTHCHECKER_DSN, WT_DATABASE_HEALTHCHECKER_TYPE,
+// WT_DATABASE_ANALYZER_DSN, WT_DATABASE_ANALYZER_TYPE,
+// WT_DATABASE_CONTACTS_DSN, WT_DATABASE_CONTACTS_TYPE,
+// WT_REDIS_URL.
 func LoadFromEnv() (*Config, error) {
 	var cfg Config
 
@@ -48,12 +53,19 @@ func LoadFromEnv() (*Config, error) {
 	}
 
 	setStringFromEnv(&cfg.Database.Monitoring.DSN, "WT_DATABASE_MONITORING_DSN")
+	setStringFromEnv(&cfg.Database.Monitoring.Type, "WT_DATABASE_MONITORING_TYPE")
 	setStringFromEnv(&cfg.Database.Maintenance.DSN, "WT_DATABASE_MAINTENANCE_DSN")
+	setStringFromEnv(&cfg.Database.Maintenance.Type, "WT_DATABASE_MAINTENANCE_TYPE")
 	setStringFromEnv(&cfg.Database.Auth.DSN, "WT_DATABASE_AUTH_DSN")
+	setStringFromEnv(&cfg.Database.Auth.Type, "WT_DATABASE_AUTH_TYPE")
 	setStringFromEnv(&cfg.Database.Metrics.DSN, "WT_DATABASE_METRICS_DSN")
+	setStringFromEnv(&cfg.Database.Metrics.Type, "WT_DATABASE_METRICS_TYPE")
 	setStringFromEnv(&cfg.Database.Healthchecker.DSN, "WT_DATABASE_HEALTHCHECKER_DSN")
+	setStringFromEnv(&cfg.Database.Healthchecker.Type, "WT_DATABASE_HEALTHCHECKER_TYPE")
 	setStringFromEnv(&cfg.Database.Analyzer.DSN, "WT_DATABASE_ANALYZER_DSN")
+	setStringFromEnv(&cfg.Database.Analyzer.Type, "WT_DATABASE_ANALYZER_TYPE")
 	setStringFromEnv(&cfg.Database.Contacts.DSN, "WT_DATABASE_CONTACTS_DSN")
+	setStringFromEnv(&cfg.Database.Contacts.Type, "WT_DATABASE_CONTACTS_TYPE")
 
 	setStringFromEnv(&cfg.Redis.URL, "WT_REDIS_URL")
 
