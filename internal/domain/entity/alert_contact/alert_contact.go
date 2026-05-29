@@ -2,7 +2,6 @@ package alert
 
 import (
 	"WatchTower/internal/domain/entity/user"
-	"errors"
 
 	"github.com/google/uuid"
 )
@@ -30,19 +29,20 @@ func NewTelegramAlertContact(
 	botToken string,
 ) (*Contact, error) {
 	if user == nil {
-		return nil, errors.New("user is required")
+		return nil, wrapValidation("user is required")
 	}
 	if name == "" {
-		return nil, errors.New("name is required")
+		return nil, wrapValidation("name is required")
 	}
 	if chatID == 0 {
-		return nil, errors.New("chat_id is required")
+		return nil, wrapValidation("chat_id is required")
 	}
 	if botToken == "" {
-		return nil, errors.New("bot_token is required")
+		return nil, wrapValidation("bot_token is required")
 	}
 
 	return &Contact{
+		ID:       uuid.New(),
 		User:     user,
 		Name:     name,
 		Type:     ContactTypeTelegram,
@@ -63,7 +63,7 @@ type ContactUpdate struct {
 func (ac *Contact) ApplyUpdate(upd ContactUpdate) error {
 	if upd.Name != nil {
 		if *upd.Name == "" {
-			return errors.New("name cannot be empty")
+			return wrapValidation("name cannot be empty")
 		}
 		ac.Name = *upd.Name
 	}

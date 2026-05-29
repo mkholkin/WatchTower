@@ -4,6 +4,7 @@ import (
 	"WatchTower/pkg/mapper"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -37,13 +38,13 @@ func (r *maintenanceWindowRepositoryPG) Create(ctx context.Context, mw *maintena
 	dbType, err := r.mpr.ToDBMaintenanceWindowType(mw.MaintenanceWindowType)
 	if err != nil {
 		r.log.Error("failed to convert maintenance window type to DB type", "window_type", mw.MaintenanceWindowType, "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	dbConfig, err := r.mpr.ToDBMaintenanceWindowConfig(mw.MaintenanceWindowConfig)
 	if err != nil {
 		r.log.Error("failed to convert maintenance window config to DB config", "window_type", mw.MaintenanceWindowType, "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	params := sqlcgen.CreateMaintenanceWindowParams{
@@ -71,7 +72,7 @@ func (r *maintenanceWindowRepositoryPG) GetByID(ctx context.Context, id uuid.UUI
 	mw, err := mapMaintenanceWindowToDomain(row.MaintenanceWindow, row.User, r.mpr)
 	if err != nil {
 		r.log.Error("failed to map maintenance window row to domain", "window_id", row.MaintenanceWindow.ID, "error", err)
-		return nil, repo.ErrInternal
+		return nil, errors.Join(repo.ErrInternal, err)
 	}
 
 	return mw, nil
@@ -81,13 +82,13 @@ func (r *maintenanceWindowRepositoryPG) Update(ctx context.Context, mw *maintena
 	dbType, err := r.mpr.ToDBMaintenanceWindowType(mw.MaintenanceWindowType)
 	if err != nil {
 		r.log.Error("failed to convert maintenance window type to DB type", "window_type", mw.MaintenanceWindowType, "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	dbConfig, err := r.mpr.ToDBMaintenanceWindowConfig(mw.MaintenanceWindowConfig)
 	if err != nil {
 		r.log.Error("failed to convert maintenance window config to DB config", "window_type", mw.MaintenanceWindowType, "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	params := sqlcgen.UpdateMaintenanceWindowParams{
@@ -130,8 +131,28 @@ func (r *maintenanceWindowRepositoryPG) GetByIDBulk(ctx context.Context, ids []u
 		mw, err := mapMaintenanceWindowToDomain(row.MaintenanceWindow, row.User, r.mpr)
 		if err != nil {
 			r.log.Error("failed to map maintenance window row to domain", "window_id", row.MaintenanceWindow.ID, "error", err)
-			return nil, repo.ErrInternal
+			return nil, errors.Join(repo.ErrInternal, err)
 		}
+		result = append(result, *mw)
+	}
+
+	return result, nil
+}
+
+func (r *maintenanceWindowRepositoryPG) GetByUserLogin(ctx context.Context, userLogin string) ([]maintenance.MaintenanceWindow, error) {
+	rows, err := r.queries.GetMaintenanceWindowsByUserLogin(ctx, userLogin)
+	if err != nil {
+		return nil, mapPGXErrorToRepo(err)
+	}
+
+	result := make([]maintenance.MaintenanceWindow, 0, len(rows))
+	for _, row := range rows {
+		mw, err := mapMaintenanceWindowToDomain(row.MaintenanceWindow, row.User, r.mpr)
+		if err != nil {
+			r.log.Error("failed to map maintenance window row to domain", "window_id", row.MaintenanceWindow.ID, "error", err)
+			return nil, errors.Join(repo.ErrInternal, err)
+		}
+
 		result = append(result, *mw)
 	}
 
@@ -287,4 +308,3 @@ func (m maintenanceWindowTypeMapper) ToDBMaintenanceWindowConfig(config maintena
 func (m maintenanceWindowTypeMapper) ToDomainMaintenanceWindowConfig(t maintenance.WindowType, payload []byte) (maintenance.MaintenanceWindowConfig, error) {
 	return m.toDomainConfigRegistry.Convert(t, payload)
 }
-

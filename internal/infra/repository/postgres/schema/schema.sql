@@ -78,7 +78,7 @@ CREATE TABLE "monitor"
 
 CREATE TABLE "monitor_status_log"
 (
-    "id"         uuid PRIMARY KEY,
+    "id"         bigserial PRIMARY KEY,
     "monitor_id" uuid        NOT NULL REFERENCES monitor (id) ON DELETE CASCADE,
     "status"     status_type NOT NULL,
     "start_time" timestamp   NOT NULL,

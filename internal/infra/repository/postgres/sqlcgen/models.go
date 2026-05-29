@@ -266,7 +266,7 @@ type MonitorAlertContact struct {
 }
 
 type MonitorStatusLog struct {
-	ID        pgtype.UUID      `json:"id"`
+	ID        int64            `json:"id"`
 	MonitorID pgtype.UUID      `json:"monitor_id"`
 	Status    StatusType       `json:"status"`
 	StartTime pgtype.Timestamp `json:"start_time"`

@@ -24,7 +24,7 @@ type MonitorRepository interface {
 
 	// GetMonitorsToEvaluate retrieves all monitors for given target id's that are active and last evaluation time + probe interval is lower than current.
 	// Monitors are grouped by target id.
-	GetMonitorsToEvaluate(ctx context.Context, targetIDs []uuid.UUID) (map[uuid.UUID]*monitor.Monitor, error)
+	GetMonitorsToEvaluate(ctx context.Context, targetIDs []uuid.UUID) (map[uuid.UUID][]*monitor.Monitor, error)
 
 	// BulkUpdateEvaluation updates last_evaluated_at and current_status for multiple monitors in a single batch.
 	BulkUpdateEvaluation(ctx context.Context, monitors []*monitor.Monitor) error

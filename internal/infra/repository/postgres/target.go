@@ -7,6 +7,7 @@ import (
 	"WatchTower/pkg/mapper"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -35,13 +36,13 @@ func (r *targetRepositoryPG) Create(ctx context.Context, tgt *target.Target) err
 	dbProtocol, err := r.mpr.ToDBProtocolType(tgt.Config.Protocol())
 	if err != nil {
 		r.log.Error("failed to convert protocol to DB type", "protocol", tgt.Config.Protocol(), "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	dbConfig, err := r.mpr.ToDBNetworkConfig(tgt.Config)
 	if err != nil {
 		r.log.Error("failed to convert network config to DB config", "protocol", tgt.Config.Protocol(), "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	params := sqlcgen.CreateTargetParams{
@@ -55,7 +56,7 @@ func (r *targetRepositoryPG) Create(ctx context.Context, tgt *target.Target) err
 	}
 
 	if err := r.queries.CreateTarget(ctx, params); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 
 	return nil
@@ -74,13 +75,13 @@ func (r *targetRepositoryPG) Update(ctx context.Context, tgt *target.Target) err
 	dbProtocol, err := r.mpr.ToDBProtocolType(tgt.Config.Protocol())
 	if err != nil {
 		r.log.Error("failed to convert protocol to DB type", "protocol", tgt.Config.Protocol(), "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	dbConfig, err := r.mpr.ToDBNetworkConfig(tgt.Config)
 	if err != nil {
 		r.log.Error("failed to convert network config to DB config", "protocol", tgt.Config.Protocol(), "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	params := sqlcgen.UpdateTargetParams{
@@ -94,7 +95,7 @@ func (r *targetRepositoryPG) Update(ctx context.Context, tgt *target.Target) err
 	}
 
 	if err := r.queries.UpdateTarget(ctx, params); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 
 	return nil
@@ -102,7 +103,7 @@ func (r *targetRepositoryPG) Update(ctx context.Context, tgt *target.Target) err
 
 func (r *targetRepositoryPG) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	if err := r.queries.DeleteTargetByID(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 	return nil
 }
@@ -114,7 +115,7 @@ func (r *targetRepositoryPG) UpdateProbeInterval(ctx context.Context, id uuid.UU
 	}
 
 	if err := r.queries.UpdateTargetProbeInterval(ctx, params); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 	return nil
 }
@@ -131,7 +132,7 @@ func (r *targetRepositoryPG) GetByHash(ctx context.Context, hash string) (*targe
 func (r *targetRepositoryPG) GetAllActive(ctx context.Context) ([]target.Target, error) {
 	rows, err := r.queries.GetAllActiveTargets(ctx)
 	if err != nil {
-		return nil, repo.ErrDB
+		return nil, errors.Join(repo.ErrDB, err)
 	}
 
 	targets := make([]target.Target, len(rows))
@@ -148,14 +149,14 @@ func (r *targetRepositoryPG) GetAllActive(ctx context.Context) ([]target.Target,
 
 func (r *targetRepositoryPG) Disable(ctx context.Context, id uuid.UUID) error {
 	if err := r.queries.DisableTarget(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 	return nil
 }
 
 func (r *targetRepositoryPG) Enable(ctx context.Context, id uuid.UUID) error {
 	if err := r.queries.EnableTarget(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
-		return repo.ErrDB
+		return errors.Join(repo.ErrDB, err)
 	}
 	return nil
 }
@@ -164,13 +165,13 @@ func (r *targetRepositoryPG) mapTargetToDomain(row sqlcgen.Target) (*target.Targ
 	domainProtocol, err := r.mpr.ToDomainProtocolType(row.Protocol)
 	if err != nil {
 		r.log.Error("failed to convert protocol to domain type", "protocol", row.Protocol, "error", err)
-		return nil, repo.ErrInternal
+		return nil, errors.Join(repo.ErrInternal, err)
 	}
 
 	domainConfig, err := r.mpr.ToDomainNetworkConfig(domainProtocol, row.NetworkConfig)
 	if err != nil {
 		r.log.Error("failed to convert network config to domain config", "protocol", row.Protocol, "error", err)
-		return nil, repo.ErrDB
+		return nil, errors.Join(repo.ErrDB, err)
 	}
 
 	return &target.Target{
@@ -296,4 +297,3 @@ func (m targetTypeMapper) ToDBNetworkConfig(config target.NetworkConfig) ([]byte
 func (m targetTypeMapper) ToDomainNetworkConfig(protocol target.Protocol, payload []byte) (target.NetworkConfig, error) {
 	return m.toDomainConfigRegistry.Convert(protocol, payload)
 }
-

@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -37,13 +39,13 @@ func (r *monitorRepositoryPG) Create(ctx context.Context, mon *monitor.Monitor) 
 	dbStatus, err := r.mpr.ToDBStatusType(mon.CurrentStatus)
 	if err != nil {
 		r.log.Error("failed to convert monitor status to DB status", "status", mon.CurrentStatus, "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	dbExpectations, err := r.mpr.ToDBExpectations(mon.Expectations)
 	if err != nil {
 		r.log.Error("failed to convert monitor expectations to DB payload", "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	params := sqlcgen.CreateMonitorParams{
@@ -81,7 +83,7 @@ func (r *monitorRepositoryPG) GetByID(ctx context.Context, id uuid.UUID) (*monit
 	)
 	if err != nil {
 		r.log.Error("failed to map monitor row to domain", "monitor_id", row.Monitor.ID, "error", err)
-		return nil, repo.ErrInternal
+		return nil, errors.Join(repo.ErrInternal, err)
 	}
 
 	return mon, nil
@@ -91,13 +93,13 @@ func (r *monitorRepositoryPG) Update(ctx context.Context, mon *monitor.Monitor) 
 	dbStatus, err := r.mpr.ToDBStatusType(mon.CurrentStatus)
 	if err != nil {
 		r.log.Error("failed to convert monitor status to DB status", "status", mon.CurrentStatus, "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	dbExpectations, err := r.mpr.ToDBExpectations(mon.Expectations)
 	if err != nil {
 		r.log.Error("failed to convert monitor expectations to DB payload", "error", err)
-		return repo.ErrInternal
+		return errors.Join(repo.ErrInternal, err)
 	}
 
 	params := sqlcgen.UpdateMonitorParams{
@@ -144,7 +146,7 @@ func (r *monitorRepositoryPG) GetAllByUser(ctx context.Context, usr *user.User) 
 		)
 		if err != nil {
 			r.log.Error("failed to map monitor row to domain", "monitor_id", row.Monitor.ID, "error", err)
-			return nil, repo.ErrInternal
+			return nil, errors.Join(repo.ErrInternal, err)
 		}
 		res = append(res, mon)
 	}
@@ -169,14 +171,14 @@ func (r *monitorRepositoryPG) GetAllByTargetID(ctx context.Context, targetID uui
 		)
 		if err != nil {
 			r.log.Error("failed to map monitor row to domain", "monitor_id", row.Monitor.ID, "error", err)
-			return nil, repo.ErrInternal
+			return nil, errors.Join(repo.ErrInternal, err)
 		}
 		res = append(res, mon)
 	}
 	return res, nil
 }
 
-func (r *monitorRepositoryPG) GetMonitorsToEvaluate(ctx context.Context, targetIDs []uuid.UUID) (map[uuid.UUID]*monitor.Monitor, error) {
+func (r *monitorRepositoryPG) GetMonitorsToEvaluate(ctx context.Context, targetIDs []uuid.UUID) (map[uuid.UUID][]*monitor.Monitor, error) {
 	pgIDs := make([]pgtype.UUID, len(targetIDs))
 	for i, id := range targetIDs {
 		pgIDs[i] = pgtype.UUID{Bytes: id, Valid: true}
@@ -187,7 +189,7 @@ func (r *monitorRepositoryPG) GetMonitorsToEvaluate(ctx context.Context, targetI
 		return nil, mapPGXErrorToRepo(err)
 	}
 
-	res := make(map[uuid.UUID]*monitor.Monitor)
+	res := make(map[uuid.UUID][]*monitor.Monitor)
 	for _, row := range rows {
 		mon, err := mapMonitorRowToDomain(
 			r.mpr,
@@ -199,9 +201,10 @@ func (r *monitorRepositoryPG) GetMonitorsToEvaluate(ctx context.Context, targetI
 		)
 		if err != nil {
 			r.log.Error("failed to map monitor row to domain", "monitor_id", row.Monitor.ID, "error", err)
-			return nil, repo.ErrInternal
+			return nil, errors.Join(repo.ErrInternal, err)
 		}
-		res[mon.ID] = mon
+		targetID := mon.Target.ID
+		res[targetID] = append(res[targetID], mon)
 	}
 
 	return res, nil
@@ -213,18 +216,18 @@ func (r *monitorRepositoryPG) BulkUpdateEvaluation(ctx context.Context, monitors
 	}
 
 	ids := make([]pgtype.UUID, len(monitors))
-	statuses := make([]sqlcgen.StatusType, len(monitors))
+	statuses := make([]string, len(monitors))
 	evalAts := make([]pgtype.Timestamp, len(monitors))
 
 	for i, mon := range monitors {
 		dbStatus, err := r.mpr.ToDBStatusType(mon.CurrentStatus)
 		if err != nil {
 			r.log.Error("failed to convert monitor status to DB status", "monitor_id", mon.ID, "status", mon.CurrentStatus, "error", err)
-			return repo.ErrInternal
+			return errors.Join(repo.ErrInternal, err)
 		}
 
 		ids[i] = pgtype.UUID{Bytes: mon.ID, Valid: true}
-		statuses[i] = dbStatus
+		statuses[i] = string(dbStatus)
 		evalAts[i] = pgtype.Timestamp{Time: mon.LastEvaluatedAt, Valid: true}
 	}
 
@@ -283,6 +286,26 @@ func (r *monitorRepositoryPG) Disable(ctx context.Context, monitorID uuid.UUID) 
 
 // ----------------- Helpers -----------------
 
+// JSON rows are used for json_agg/jsonb_agg mapping because config is a JSON object,
+// while sqlc-generated models represent it as []byte for direct table scans.
+type monitorAlertContactJSONRow struct {
+	ID        uuid.UUID           `json:"id"`
+	UserLogin string              `json:"user_login"`
+	Type      sqlcgen.ContactType `json:"type"`
+	Label     string              `json:"label"`
+	Config    json.RawMessage     `json:"config"`
+	IsActive  bool                `json:"is_active"`
+}
+
+type monitorMaintenanceWindowJSONRow struct {
+	ID          uuid.UUID               `json:"id"`
+	UserLogin   string                  `json:"user_login"`
+	Title       string                  `json:"title"`
+	Description *string                 `json:"description"`
+	Type        sqlcgen.MaintenanceType `json:"type"`
+	Config      json.RawMessage         `json:"config"`
+}
+
 func mapMonitorRowToDomain(
 	mpr *monitorTypeMapper,
 	dbMonitor sqlcgen.Monitor,
@@ -290,7 +313,7 @@ func mapMonitorRowToDomain(
 	dbUser sqlcgen.User,
 	alertContactsRaw, maintenanceWindowsRaw interface{},
 ) (*monitor.Monitor, error) {
-	var dbContacts []sqlcgen.AlertContact
+	var dbContacts []monitorAlertContactJSONRow
 	if err := parseJSONArray(alertContactsRaw, &dbContacts); err != nil {
 		return nil, err
 	}
@@ -301,13 +324,13 @@ func mapMonitorRowToDomain(
 			return nil, err
 		}
 
-		domainConfig, err := mpr.ToDomainContactConfig(domainType, c.Config)
+		domainConfig, err := mpr.ToDomainContactConfig(domainType, []byte(c.Config))
 		if err != nil {
 			return nil, err
 		}
 
 		mappedContacts = append(mappedContacts, alert.Contact{
-			ID:       c.ID.Bytes,
+			ID:       c.ID,
 			User:     &user.User{Login: c.UserLogin},
 			Name:     c.Label,
 			Type:     domainType,
@@ -316,7 +339,7 @@ func mapMonitorRowToDomain(
 		})
 	}
 
-	var dbWindows []sqlcgen.MaintenanceWindow
+	var dbWindows []monitorMaintenanceWindowJSONRow
 	if err := parseJSONArray(maintenanceWindowsRaw, &dbWindows); err != nil {
 		return nil, err
 	}
@@ -327,16 +350,21 @@ func mapMonitorRowToDomain(
 			return nil, err
 		}
 
-		domainConfig, err := mpr.ToDomainMaintenanceWindowConfig(domainType, w.Config)
+		domainConfig, err := mpr.ToDomainMaintenanceWindowConfig(domainType, []byte(w.Config))
 		if err != nil {
 			return nil, err
 		}
 
+		description := ""
+		if w.Description != nil {
+			description = *w.Description
+		}
+
 		mappedWindows = append(mappedWindows, maintenance.MaintenanceWindow{
-			ID:                      w.ID.Bytes,
+			ID:                      w.ID,
 			User:                    &user.User{Login: w.UserLogin},
 			Title:                   w.Title,
-			Description:             w.Description.String,
+			Description:             description,
 			MaintenanceWindowType:   domainType,
 			MaintenanceWindowConfig: domainConfig,
 		})

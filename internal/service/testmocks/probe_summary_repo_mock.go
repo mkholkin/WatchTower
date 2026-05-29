@@ -37,7 +37,7 @@ func (m *MockProbeSummaryRepository) EXPECT() *MockProbeSummaryRepositoryMockRec
 }
 
 // BulkCreate mocks base method.
-func (m *MockProbeSummaryRepository) BulkCreate(ctx context.Context, summaries []probe.Summary) error {
+func (m *MockProbeSummaryRepository) BulkCreate(ctx context.Context, summaries []*probe.Summary) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BulkCreate", ctx, summaries)
 	ret0, _ := ret[0].(error)
@@ -51,16 +51,30 @@ func (mr *MockProbeSummaryRepositoryMockRecorder) BulkCreate(ctx, summaries inte
 }
 
 // Create mocks base method.
-func (m *MockProbeSummaryRepository) Create(ctx context.Context, summary *probe.Summary) (uuid.UUID, error) {
+func (m *MockProbeSummaryRepository) Create(ctx context.Context, summary *probe.Summary) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx, summary)
-	ret0, _ := ret[0].(uuid.UUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Create indicates an expected call of Create.
 func (mr *MockProbeSummaryRepositoryMockRecorder) Create(ctx, summary interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockProbeSummaryRepository)(nil).Create), ctx, summary)
+}
+
+// GetByMonitorID mocks base method.
+func (m *MockProbeSummaryRepository) GetByMonitorID(ctx context.Context, monitorID uuid.UUID, limit int) ([]*probe.Summary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByMonitorID", ctx, monitorID, limit)
+	ret0, _ := ret[0].([]*probe.Summary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByMonitorID indicates an expected call of GetByMonitorID.
+func (mr *MockProbeSummaryRepositoryMockRecorder) GetByMonitorID(ctx, monitorID, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByMonitorID", reflect.TypeOf((*MockProbeSummaryRepository)(nil).GetByMonitorID), ctx, monitorID, limit)
 }

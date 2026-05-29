@@ -65,10 +65,10 @@ func (mr *MockProbeResultRepositoryMockRecorder) Create(probeResult interface{})
 }
 
 // FetchUnprocessed mocks base method.
-func (m *MockProbeResultRepository) FetchUnprocessed(ctx context.Context, limit int) ([]probe.Result, error) {
+func (m *MockProbeResultRepository) FetchUnprocessed(ctx context.Context, limit int) ([]*probe.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FetchUnprocessed", ctx, limit)
-	ret0, _ := ret[0].([]probe.Result)
+	ret0, _ := ret[0].([]*probe.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

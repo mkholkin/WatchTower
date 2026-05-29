@@ -1,7 +1,6 @@
 package maintenance
 
 import (
-	"errors"
 	"time"
 )
 
@@ -42,7 +41,7 @@ type OneTimeConfigUpdate struct {
 func (u OneTimeConfigUpdate) Apply(cfg MaintenanceWindowConfig) (MaintenanceWindowConfig, error) {
 	c, ok := cfg.(OneTimeMaintenanceWindowConfig)
 	if !ok {
-		return nil, errors.New("one-time config update is not applicable to this maintenance window type")
+		return nil, wrapValidation("one-time config update is not applicable to this maintenance window type")
 	}
 
 	if u.StartTime != nil {
@@ -53,13 +52,13 @@ func (u OneTimeConfigUpdate) Apply(cfg MaintenanceWindowConfig) (MaintenanceWind
 	}
 
 	if c.StartTime.IsZero() || c.EndTime.IsZero() {
-		return nil, errors.New("start_time and end_time are required")
+		return nil, wrapValidation("start_time and end_time are required")
 	}
 	if !c.EndTime.After(c.StartTime) {
-		return nil, errors.New("end_time must be after start_time")
+		return nil, wrapValidation("end_time must be after start_time")
 	}
 	if c.EndTime.Before(time.Now()) {
-		return nil, errors.New("end_time must be in the future")
+		return nil, wrapValidation("end_time must be in the future")
 	}
 
 	return c, nil
@@ -88,7 +87,7 @@ type ManualConfigUpdate struct {
 func (u ManualConfigUpdate) Apply(cfg MaintenanceWindowConfig) (MaintenanceWindowConfig, error) {
 	c, ok := cfg.(ManualMaintenanceWindowConfig)
 	if !ok {
-		return nil, errors.New("manual config update is not applicable to this maintenance window type")
+		return nil, wrapValidation("manual config update is not applicable to this maintenance window type")
 	}
 
 	if u.Active != nil {

@@ -117,6 +117,48 @@ func (q *Queries) GetMaintenanceWindowByID(ctx context.Context, id pgtype.UUID) 
 	return i, err
 }
 
+const getMaintenanceWindowsByUserLogin = `-- name: GetMaintenanceWindowsByUserLogin :many
+SELECT m.id, m.user_login, m.title, m.description, m.type, m.config, u.login, u.password_hash
+FROM "maintenance_window" m
+         JOIN "user" u ON m.user_login = u.login
+WHERE m.user_login = $1
+ORDER BY m.title
+`
+
+type GetMaintenanceWindowsByUserLoginRow struct {
+	MaintenanceWindow MaintenanceWindow `json:"maintenance_window"`
+	User              User              `json:"user"`
+}
+
+func (q *Queries) GetMaintenanceWindowsByUserLogin(ctx context.Context, userLogin string) ([]GetMaintenanceWindowsByUserLoginRow, error) {
+	rows, err := q.db.Query(ctx, getMaintenanceWindowsByUserLogin, userLogin)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMaintenanceWindowsByUserLoginRow
+	for rows.Next() {
+		var i GetMaintenanceWindowsByUserLoginRow
+		if err := rows.Scan(
+			&i.MaintenanceWindow.ID,
+			&i.MaintenanceWindow.UserLogin,
+			&i.MaintenanceWindow.Title,
+			&i.MaintenanceWindow.Description,
+			&i.MaintenanceWindow.Type,
+			&i.MaintenanceWindow.Config,
+			&i.User.Login,
+			&i.User.PasswordHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const linkMonitor = `-- name: LinkMonitor :exec
 INSERT INTO "maintenance_window_monitor" (monitor_id, window_id)
 VALUES ($1, $2)

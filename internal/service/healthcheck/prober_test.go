@@ -1,4 +1,4 @@
-package service
+package healtcheck_service
 
 import (
 	"WatchTower/internal/domain/entity/target"

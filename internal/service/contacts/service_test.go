@@ -4,7 +4,7 @@ import (
 	alert "WatchTower/internal/domain/entity/alert_contact"
 	"WatchTower/internal/domain/entity/user"
 	baseservice "WatchTower/internal/service"
-	contactdto "WatchTower/internal/service/notification/dto"
+	contactdto "WatchTower/internal/service/contacts/dto"
 	"WatchTower/internal/service/testmocks"
 	"WatchTower/internal/testutil"
 	"context"
@@ -14,12 +14,12 @@ import (
 	"github.com/google/uuid"
 )
 
-func newNotificationTestService(ctrl *gomock.Controller) (*notificationService, *testmocks.MockAlertContactRepository, *testmocks.MockUserProvider) {
+func newNotificationTestService(ctrl *gomock.Controller) (*contactService, *testmocks.MockAlertContactRepository, *testmocks.MockUserProvider) {
 	repo := testmocks.NewMockAlertContactRepository(ctrl)
 	provider := testmocks.NewMockUserProvider(ctrl)
 	logger := testutil.NoopLogger()
 
-	svc := NewNotificationService(repo, provider, logger).(*notificationService)
+	svc := NewContactService(repo, provider, logger).(*contactService)
 	return svc, repo, provider
 }
 
@@ -50,12 +50,12 @@ func TestNotificationService_GetAlertContacts(t *testing.T) {
 	provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
 	repo.EXPECT().GetByUserLogin(gomock.Any(), "alice").Return([]alert.Contact{{Name: "a"}}, nil)
 
-	contacts, err := svc.GetAlertContacts(context.Background())
+	contacts, err := svc.GetAllAlertContacts(context.Background())
 	if err != nil {
-		t.Fatalf("GetAlertContacts() error = %v", err)
+		t.Fatalf("GetAllAlertContacts() error = %v", err)
 	}
 	if len(contacts) != 1 {
-		t.Fatalf("GetAlertContacts() len = %d, want 1", len(contacts))
+		t.Fatalf("GetAllAlertContacts() len = %d, want 1", len(contacts))
 	}
 }
 

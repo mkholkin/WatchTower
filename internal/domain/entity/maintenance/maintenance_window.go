@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"WatchTower/internal/domain/entity/user"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,22 +32,23 @@ func NewOneTimeMaintenanceWindow(
 	endTime time.Time,
 ) (*MaintenanceWindow, error) {
 	if user == nil {
-		return nil, errors.New("user is required")
+		return nil, wrapValidation("user is required")
 	}
 	if title == "" {
-		return nil, errors.New("title is required")
+		return nil, wrapValidation("title is required")
 	}
 	if startTime.IsZero() || endTime.IsZero() {
-		return nil, errors.New("start_time and end_time are required for one-time maintenance window")
+		return nil, wrapValidation("start_time and end_time are required for one-time maintenance window")
 	}
 	if !endTime.After(startTime) {
-		return nil, errors.New("end_time must be after start_time")
+		return nil, wrapValidation("end_time must be after start_time")
 	}
 	if endTime.Before(time.Now()) {
-		return nil, errors.New("end_time must be in the future")
+		return nil, wrapValidation("end_time must be in the future")
 	}
 
 	return &MaintenanceWindow{
+		ID:                    uuid.New(),
 		User:                  user,
 		Title:                 title,
 		Description:           description,
@@ -67,13 +67,14 @@ func NewManualMaintenanceWindow(
 	description string,
 ) (*MaintenanceWindow, error) {
 	if user == nil {
-		return nil, errors.New("user is required")
+		return nil, wrapValidation("user is required")
 	}
 	if title == "" {
-		return nil, errors.New("title is required")
+		return nil, wrapValidation("title is required")
 	}
 
 	return &MaintenanceWindow{
+		ID:                    uuid.New(),
 		User:                  user,
 		Title:                 title,
 		Description:           description,
@@ -96,7 +97,7 @@ type MaintenanceWindowUpdate struct {
 func (mw *MaintenanceWindow) ApplyUpdate(upd MaintenanceWindowUpdate) error {
 	if upd.Title != nil {
 		if *upd.Title == "" {
-			return errors.New("title cannot be empty")
+			return wrapValidation("title cannot be empty")
 		}
 		mw.Title = *upd.Title
 	}
@@ -120,4 +121,3 @@ func (mw *MaintenanceWindow) ApplyUpdate(upd MaintenanceWindowUpdate) error {
 func (mw *MaintenanceWindow) IsActive() bool {
 	return mw.MaintenanceWindowConfig.IsActive()
 }
-

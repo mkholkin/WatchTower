@@ -270,6 +270,19 @@ func parseJSONArray(raw interface{}, dst interface{}) error {
 		data = v
 	case string:
 		data = []byte(v)
+	case []interface{}:
+		encoded, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		data = encoded
+	case map[string]interface{}:
+		// Defensive fallback: some drivers may decode JSON into map/object.
+		encoded, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		data = encoded
 	default:
 		return fmt.Errorf("unexpected JSON aggregate type: %T", raw)
 	}

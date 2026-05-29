@@ -1,4 +1,4 @@
-package service
+package analyzation_service
 
 import (
 	"WatchTower/internal/domain/entity/monitor"
@@ -87,12 +87,30 @@ func NewProbeAnalyzationService(
 	}
 }
 
-// Run executes a single analysis cycle: fetch → load-shed → enrich → evaluate → commit.
-// It is designed to be called periodically (e.g. by a ticker or cron-like scheduler).
+// Run executes analysis cycles until context cancellation.
+// Current analysis body is executed immediately and then every second.
 func (s *ProbeAnalyzationService) Run(ctx context.Context) error {
+	ticker := time.NewTicker(500 * time.Millisecond) // TODO: вынести в конфигурацию
+	defer ticker.Stop()
+
+	for {
+		if err := s.runOnce(ctx); err != nil {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+		}
+	}
+}
+
+func (s *ProbeAnalyzationService) runOnce(ctx context.Context) error {
 	// 1. Fetch unprocessed probe results.
 	results, err := s.fetch(ctx)
 	if err != nil {
+		s.log.Error("Failed to fetch results", "error", err)
 		return fmt.Errorf("fetch unprocessed results: %w", err)
 	}
 	if len(results) == 0 {
@@ -136,13 +154,13 @@ func (s *ProbeAnalyzationService) Run(ctx context.Context) error {
 }
 
 // fetch retrieves a batch of unprocessed probe results from the repository.
-func (s *ProbeAnalyzationService) fetch(ctx context.Context) ([]probe.Result, error) {
+func (s *ProbeAnalyzationService) fetch(ctx context.Context) ([]*probe.Result, error) {
 	return s.probeRepo.FetchUnprocessed(ctx, s.cfg.FetchLimit)
 }
 
 // loadShed splits results into active (to be processed) and canceled (to be discarded).
 // If the total exceeds LoadSheddingThreshold, only the newest results (by position) are kept.
-func (s *ProbeAnalyzationService) loadShed(results []probe.Result) (active, canceled []probe.Result) {
+func (s *ProbeAnalyzationService) loadShed(results []*probe.Result) (active, canceled []*probe.Result) {
 	if len(results) <= s.cfg.LoadSheddingThreshold {
 		return results, nil
 	}
@@ -154,7 +172,7 @@ func (s *ProbeAnalyzationService) loadShed(results []probe.Result) (active, canc
 }
 
 // markCanceled sets the processing status of the given results to "canceled".
-func (s *ProbeAnalyzationService) markCanceled(ctx context.Context, canceled []probe.Result) error {
+func (s *ProbeAnalyzationService) markCanceled(ctx context.Context, canceled []*probe.Result) error {
 	ids := make([]uuid.UUID, len(canceled))
 	for i, r := range canceled {
 		ids[i] = r.ID
@@ -163,7 +181,7 @@ func (s *ProbeAnalyzationService) markCanceled(ctx context.Context, canceled []p
 }
 
 // extractTargetIDs returns a deduplicated slice of target IDs from the given probe results.
-func (s *ProbeAnalyzationService) extractTargetIDs(results []probe.Result) []uuid.UUID {
+func (s *ProbeAnalyzationService) extractTargetIDs(results []*probe.Result) []uuid.UUID {
 	seen := make(map[uuid.UUID]struct{}, len(results))
 	ids := make([]uuid.UUID, 0, len(results))
 
@@ -182,7 +200,10 @@ func (s *ProbeAnalyzationService) extractTargetIDs(results []probe.Result) []uui
 }
 
 // enrich fetches monitors that are ready for evaluation for the given target IDs.
-func (s *ProbeAnalyzationService) enrich(ctx context.Context, targetIDs []uuid.UUID) (map[uuid.UUID]*monitor.Monitor, error) {
+func (s *ProbeAnalyzationService) enrich(
+	ctx context.Context,
+	targetIDs []uuid.UUID,
+) (map[uuid.UUID][]*monitor.Monitor, error) {
 	if len(targetIDs) == 0 {
 		return nil, nil
 	}
@@ -194,11 +215,11 @@ func (s *ProbeAnalyzationService) enrich(ctx context.Context, targetIDs []uuid.U
 // Returns the summaries to persist, monitors whose status changed, and processed result IDs.
 func (s *ProbeAnalyzationService) evaluate(
 	ctx context.Context,
-	results []probe.Result,
-	monitors map[uuid.UUID]*monitor.Monitor,
-) ([]probe.Summary, []*monitor.Monitor, []uuid.UUID, error) {
+	results []*probe.Result,
+	monitors map[uuid.UUID][]*monitor.Monitor,
+) ([]*probe.Summary, []*monitor.Monitor, []uuid.UUID, error) {
 	var (
-		summaries       []probe.Summary
+		summaries       []*probe.Summary
 		updatedMonitors []*monitor.Monitor
 		processedIDs    []uuid.UUID
 		// Track which monitors we've already recorded as "updated" to avoid duplicates.
@@ -206,69 +227,65 @@ func (s *ProbeAnalyzationService) evaluate(
 	)
 
 	for i := range results {
-		r := &results[i]
-		if r.Target == nil {
-			s.log.Error("probe result has nil target, skipping", "probe_result_id", r.ID)
-			processedIDs = append(processedIDs, r.ID)
-			continue
-		}
+		r := results[i]
 
-		mon, ok := monitors[r.Target.ID]
-		if !ok {
+		targetMonitors, ok := monitors[r.Target.ID]
+		if !ok || len(targetMonitors) == 0 {
 			// No monitor is due for evaluation for this target – still mark probe as processed.
-			s.log.Debug("no monitor to evaluate for target", "target_id", r.Target.ID, "probe_result_id", r.ID)
+			s.log.Error("no monitor to evaluate for target", "target_id", r.Target.ID, "probe_result_id", r.ID)
 			processedIDs = append(processedIDs, r.ID)
 			continue
 		}
 
-		// Determine monitor status: maintenance takes precedence.
-		var newStatus monitor.Status
-		if mon.OnMaintenance() {
-			newStatus = monitor.StatusMaintenance
-		} else {
-			evaluated, err := s.evaluator.Evaluate(ctx, r, mon)
-			if err != nil {
-				s.log.Error("evaluation failed", "probe_result_id", r.ID, "monitor_id", mon.ID, "error", err)
-				processedIDs = append(processedIDs, r.ID)
-				continue
+		for _, mon := range targetMonitors {
+			// Determine monitor status: maintenance takes precedence.
+			var newStatus monitor.Status
+			if mon.OnMaintenance() {
+				newStatus = monitor.StatusMaintenance
+			} else {
+				evaluated, err := s.evaluator.Evaluate(ctx, r, mon)
+				if err != nil {
+					s.log.Error("evaluation failed", "probe_result_id", r.ID, "monitor_id", mon.ID, "error", err)
+					continue
+				}
+				newStatus = evaluated
 			}
-			newStatus = evaluated
-		}
 
-		// Build ProbeSummary.
-		summary := probe.Summary{
-			MonitorID:      mon.ID,
-			LatencyMs:      r.LatencyMs,
-			ProbeTime:      r.ProbeTime,
-			MonitorStatus:  newStatus,
-			NetworkFailure: r.NetworkFailure,
-		}
-		if r.StatusCode.Valid {
-			summary.StatusCode = r.StatusCode.Int32
-		}
-		summaries = append(summaries, summary)
-
-		// Detect status transition.
-		oldStatus := mon.CurrentStatus
-		if newStatus != oldStatus {
-			s.log.Info("monitor status changed",
-				"monitor_id", mon.ID,
-				"old_status", oldStatus,
-				"new_status", newStatus,
-			)
-
-			if err := s.publishStatusChanged(mon.ID, oldStatus, newStatus); err != nil {
-				s.log.Error("failed to publish status change event", "monitor_id", mon.ID, "error", err)
-				// Non-fatal: continue processing.
+			// Build ProbeSummary.
+			summary := &probe.Summary{
+				MonitorID:      mon.ID,
+				LatencyMs:      r.LatencyMs,
+				ProbeTime:      r.ProbeTime,
+				MonitorStatus:  newStatus,
+				NetworkFailure: r.NetworkFailure,
 			}
-		}
+			if r.StatusCode.Valid {
+				summary.StatusCode = r.StatusCode.Int32
+			}
+			summaries = append(summaries, summary)
 
-		// Update in-memory monitor state for bulk persistence.
-		mon.CurrentStatus = newStatus
-		mon.LastEvaluatedAt = time.Now()
-		if _, ok := monitorSeen[mon.ID]; !ok {
-			monitorSeen[mon.ID] = struct{}{}
-			updatedMonitors = append(updatedMonitors, mon)
+			// Detect status transition.
+			oldStatus := mon.CurrentStatus
+			if newStatus != oldStatus {
+				s.log.Info("monitor status changed",
+					"monitor_id", mon.ID,
+					"old_status", oldStatus,
+					"new_status", newStatus,
+				)
+
+				if err := s.publishStatusChanged(mon.ID, oldStatus, newStatus); err != nil {
+					s.log.Error("failed to publish status change event", "monitor_id", mon.ID, "error", err)
+					// Non-fatal: continue processing.
+				}
+			}
+
+			// Update in-memory monitor state for bulk persistence.
+			mon.CurrentStatus = newStatus
+			mon.LastEvaluatedAt = r.ProbeTime
+			if _, ok := monitorSeen[mon.ID]; !ok {
+				monitorSeen[mon.ID] = struct{}{}
+				updatedMonitors = append(updatedMonitors, mon)
+			}
 		}
 
 		processedIDs = append(processedIDs, r.ID)
@@ -301,7 +318,7 @@ func (s *ProbeAnalyzationService) publishStatusChanged(
 // commit persists all artefacts produced by the evaluation step in a single logical batch.
 func (s *ProbeAnalyzationService) commit(
 	ctx context.Context,
-	summaries []probe.Summary,
+	summaries []*probe.Summary,
 	updatedMonitors []*monitor.Monitor,
 	processedIDs []uuid.UUID,
 ) error {

@@ -1,4 +1,4 @@
-package service
+package analyzation_service
 
 import (
 	"WatchTower/internal/domain/entity/probe"
@@ -30,9 +30,17 @@ func TestProbeAnalyzationService_Run_NoResults(t *testing.T) {
 		logger,
 	)
 
-	probeRepo.EXPECT().FetchUnprocessed(gomock.Any(), 10).Return([]probe.Result{}, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	if err := svc.Run(context.Background()); err != nil {
+	probeRepo.EXPECT().FetchUnprocessed(gomock.Any(), 10).DoAndReturn(
+		func(context.Context, int) ([]*probe.Result, error) {
+			cancel()
+			return []*probe.Result{}, nil
+		},
+	)
+
+	if err := svc.Run(ctx); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 }

@@ -5,7 +5,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 -- name: GetUnprocessedProbeResults :many
 SELECT *
 FROM "probe_result"
-WHERE processing_status = 'new'
+WHERE processing_status = 'NEW'
 ORDER BY probe_time ASC
 LIMIT $1;
 

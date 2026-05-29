@@ -60,7 +60,7 @@ func (q *Queries) CreateProbeResult(ctx context.Context, arg CreateProbeResultPa
 const getUnprocessedProbeResults = `-- name: GetUnprocessedProbeResults :many
 SELECT id, target_id, probe_time, latency_ms, status_code, network_failure, error_message, meta, processing_status
 FROM "probe_result"
-WHERE processing_status = 'new'
+WHERE processing_status = 'NEW'
 ORDER BY probe_time ASC
 LIMIT $1
 `
