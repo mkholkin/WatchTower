@@ -94,6 +94,21 @@ func (mr *MockMaintenanceWindowRepositoryMockRecorder) GetByIDBulk(ctx, ids inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByIDBulk", reflect.TypeOf((*MockMaintenanceWindowRepository)(nil).GetByIDBulk), ctx, ids)
 }
 
+// GetByUserLogin mocks base method.
+func (m *MockMaintenanceWindowRepository) GetByUserLogin(ctx context.Context, userLogin string) ([]maintenance.MaintenanceWindow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByUserLogin", ctx, userLogin)
+	ret0, _ := ret[0].([]maintenance.MaintenanceWindow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByUserLogin indicates an expected call of GetByUserLogin.
+func (mr *MockMaintenanceWindowRepositoryMockRecorder) GetByUserLogin(ctx, userLogin interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByUserLogin", reflect.TypeOf((*MockMaintenanceWindowRepository)(nil).GetByUserLogin), ctx, userLogin)
+}
+
 // LinkMonitor mocks base method.
 func (m *MockMaintenanceWindowRepository) LinkMonitor(ctx context.Context, window *maintenance.MaintenanceWindow, monitorID uuid.UUID) error {
 	m.ctrl.T.Helper()

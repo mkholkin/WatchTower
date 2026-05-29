@@ -34,7 +34,16 @@ type DatabaseConfig struct {
 }
 
 type ServiceDBConfig struct {
-	DSN string `yaml:"dsn"`
+	Type string `yaml:"type"` // "postgres" (default) or "mongodb"
+	DSN  string `yaml:"dsn"`
+}
+
+// DBType returns the database type, defaulting to "postgres" if empty.
+func (c ServiceDBConfig) DBType() string {
+	if c.Type == "" {
+		return "postgres"
+	}
+	return c.Type
 }
 
 type RedisConfig struct {

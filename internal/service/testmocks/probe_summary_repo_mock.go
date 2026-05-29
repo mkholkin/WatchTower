@@ -8,6 +8,7 @@ import (
 	probe "WatchTower/internal/domain/entity/probe"
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	uuid "github.com/google/uuid"
@@ -64,17 +65,32 @@ func (mr *MockProbeSummaryRepositoryMockRecorder) Create(ctx, summary interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockProbeSummaryRepository)(nil).Create), ctx, summary)
 }
 
-// GetByMonitorID mocks base method.
-func (m *MockProbeSummaryRepository) GetByMonitorID(ctx context.Context, monitorID uuid.UUID, limit int) ([]*probe.Summary, error) {
+// GetMonitorLatestSummaries mocks base method.
+func (m *MockProbeSummaryRepository) GetMonitorLatestSummaries(ctx context.Context, monitorID uuid.UUID, limit int) ([]*probe.Summary, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByMonitorID", ctx, monitorID, limit)
+	ret := m.ctrl.Call(m, "GetMonitorLatestSummaries", ctx, monitorID, limit)
 	ret0, _ := ret[0].([]*probe.Summary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetByMonitorID indicates an expected call of GetByMonitorID.
-func (mr *MockProbeSummaryRepositoryMockRecorder) GetByMonitorID(ctx, monitorID, limit interface{}) *gomock.Call {
+// GetMonitorLatestSummaries indicates an expected call of GetMonitorLatestSummaries.
+func (mr *MockProbeSummaryRepositoryMockRecorder) GetMonitorLatestSummaries(ctx, monitorID, limit interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByMonitorID", reflect.TypeOf((*MockProbeSummaryRepository)(nil).GetByMonitorID), ctx, monitorID, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMonitorLatestSummaries", reflect.TypeOf((*MockProbeSummaryRepository)(nil).GetMonitorLatestSummaries), ctx, monitorID, limit)
+}
+
+// GetMonitorSummariesForPeriod mocks base method.
+func (m *MockProbeSummaryRepository) GetMonitorSummariesForPeriod(ctx context.Context, monitorID uuid.UUID, from, to time.Time) ([]*probe.Summary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMonitorSummariesForPeriod", ctx, monitorID, from, to)
+	ret0, _ := ret[0].([]*probe.Summary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMonitorSummariesForPeriod indicates an expected call of GetMonitorSummariesForPeriod.
+func (mr *MockProbeSummaryRepositoryMockRecorder) GetMonitorSummariesForPeriod(ctx, monitorID, from, to interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMonitorSummariesForPeriod", reflect.TypeOf((*MockProbeSummaryRepository)(nil).GetMonitorSummariesForPeriod), ctx, monitorID, from, to)
 }

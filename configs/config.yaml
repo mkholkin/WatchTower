@@ -1,7 +1,7 @@
 logging:
   level: "info"
   format: "json"
-  output: "watchtower.log"
+ # output: "watchtower.log"
 
 auth:
   jwt_secret: "1234567890abcdef1234567890abcdef"
@@ -22,6 +22,29 @@ database:
     dsn: "postgresql://analyzer:password@localhost:5432/watchtower?sslmode=disable"
   contacts:
     dsn: "postgresql://alert_contacts_svc:password@localhost:5432/watchtower?sslmode=disable"
+#
+#database:
+#  monitoring:
+#    type: "mongodb"
+#    dsn: "mongodb://admin:admin@localhost:27017/watchtower?authSource=admin"
+#  maintenance:
+#    type: "mongodb"
+#    dsn: "mongodb://admin:admin@localhost:27017/watchtower?authSource=admin"
+#  auth:
+#    type: "mongodb"
+#    dsn: "mongodb://admin:admin@localhost:27017/watchtower?authSource=admin"
+#  metrics:
+#    type: "mongodb"
+#    dsn: "mongodb://admin:admin@localhost:27017/watchtower?authSource=admin"
+#  healthchecker:
+#    type: "mongodb"
+#    dsn: "mongodb://admin:admin@localhost:27017/watchtower?authSource=admin"
+#  analyzer:
+#    type: "mongodb"
+#    dsn: "mongodb://admin:admin@localhost:27017/watchtower?authSource=admin"
+#  contacts:
+#    type: "mongodb"
+#    dsn: "mongodb://admin:admin@localhost:27017/watchtower?authSource=admin"
 
 redis:
   url: "redis://localhost:6379/0"

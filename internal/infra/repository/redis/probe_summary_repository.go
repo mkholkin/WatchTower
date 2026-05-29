@@ -135,6 +135,10 @@ func (r *probeSummaryRepositoryCache) Create(ctx context.Context, summary *probe
 		r.log.Debug("skip cache update on write: queue is absent or expired", "monitor_id", summary.MonitorID)
 	}
 
+	if err := r.fallback.Create(ctx, summary); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -153,6 +157,10 @@ func (r *probeSummaryRepositoryCache) BulkCreate(ctx context.Context, summaries 
 		if !updated {
 			r.log.Debug("skip cache update on write: queue is absent or expired", "monitor_id", summaries[i].MonitorID)
 		}
+	}
+
+	if err := r.fallback.BulkCreate(ctx, summaries); err != nil {
+		return err
 	}
 
 	return nil

@@ -6,6 +6,7 @@ import (
 	"WatchTower/internal/domain/entity/target"
 	notifinfra "WatchTower/internal/infra/notification"
 	infra "WatchTower/internal/infra/probe"
+	"WatchTower/internal/infra/repository/mongodb"
 	"WatchTower/internal/infra/repository/postgres"
 	"WatchTower/internal/infra/repository/redis"
 	analyzationsvc "WatchTower/internal/service/analyze"
@@ -19,12 +20,14 @@ import (
 	"WatchTower/internal/service/notification"
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"log/slog"
 )
@@ -40,10 +43,12 @@ type App struct {
 	analyzer      *analyzationsvc.ProbeAnalyzationService
 	notificator   notification.NotificationService
 
-	eventBus    *gochannel.GoChannel
-	redisClient *goredis.Client
-	pools       map[string]*pgxpool.Pool
-	logger      *slog.Logger
+	eventBus     *gochannel.GoChannel
+	redisClient  *goredis.Client
+	pgPools      map[string]*pgxpool.Pool
+	mongoDBs     map[string]*mongo.Database
+	mongoClients map[string]*mongo.Client
+	logger       *slog.Logger
 
 	cancel context.CancelFunc
 }
@@ -89,17 +94,13 @@ func InitApp(ctx context.Context, cfg *configs.Config) (*App, error) {
 	)
 
 	app := &App{
-		eventBus:    eventBus,
-		redisClient: redisClient,
-		pools:       make(map[string]*pgxpool.Pool),
-		logger:      logger,
+		eventBus:     eventBus,
+		redisClient:  redisClient,
+		pgPools:      make(map[string]*pgxpool.Pool),
+		mongoDBs:     make(map[string]*mongo.Database),
+		mongoClients: make(map[string]*mongo.Client),
+		logger:       logger,
 	}
-
-	metricsPool, err := newPgPool(ctx, cfg.Database.Metrics.DSN)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init metrics db pool: %v", err)
-	}
-	app.pools["metrics"] = metricsPool
 
 	userProvider, err := app.initAuthService(ctx, cfg)
 	if err != nil {
@@ -138,13 +139,24 @@ func InitApp(ctx context.Context, cfg *configs.Config) (*App, error) {
 }
 
 func (a *App) initAuthService(ctx context.Context, cfg *configs.Config) (provider.UserProvider, error) {
-	authPool, err := newPgPool(ctx, cfg.Database.Auth.DSN)
+	if cfg.Database.Auth.DBType() == "mongodb" {
+		db, err := a.getOrCreateMongoDB(ctx, cfg.Database.Auth.DSN, "auth")
+		if err != nil {
+			return nil, fmt.Errorf("failed to init auth mongo db: %w", err)
+		}
+		userRepo := mongodb.NewUserRepository(db, a.logger)
+		jwtTTL := time.Duration(cfg.Auth.JWTTTLHours) * time.Hour
+		a.AuthSvc = authsvc.NewService(userRepo, cfg.Auth.JWTSecret, jwtTTL)
+		return provider.NewUserProvider(userRepo), nil
+	}
+
+	pool, err := newPgPool(ctx, cfg.Database.Auth.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init auth db pool: %v", err)
 	}
-	a.pools["auth"] = authPool
+	a.pgPools["auth"] = pool
 
-	userRepo := postgres.NewUserRepository(authPool, a.logger)
+	userRepo := postgres.NewUserRepository(pool, a.logger)
 	jwtTTL := time.Duration(cfg.Auth.JWTTTLHours) * time.Hour
 	a.AuthSvc = authsvc.NewService(userRepo, cfg.Auth.JWTSecret, jwtTTL)
 
@@ -152,163 +164,265 @@ func (a *App) initAuthService(ctx context.Context, cfg *configs.Config) (provide
 }
 
 func (a *App) initMonitoringService(ctx context.Context, cfg *configs.Config, userProvider provider.UserProvider) error {
-	monitoringPool, err := newPgPool(ctx, cfg.Database.Monitoring.DSN)
+	if cfg.Database.Monitoring.DBType() == "mongodb" {
+		db, err := a.getOrCreateMongoDB(ctx, cfg.Database.Monitoring.DSN, "monitoring")
+		if err != nil {
+			return fmt.Errorf("failed to init monitoring mongo db: %w", err)
+		}
+		a.MonitoringSvc = monitoringsvc.NewMonitoringManagementService(
+			mongodb.NewMonitorRepository(db, a.logger),
+			mongodb.NewTargetRepository(db, a.logger),
+			mongodb.NewAlertContactRepository(db, a.logger),
+			mongodb.NewMaintenanceWindowRepository(db, a.logger),
+			userProvider, a.eventBus, a.logger,
+		)
+		return nil
+	}
+
+	pool, err := newPgPool(ctx, cfg.Database.Monitoring.DSN)
 	if err != nil {
 		return fmt.Errorf("failed to init monitoring db pool: %v", err)
 	}
-	a.pools["monitoring"] = monitoringPool
-
-	monitoringMonitorRepo := postgres.NewMonitorRepository(monitoringPool, a.logger)
-	monitoringTargetRepo := postgres.NewTargetRepository(monitoringPool, a.logger)
-	monitoringAlertContactRepo := postgres.NewAlertContactRepository(monitoringPool, a.logger)
-	monitoringMWRepo := postgres.NewMaintenanceWindowRepository(monitoringPool, a.logger)
+	a.pgPools["monitoring"] = pool
 
 	a.MonitoringSvc = monitoringsvc.NewMonitoringManagementService(
-		monitoringMonitorRepo,
-		monitoringTargetRepo,
-		monitoringAlertContactRepo,
-		monitoringMWRepo,
-		userProvider,
-		a.eventBus,
-		a.logger,
+		postgres.NewMonitorRepository(pool, a.logger),
+		postgres.NewTargetRepository(pool, a.logger),
+		postgres.NewAlertContactRepository(pool, a.logger),
+		postgres.NewMaintenanceWindowRepository(pool, a.logger),
+		userProvider, a.eventBus, a.logger,
 	)
 	return nil
 }
 
 func (a *App) initMaintenanceService(ctx context.Context, cfg *configs.Config, userProvider provider.UserProvider) error {
-	maintenancePool, err := newPgPool(ctx, cfg.Database.Maintenance.DSN)
+	if cfg.Database.Maintenance.DBType() == "mongodb" {
+		db, err := a.getOrCreateMongoDB(ctx, cfg.Database.Maintenance.DSN, "maintenance")
+		if err != nil {
+			return fmt.Errorf("failed to init maintenance mongo db: %w", err)
+		}
+		a.MaintenanceSvc = maintenancesvc.NewMaintenanceService(
+			mongodb.NewMaintenanceWindowRepository(db, a.logger),
+			mongodb.NewMonitorRepository(db, a.logger),
+			userProvider, a.logger,
+		)
+		return nil
+	}
+
+	pool, err := newPgPool(ctx, cfg.Database.Maintenance.DSN)
 	if err != nil {
 		return fmt.Errorf("failed to init maintenance db pool: %v", err)
 	}
-	a.pools["maintenance"] = maintenancePool
-
-	maintenanceMonitorRepo := postgres.NewMonitorRepository(maintenancePool, a.logger)
-	maintenanceMWRepo := postgres.NewMaintenanceWindowRepository(maintenancePool, a.logger)
+	a.pgPools["maintenance"] = pool
 
 	a.MaintenanceSvc = maintenancesvc.NewMaintenanceService(
-		maintenanceMWRepo,
-		maintenanceMonitorRepo,
-		userProvider,
-		a.logger,
+		postgres.NewMaintenanceWindowRepository(pool, a.logger),
+		postgres.NewMonitorRepository(pool, a.logger),
+		userProvider, a.logger,
 	)
 	return nil
 }
 
 func (a *App) initContactService(ctx context.Context, cfg *configs.Config, userProvider provider.UserProvider) error {
-	contactsPool, err := newPgPool(ctx, cfg.Database.Contacts.DSN)
+	if cfg.Database.Contacts.DBType() == "mongodb" {
+		db, err := a.getOrCreateMongoDB(ctx, cfg.Database.Contacts.DSN, "contacts")
+		if err != nil {
+			return fmt.Errorf("failed to init contacts mongo db: %w", err)
+		}
+		a.AlertContactsSvc = contactssvc.NewContactService(
+			mongodb.NewAlertContactRepository(db, a.logger),
+			userProvider, a.logger,
+		)
+		return nil
+	}
+
+	pool, err := newPgPool(ctx, cfg.Database.Contacts.DSN)
 	if err != nil {
 		return fmt.Errorf("failed to init contacts db pool: %v", err)
 	}
-	a.pools["contacts"] = contactsPool
-
-	contactsAlertContactRepo := postgres.NewAlertContactRepository(contactsPool, a.logger)
+	a.pgPools["contacts"] = pool
 
 	a.AlertContactsSvc = contactssvc.NewContactService(
-		contactsAlertContactRepo,
-		userProvider,
-		a.logger,
+		postgres.NewAlertContactRepository(pool, a.logger),
+		userProvider, a.logger,
 	)
 	return nil
 }
 
-func (a *App) initMetricsQueryService(_ context.Context, _ *configs.Config, userProvider provider.UserProvider) error {
-	metricsPool, ok := a.pools["metrics"]
-	if !ok {
-		return fmt.Errorf("metrics pool must be initialized before metrics query service")
-	}
-	if a.redisClient == nil {
-		return fmt.Errorf("redis client must be initialized before metrics query service")
+func (a *App) initMetricsQueryService(ctx context.Context, cfg *configs.Config, userProvider provider.UserProvider) error {
+	if cfg.Database.Metrics.DBType() == "mongodb" {
+		db, err := a.getOrCreateMongoDB(ctx, cfg.Database.Metrics.DSN, "metrics")
+		if err != nil {
+			return fmt.Errorf("failed to init metrics mongo db: %w", err)
+		}
+		probeSummaryRepo := mongodb.NewProbeSummaryRepository(db, a.logger)
+		cachedSummaryRepo := redis.NewProbeSummaryRepository(a.redisClient, probeSummaryRepo, a.logger)
+		a.MetricsQuerySvc = metricssvc.NewMetricsQueryService(
+			mongodb.NewMonitorRepository(db, a.logger),
+			userProvider,
+			mongodb.NewAnalyticsRepository(db, a.logger),
+			cachedSummaryRepo,
+		)
+		return nil
 	}
 
-	metricsMonitorRepo := postgres.NewMonitorRepository(metricsPool, a.logger)
-	metricsRepo := postgres.NewMetricsRepository(metricsPool, a.logger)
-	metricsProbeSummaryRepo := postgres.NewProbeSummaryRepository(metricsPool, a.logger)
-	probeSummaryRepo := redis.NewProbeSummaryRepository(
-		a.redisClient,
-		metricsProbeSummaryRepo,
-		a.logger,
-	)
+	pool, err := newPgPool(ctx, cfg.Database.Metrics.DSN)
+	if err != nil {
+		return fmt.Errorf("failed to init metrics db pool: %v", err)
+	}
+	a.pgPools["metrics"] = pool
 
+	probeSummaryRepo := postgres.NewProbeSummaryRepository(pool, a.logger)
+	cachedSummaryRepo := redis.NewProbeSummaryRepository(a.redisClient, probeSummaryRepo, a.logger)
 	a.MetricsQuerySvc = metricssvc.NewMetricsQueryService(
-		metricsMonitorRepo,
+		postgres.NewMonitorRepository(pool, a.logger),
 		userProvider,
-		metricsRepo,
-		probeSummaryRepo,
+		postgres.NewMetricsRepository(pool, a.logger),
+		cachedSummaryRepo,
 	)
 	return nil
 }
 
 func (a *App) initHealthChecker(ctx context.Context, cfg *configs.Config) error {
-	healthcheckerPool, err := newPgPool(ctx, cfg.Database.Healthchecker.DSN)
+	if cfg.Database.Healthchecker.DBType() == "mongodb" {
+		db, err := a.getOrCreateMongoDB(ctx, cfg.Database.Healthchecker.DSN, "healthchecker")
+		if err != nil {
+			return fmt.Errorf("failed to init healthchecker mongo db: %w", err)
+		}
+		registry := healthchecksvc.NewProberRegistry()
+		registry.Register(target.ProtocolHTTP, infra.NewHTTPProber())
+		a.healthchecker = healthchecksvc.NewHealthChecker(
+			mongodb.NewTargetRepository(db, a.logger),
+			mongodb.NewProbeResultRepository(db, a.logger),
+			a.eventBus, registry,
+			healthchecksvc.HealthCheckerConfig{WorkerCount: 5, TaskQueueSize: 100},
+			a.logger,
+		)
+		return nil
+	}
+
+	pool, err := newPgPool(ctx, cfg.Database.Healthchecker.DSN)
 	if err != nil {
 		return fmt.Errorf("failed to init healthchecker db pool: %v", err)
 	}
-	a.pools["healthchecker"] = healthcheckerPool
-
-	healthTargetRepo := postgres.NewTargetRepository(healthcheckerPool, a.logger)
-	healthProbeResultRepo := postgres.NewProbeResultRepository(healthcheckerPool, a.logger)
+	a.pgPools["healthchecker"] = pool
 
 	registry := healthchecksvc.NewProberRegistry()
 	registry.Register(target.ProtocolHTTP, infra.NewHTTPProber())
-
 	a.healthchecker = healthchecksvc.NewHealthChecker(
-		healthTargetRepo,
-		healthProbeResultRepo,
-		a.eventBus,
-		registry,
-		healthchecksvc.HealthCheckerConfig{WorkerCount: 5, TaskQueueSize: 100},
+		postgres.NewTargetRepository(pool, a.logger),
+		postgres.NewProbeResultRepository(pool, a.logger),
+		a.eventBus, registry,
+		healthchecksvc.HealthCheckerConfig{WorkerCount: 200, TaskQueueSize: 10000},
 		a.logger,
 	)
 	return nil
 }
 
 func (a *App) initAnalyzer(ctx context.Context, cfg *configs.Config) error {
-	analyzerPool, err := newPgPool(ctx, cfg.Database.Analyzer.DSN)
+	if cfg.Database.Analyzer.DBType() == "mongodb" {
+		db, err := a.getOrCreateMongoDB(ctx, cfg.Database.Analyzer.DSN, "analyzer")
+		if err != nil {
+			return fmt.Errorf("failed to init analyzer mongo db: %w", err)
+		}
+		probeSummaryRepo := mongodb.NewProbeSummaryRepository(db, a.logger)
+		cachedSummaryRepo := redis.NewProbeSummaryRepository(a.redisClient, probeSummaryRepo, a.logger)
+		evaluator := infra.NewHTTPProbeEvaluator()
+		a.analyzer = analyzationsvc.NewProbeAnalyzationService(
+			mongodb.NewMonitorRepository(db, a.logger),
+			mongodb.NewProbeResultRepository(db, a.logger),
+			cachedSummaryRepo, evaluator, a.eventBus,
+			analyzationsvc.ProbeAnalyzationServiceConfig{FetchLimit: -1, LoadSheddingThreshold: -1},
+			a.logger,
+		)
+		return nil
+	}
+
+	pool, err := newPgPool(ctx, cfg.Database.Analyzer.DSN)
 	if err != nil {
 		return fmt.Errorf("failed to init analyzer db pool: %v", err)
 	}
-	a.pools["analyzer"] = analyzerPool
+	a.pgPools["analyzer"] = pool
 
-	analyzerMonitorRepo := postgres.NewMonitorRepository(analyzerPool, a.logger)
-	analyzerProbeResultRepo := postgres.NewProbeResultRepository(analyzerPool, a.logger)
-	analyzerProbeSummaryRepo := postgres.NewProbeSummaryRepository(analyzerPool, a.logger)
-	probeSummaryRepo := redis.NewProbeSummaryRepository(
-		a.redisClient,
-		analyzerProbeSummaryRepo,
-		a.logger,
-	)
-
+	probeSummaryRepo := postgres.NewProbeSummaryRepository(pool, a.logger)
+	cachedSummaryRepo := redis.NewProbeSummaryRepository(a.redisClient, probeSummaryRepo, a.logger)
 	evaluator := infra.NewHTTPProbeEvaluator()
 	a.analyzer = analyzationsvc.NewProbeAnalyzationService(
-		analyzerMonitorRepo,
-		analyzerProbeResultRepo,
-		probeSummaryRepo,
-		evaluator,
-		a.eventBus,
-		analyzationsvc.ProbeAnalyzationServiceConfig{-1, -1},
+		postgres.NewMonitorRepository(pool, a.logger),
+		postgres.NewProbeResultRepository(pool, a.logger),
+		cachedSummaryRepo, evaluator, a.eventBus,
+		analyzationsvc.ProbeAnalyzationServiceConfig{FetchLimit: -1, LoadSheddingThreshold: -1},
 		a.logger,
 	)
 	return nil
 }
 
 func (a *App) initNotificationService(_ context.Context, _ *configs.Config) error {
-	monitoringPool, ok := a.pools["monitoring"]
-	if !ok {
-		return fmt.Errorf("monitoring pool must be initialized before notification service")
-	}
+	// notification service always uses the monitoring service's DB.
+	// Determine which backend monitoring uses by checking our registries.
+	pool, pgOk := a.pgPools["monitoring"]
+	db, mongoOk := a.mongoDBs["monitoring"]
 
-	monitoringMonitorRepo := postgres.NewMonitorRepository(monitoringPool, a.logger)
+	if !pgOk && !mongoOk {
+		return fmt.Errorf("monitoring db must be initialized before notification service")
+	}
 
 	notificationRegistry := notification.NewProviderRegistry()
 	notificationRegistry.Register(alert.ContactTypeTelegram, notifinfra.NewTelegramNotificationProvider(nil))
 
-	a.notificator = notification.NewNotificationService(
-		notificationRegistry,
-		a.eventBus,
-		monitoringMonitorRepo,
-		a.logger,
-	)
+	if pgOk {
+		a.notificator = notification.NewNotificationService(
+			notificationRegistry, a.eventBus,
+			postgres.NewMonitorRepository(pool, a.logger),
+			a.logger,
+		)
+	} else {
+		a.notificator = notification.NewNotificationService(
+			notificationRegistry, a.eventBus,
+			mongodb.NewMonitorRepository(db, a.logger),
+			a.logger,
+		)
+	}
 	return nil
+}
+
+// --- DB helpers ---
+
+func (a *App) getOrCreateMongoDB(ctx context.Context, dsn, serviceName string) (*mongo.Database, error) {
+	if db, ok := a.mongoDBs[serviceName]; ok {
+		return db, nil
+	}
+
+	// Reuse client if same DSN is already connected.
+	client, ok := a.mongoClients[dsn]
+	if !ok {
+		var err error
+		client, err = mongodb.NewClient(ctx, dsn)
+		if err != nil {
+			return nil, fmt.Errorf("mongo connect: %w", err)
+		}
+		a.mongoClients[dsn] = client
+	}
+
+	dbName := dbNameFromDSN(dsn)
+	db := client.Database(dbName)
+	a.mongoDBs[serviceName] = db
+	return db, nil
+}
+
+func dbNameFromDSN(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return "watchtower"
+	}
+	dbName := u.Path
+	if len(dbName) > 0 && dbName[0] == '/' {
+		dbName = dbName[1:]
+	}
+	if dbName == "" {
+		dbName = "watchtower"
+	}
+	return dbName
 }
 
 func (a *App) Start(ctx context.Context) {
@@ -336,7 +450,10 @@ func (a *App) Start(ctx context.Context) {
 
 func (a *App) Shutdown() {
 	a.cancel()
-	for _, pool := range a.pools {
+	for _, pool := range a.pgPools {
 		pool.Close()
+	}
+	for _, client := range a.mongoClients {
+		_ = client.Disconnect(context.Background())
 	}
 }
