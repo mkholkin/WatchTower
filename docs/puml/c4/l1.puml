@@ -1,0 +1,26 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+' Настройки отображения
+LAYOUT_WITH_LEGEND()
+title Диаграмма контекста (C4 Level 1) - Система мониторинга WatchTower
+
+' === Акторы (Пользователи) ===
+Person(user, "Пользователь", "DevOps-инженер, системный администратор или владелец сайта. Настраивает проверки и получает алерты.")
+
+' === Наша система ===
+System(watchtower, "WatchTower", "Платформа для непрерывного мониторинга доступности сервисов, расчета SLA и маршрутизации уведомлений об инцидентах.")
+
+' === Внешние системы ===
+System_Ext(target_systems, "Целевые ресурсы\n(Web, API, Servers)", "Внешние сайты, API и серверы, доступность которых проверяется системой.")
+System_Ext(notification_apis, "Платформы оповещений\n(Telegram API)", "Внешние провайдеры связи для доставки сообщений об инцидентах.")
+
+' === Взаимодействия (Связи) ===
+Rel(user, watchtower, "Настраивает мониторы, просматривает дашборды и метрики")
+
+Rel(watchtower, target_systems, "Опрашивает статус")
+Rel(watchtower, notification_apis, "Отправляет данные об инцидентах")
+
+Rel(notification_apis, user, "Доставляет уведомления")
+
+@enduml

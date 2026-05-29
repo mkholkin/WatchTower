@@ -1,0 +1,107 @@
+@startuml
+skinparam linetype ortho
+'left to right direction
+namespace healthcheck {
+    class "HealthChecker" << (S,Aquamarine) >> {
+        + Run(ctx context.Context) error
+
+    }
+    class "HealthCheckerConfig" << (S,Aquamarine) >> {
+        + WorkerCount int
+        + TaskQueueSize int
+
+    }
+    interface "Prober"  {
+        + Probe(ctx context.Context, target *target.Target) (probe.ProbeResult, error)
+    }
+    class "ProberRegistry" << (S,Aquamarine) >> {
+        + Register(protocol target.Protocol, prober Prober) 
+        + Get(protocol target.Protocol) (Prober, error)
+    }
+    class "Scheduler" << (S,Aquamarine) >> {
+        + Run(ctx context.Context) error
+
+    }
+
+    class "WorkerPool" << (S,Aquamarine) >> {
+        + Run(ctx context.Context) 
+
+    }
+    class "scheduleEntry" << (S,Aquamarine) >> {
+        + Target target.Target
+    }
+}
+
+enum "target.Protocol" {
+    HTTP
+    TCP
+    ICMP
+}
+
+struct target.Target {
+    + ID
+    + Endpoint
+    + Config
+    + IsActive
+    + ProbeIntervalSec
+}
+struct probe.ProbeResult {
+    + ID
+    + Target
+    + LatencyMs
+    + ProbeTime
+    + NetworkFailure
+    + StatusCode
+    + Meta
+    + ProcessingStatus
+}
+
+interface probe.ProbeResultRepository {
+    + Create(probeResult *ProbeResult)
+}
+
+interface "target.TargetRepository" {
+    + Create(ctx context.Context, target *Target) (int64, error)
+    + GetByID(ctx context.Context, id int64) (*Target, error)
+    + GetAllActive(ctx context.Context) ([]Target, error)
+    + Update(ctx context.Context, target *Target) error
+    + DeleteByID(ctx context.Context, id int64) error
+    + Disable(ctx context.Context, id int64) error
+    + Enable(ctx context.Context, id int64) error
+}
+
+namespace repository {
+    class "PostgresTargetRepository" implements "target.TargetRepository"{
+        + Create(ctx context.Context, target *target.Target) (int64, error)
+        + GetByID(ctx context.Context, id int64) (*target.Target, error)
+        + GetAllActive(ctx context.Context) ([]target.Target, error)
+        + Update(ctx context.Context, target *target.Target) error
+        + DeleteByID(ctx context.Context, id int64) error
+        + Disable(ctx context.Context, id int64) error
+        + Enable(ctx context.Context, id int64) error
+    }
+
+    class "PostgresProbeResultRepository" implements "probe.ProbeResultRepository" {
+        + Create(probeResult *probe.ProbeResult)
+    }
+}
+
+"healthcheck.HealthChecker" --> "target.Target"
+"healthcheck.HealthChecker" *-- "healthcheck.Scheduler"
+"healthcheck.HealthChecker" *-- "healthcheck.WorkerPool"
+"healthcheck.ProberRegistry" --> "target.Protocol"
+"healthcheck.ProberRegistry" o-- "healthcheck.Prober"
+"healthcheck.Scheduler" --> "target.Target"
+"healthcheck.Scheduler" o-- "target.TargetRepository"
+"healthcheck.Scheduler" o-- "healthcheck.scheduleEntry"
+"healthcheck.WorkerPool" o-- "probe.ProbeResultRepository"
+"healthcheck.WorkerPool" --> "target.Target"
+"healthcheck.WorkerPool" o-- "healthcheck.ProberRegistry"
+"healthcheck.scheduleEntry" o-- "target.Target"
+"HealthChecker" *-- "HealthCheckerConfig"
+target.Target --> "target.Protocol"
+"target.TargetRepository" --> target.Target
+"probe.ProbeResultRepository" --> probe.ProbeResult
+"probe.ProbeResult" o-- target.Target
+@enduml
+

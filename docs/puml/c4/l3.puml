@@ -1,0 +1,83 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+skinparam linetype polyline
+LAYOUT_WITH_LEGEND()
+
+title Диаграмма контейнеров (C4 Level 3) - WatchTower Backend Components
+
+' === External ===
+Person(user, "Пользователь", "DevOps/Admin")
+System_Ext(target_systems, "Target Resources", "HTTP/TCP/ICMP Targets")
+System_Ext(notification_apis, "Notification APIs", "Telegram, SMTP")
+
+System_Boundary(watchtower, "WatchTower System") {
+    Container(spa, "Frontend SPA", "React, TS", "Web Dashboard")
+
+    ContainerDb(db, "PostgreSQL", "Relational DB", "Persistent Data")
+    ContainerDb(redis, "Redis", "Key-Value Store", "Hot Cache & Last Known State")
+
+    System_Boundary(backend, "Backend Application") {
+
+        ' --- Data Access Layer ---
+        Container(repository, "Repository Layer", "Go Interface", "Абстракция доступа к данным (Postgres + Redis)")
+
+        ' --- API Layer ---
+        Container(auth_api, "Auth API", "Go/Gin", "REST Controller")
+        Container(monitoring_api, "Monitoring API", "Go/Gin", "REST Controller")
+
+        ' --- Domain Services (Business Logic) ---
+        Container(auth_service, "Auth Service", "Go", "Logic: Login, JWT")
+        Container(monitoring_service, "Monitoring Mgmt Service", "Go", "Logic: CRUD Monitors")
+        Container(metric_query_service, "Metric Query Service", "Go", "Logic: Read Stats/History (CQRS Read)")
+        Container(maintenance_service, "Maintenance Service", "Go", "Logic: Windows & Schedules")
+        Container(contact_service, "Contact Service", "Go", "Logic: Alert Contacts")
+
+        ' --- Background Workers ---
+        System_Boundary(workers, "Background Workers") {
+            Container(healthchecker, "Health Checker", "Go Routine", "Scheduler & Executor. Writes results to DB.")
+            Container(analyzer, "Analyzer", "Go Routine", "Polls results from DB, evaluates logic.")
+            Container(notifier, "Notifier", "Go Routine", "Sends alerts via providers.")
+            Container(notification_provider, "Notification Provider", "Interface", "Adapter for external APIs")
+        }
+    }
+}
+
+' === Relationships ===
+
+' Frontend to API
+Rel(user, spa, "Uses")
+Rel(spa, monitoring_api, "JSON/HTTPS")
+Rel(spa, auth_api, "JSON/HTTPS")
+
+' API to Services
+Rel(auth_api, auth_service, "Calls")
+Rel(monitoring_api, monitoring_service, "Calls")
+Rel(monitoring_api, metric_query_service, "Calls")
+Rel(monitoring_api, maintenance_service, "Calls")
+Rel(monitoring_api, contact_service, "Calls")
+
+' Services to Repository
+Rel(auth_service, repository, "Read/Write")
+Rel(monitoring_service, repository, "Read/Write")
+Rel(maintenance_service, repository, "Read/Write")
+Rel(contact_service, repository, "Read/Write")
+Rel(metric_query_service, repository, "Read Only")
+
+' Workers Interactions
+Rel(healthchecker, repository, "Writes Results")
+Rel(analyzer, repository, "Reads Results / Writes Status")
+Rel(analyzer, notifier, " ")
+Rel(notifier, notification_provider, "Uses")
+Rel(notifier, repository, "Reads Contact Info")
+
+' Notification Logic
+Rel(notification_provider, notification_apis, "Sends")
+
+' Checking Logic
+Rel(healthchecker, target_systems, "Pings")
+
+' Persistence
+Rel(repository, db, "SQL")
+Rel(repository, redis, "RESP")
+
+@enduml

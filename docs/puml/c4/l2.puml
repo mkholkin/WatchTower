@@ -1,0 +1,45 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+LAYOUT_WITH_LEGEND()
+
+title Диаграмма контейнеров (C4 Level 2) - Система мониторинга WatchTower
+
+' === Акторы ===
+Person(user, "Пользователь", "DevOps-инженер или владелец ИТ-сервиса. Настраивает мониторинг, правила оповещений и просматривает дашборды.")
+
+' === Границы нашей системы (WatchTower) ===
+System_Boundary(watchtower, "WatchTower") {
+
+    Container(spa, "Frontend Application", "SPA (TypeScript, React)", "Предоставляет веб-интерфейс для управления логическими мониторами, настройки контактов, просмотра графиков задержки ответа и SLA.")
+
+    Container(backend, "Backend Application", "Go (Golang)", "Реализует REST API для мониторинга, выполняет непосредственные проверки доступности ресурсов.")
+
+    ContainerDb(db, "БД", "PostgreSQL", "Хранит пользователей, конфигурации, цели, также исторические временные ряды проверок.")
+
+    ContainerDb(redis, "In-Memory Cache", "Redis", "Хранит «горячие» данные: последние известные состояния ресурсов (Last Known State) для мгновенной загрузки дашбордов.")
+}
+
+System_Ext(target_systems, "Целевые ресурсы\n(Web, API, Servers)", "Внешние сайты, API и серверы, доступность которых отслеживается системой.")
+System_Ext(notification_apis, "Платформы оповещений\n(Telegram API, SMTP)", "Внешние провайдеры связи для доставки сообщений об инцидентах.")
+
+
+' === Взаимодействия (Связи) ===
+
+' Пользователь -> Frontend
+Rel(user, spa, "Просматривает метрики и настраивает конфигурацию", "HTTPS")
+
+' Frontend -> Backend
+Rel(spa, backend, "Запрашивает данные и отправляет команды", "JSON/HTTPS/WSS")
+
+' Backend <-> Базы Данных
+Rel(backend, db, "Чтение/запись конфигураций и исторических данных", "TCP/SQL")
+Rel(backend, redis, "Чтение/обновление текущих статусов", "TCP/RESP")
+
+' Backend -> Внешние системы
+Rel(backend, target_systems, "Выполняет проверки доступности", "HTTP/TCP/ICMP")
+Rel(backend, notification_apis, "Отправляет сформированные алерты", "HTTPS/SMTP")
+
+' Внешние системы -> Пользователь
+'Rel(notification_apis, user, "Доставляет уведомления")
+
+@enduml
