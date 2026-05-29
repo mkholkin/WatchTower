@@ -4,7 +4,7 @@ INSERT INTO "monitor" (id, target_id, user_login, label, is_active, probe_interv
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: GetMonitorByID :one
-SELECT m.*, t.*, u.password_hash,
+SELECT sqlc.embed(m), sqlc.embed(t), sqlc.embed(u),
        COALESCE(
            (SELECT jsonb_agg(ac.*)
             FROM "alert_contact" ac
@@ -40,7 +40,7 @@ FROM "monitor"
 WHERE id = $1;
 
 -- name: GetAllMonitorsByUser :many
-SELECT m.*, t.*, u.password_hash,
+SELECT sqlc.embed(m), sqlc.embed(t), sqlc.embed(u),
        COALESCE(
            (SELECT jsonb_agg(ac.*)
             FROM "alert_contact" ac
@@ -59,7 +59,7 @@ FROM "monitor" m
 WHERE m.user_login = $1;
 
 -- name: GetAllMonitorsByTargetID :many
-SELECT m.*, t.*, u.password_hash,
+SELECT sqlc.embed(m), sqlc.embed(t), sqlc.embed(u),
        COALESCE(
            (SELECT jsonb_agg(ac.*)
             FROM "alert_contact" ac
@@ -78,7 +78,7 @@ FROM "monitor" m
 WHERE m.target_id = $1;
 
 -- name: GetMonitorsToEvaluate :many
-SELECT m.*, t.*, u.password_hash,
+SELECT sqlc.embed(m), sqlc.embed(t), sqlc.embed(u),
        COALESCE(
            (SELECT jsonb_agg(ac.*)
             FROM "alert_contact" ac

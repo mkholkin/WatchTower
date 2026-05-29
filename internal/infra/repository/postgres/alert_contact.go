@@ -67,29 +67,7 @@ func (r *alertContactRepositoryPG) GetByID(ctx context.Context, id uuid.UUID) (*
 		return nil, mapPGXErrorToRepo(err)
 	}
 
-	domainType, err := r.mpr.ToDomainContactType(row.Type)
-	if err != nil {
-		r.log.Error("failed to convert contact type to domain contact", "error", err)
-		return nil, repo.ErrInternal
-	}
-
-	domainConfig, err := r.mpr.ToDomainContactConfig(domainType, row.Config)
-	if err != nil {
-		r.log.Error("failed to convert contact config to domain config", "error", err)
-		return nil, repo.ErrDB
-	}
-
-	return &alert.Contact{
-		ID: row.ID.Bytes,
-		User: &user.User{
-			Login:        row.Login,
-			PasswordHash: row.PasswordHash,
-		},
-		Type:     domainType,
-		Name:     row.Label,
-		Config:   domainConfig,
-		IsActive: row.IsActive,
-	}, nil
+	return r.mapAlertContactToDomain(row.AlertContact, row.User)
 }
 
 func (r *alertContactRepositoryPG) Update(ctx context.Context, contact *alert.Contact) error {
@@ -140,29 +118,11 @@ func (r *alertContactRepositoryPG) GetByIDBulk(ctx context.Context, ids []uuid.U
 
 	contacts := make([]alert.Contact, len(rows))
 	for i, row := range rows {
-		domainType, err := r.mpr.ToDomainContactType(row.Type)
-		if err != nil {
-			r.log.Error("failed to convert contact type to domain contact", "error", err)
-			return nil, repo.ErrInternal
+		contact, mapErr := r.mapAlertContactToDomain(row.AlertContact, row.User)
+		if mapErr != nil {
+			return nil, mapErr
 		}
-
-		domainConfig, err := r.mpr.ToDomainContactConfig(domainType, row.Config)
-		if err != nil {
-			r.log.Error("failed to convert contact config to domain config", "error", err)
-			return nil, repo.ErrDB
-		}
-
-		contacts[i] = alert.Contact{
-			ID: row.ID.Bytes,
-			User: &user.User{
-				Login:        row.Login,
-				PasswordHash: row.PasswordHash,
-			},
-			Type:     domainType,
-			Name:     row.Label,
-			Config:   domainConfig,
-			IsActive: row.IsActive,
-		}
+		contacts[i] = *contact
 	}
 	return contacts, nil
 }
@@ -189,31 +149,39 @@ func (r *alertContactRepositoryPG) GetByUserLogin(ctx context.Context, userLogin
 
 	contacts := make([]alert.Contact, len(rows))
 	for i, row := range rows {
-		domainType, err := r.mpr.ToDomainContactType(row.Type)
-		if err != nil {
-			r.log.Error("failed to convert contact type to domain contact", "error", err)
-			return nil, repo.ErrInternal
+		contact, mapErr := r.mapAlertContactToDomain(row.AlertContact, row.User)
+		if mapErr != nil {
+			return nil, mapErr
 		}
-
-		domainConfig, err := r.mpr.ToDomainContactConfig(domainType, row.Config)
-		if err != nil {
-			r.log.Error("failed to convert contact config to domain config", "error", err)
-			return nil, repo.ErrDB
-		}
-
-		contacts[i] = alert.Contact{
-			ID: row.ID.Bytes,
-			User: &user.User{
-				Login:        row.Login,
-				PasswordHash: row.PasswordHash,
-			},
-			Type:     domainType,
-			Name:     row.Label,
-			Config:   domainConfig,
-			IsActive: row.IsActive,
-		}
+		contacts[i] = *contact
 	}
 	return contacts, nil
+}
+
+func (r *alertContactRepositoryPG) mapAlertContactToDomain(dbContact sqlcgen.AlertContact, dbUser sqlcgen.User) (*alert.Contact, error) {
+	domainType, err := r.mpr.ToDomainContactType(dbContact.Type)
+	if err != nil {
+		r.log.Error("failed to convert contact type to domain contact", "error", err)
+		return nil, repo.ErrInternal
+	}
+
+	domainConfig, err := r.mpr.ToDomainContactConfig(domainType, dbContact.Config)
+	if err != nil {
+		r.log.Error("failed to convert contact config to domain config", "error", err)
+		return nil, repo.ErrDB
+	}
+
+	return &alert.Contact{
+		ID: dbContact.ID.Bytes,
+		User: &user.User{
+			Login:        dbUser.Login,
+			PasswordHash: dbUser.PasswordHash,
+		},
+		Type:     domainType,
+		Name:     dbContact.Label,
+		Config:   domainConfig,
+		IsActive: dbContact.IsActive,
+	}, nil
 }
 
 type typeMapper struct {

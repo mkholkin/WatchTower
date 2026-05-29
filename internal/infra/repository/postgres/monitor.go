@@ -73,14 +73,14 @@ func (r *monitorRepositoryPG) GetByID(ctx context.Context, id uuid.UUID) (*monit
 
 	mon, err := mapMonitorRowToDomain(
 		r.mpr,
-		row.ID, row.TargetID, row.UserLogin, row.PasswordHash, row.Label, row.IsActive, row.ProbeIntervalSec,
-		row.Expectations, row.CurrentStatus, row.LastEvaluatedAt, row.CreatedAt,
-		row.AlertContacts, row.MaintenanceWindows,
-		row.SignatureHash, row.Protocol, row.Endpoint,
-		row.NetworkConfig, row.IsActive_2, row.ProbeIntervalSec_2,
+		row.Monitor,
+		row.Target,
+		row.User,
+		row.AlertContacts,
+		row.MaintenanceWindows,
 	)
 	if err != nil {
-		r.log.Error("failed to map monitor row to domain", "monitor_id", row.ID, "error", err)
+		r.log.Error("failed to map monitor row to domain", "monitor_id", row.Monitor.ID, "error", err)
 		return nil, repo.ErrInternal
 	}
 
@@ -136,14 +136,14 @@ func (r *monitorRepositoryPG) GetAllByUser(ctx context.Context, usr *user.User) 
 	for _, row := range rows {
 		mon, err := mapMonitorRowToDomain(
 			r.mpr,
-			row.ID, row.TargetID, row.UserLogin, row.PasswordHash, row.Label, row.IsActive, row.ProbeIntervalSec,
-			row.Expectations, row.CurrentStatus, row.LastEvaluatedAt, row.CreatedAt,
-			row.AlertContacts, row.MaintenanceWindows,
-			row.SignatureHash, row.Protocol, row.Endpoint,
-			row.NetworkConfig, row.IsActive_2, row.ProbeIntervalSec_2,
+			row.Monitor,
+			row.Target,
+			row.User,
+			row.AlertContacts,
+			row.MaintenanceWindows,
 		)
 		if err != nil {
-			r.log.Error("failed to map monitor row to domain", "monitor_id", row.ID, "error", err)
+			r.log.Error("failed to map monitor row to domain", "monitor_id", row.Monitor.ID, "error", err)
 			return nil, repo.ErrInternal
 		}
 		res = append(res, mon)
@@ -161,14 +161,14 @@ func (r *monitorRepositoryPG) GetAllByTargetID(ctx context.Context, targetID uui
 	for _, row := range rows {
 		mon, err := mapMonitorRowToDomain(
 			r.mpr,
-			row.ID, row.TargetID, row.UserLogin, row.PasswordHash, row.Label, row.IsActive, row.ProbeIntervalSec,
-			row.Expectations, row.CurrentStatus, row.LastEvaluatedAt, row.CreatedAt,
-			row.AlertContacts, row.MaintenanceWindows,
-			row.SignatureHash, row.Protocol, row.Endpoint,
-			row.NetworkConfig, row.IsActive_2, row.ProbeIntervalSec_2,
+			row.Monitor,
+			row.Target,
+			row.User,
+			row.AlertContacts,
+			row.MaintenanceWindows,
 		)
 		if err != nil {
-			r.log.Error("failed to map monitor row to domain", "monitor_id", row.ID, "error", err)
+			r.log.Error("failed to map monitor row to domain", "monitor_id", row.Monitor.ID, "error", err)
 			return nil, repo.ErrInternal
 		}
 		res = append(res, mon)
@@ -191,14 +191,14 @@ func (r *monitorRepositoryPG) GetMonitorsToEvaluate(ctx context.Context, targetI
 	for _, row := range rows {
 		mon, err := mapMonitorRowToDomain(
 			r.mpr,
-			row.ID, row.TargetID, row.UserLogin, row.PasswordHash, row.Label, row.IsActive, row.ProbeIntervalSec,
-			row.Expectations, row.CurrentStatus, row.LastEvaluatedAt, row.CreatedAt,
-			row.AlertContacts, row.MaintenanceWindows,
-			row.SignatureHash, row.Protocol, row.Endpoint,
-			row.NetworkConfig, row.IsActive_2, row.ProbeIntervalSec_2,
+			row.Monitor,
+			row.Target,
+			row.User,
+			row.AlertContacts,
+			row.MaintenanceWindows,
 		)
 		if err != nil {
-			r.log.Error("failed to map monitor row to domain", "monitor_id", row.ID, "error", err)
+			r.log.Error("failed to map monitor row to domain", "monitor_id", row.Monitor.ID, "error", err)
 			return nil, repo.ErrInternal
 		}
 		res[mon.ID] = mon
@@ -285,15 +285,10 @@ func (r *monitorRepositoryPG) Disable(ctx context.Context, monitorID uuid.UUID) 
 
 func mapMonitorRowToDomain(
 	mpr *monitorTypeMapper,
-	id, targetID pgtype.UUID,
-	userLogin, userPasswordHash, label string,
-	isActive bool, probeInterval int32,
-	expectationsJSON []byte,
-	currentStatus sqlcgen.StatusType,
-	lastEval, createdAt pgtype.Timestamp,
+	dbMonitor sqlcgen.Monitor,
+	dbTarget sqlcgen.Target,
+	dbUser sqlcgen.User,
 	alertContactsRaw, maintenanceWindowsRaw interface{},
-	targetSigHash string, targetProtocol sqlcgen.ProtocolType, targetEndpoint string,
-	targetNetworkConfig []byte, targetIsActive bool, targetProbeInterval int32,
 ) (*monitor.Monitor, error) {
 	var dbContacts []sqlcgen.AlertContact
 	if err := parseJSONArray(alertContactsRaw, &dbContacts); err != nil {
@@ -347,48 +342,48 @@ func mapMonitorRowToDomain(
 		})
 	}
 
-	domainProtocol, err := mpr.ToDomainTargetProtocol(targetProtocol)
+	domainProtocol, err := mpr.ToDomainTargetProtocol(dbTarget.Protocol)
 	if err != nil {
 		return nil, err
 	}
 
-	expectations, err := mpr.ToDomainExpectations(domainProtocol, expectationsJSON)
+	expectations, err := mpr.ToDomainExpectations(domainProtocol, dbMonitor.Expectations)
 	if err != nil {
 		return nil, err
 	}
 
-	networkConfig, err := mpr.ToDomainTargetNetworkConfig(domainProtocol, targetNetworkConfig)
+	networkConfig, err := mpr.ToDomainTargetNetworkConfig(domainProtocol, dbTarget.NetworkConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	domainStatus, err := mpr.ToDomainStatusType(currentStatus)
+	domainStatus, err := mpr.ToDomainStatusType(dbMonitor.CurrentStatus)
 	if err != nil {
 		return nil, err
 	}
 
 	mon := &monitor.Monitor{
-		ID:                 id.Bytes,
-		Label:              label,
+		ID:                 dbMonitor.ID.Bytes,
+		Label:              dbMonitor.Label,
 		AlertContacts:      mappedContacts,
 		MaintenanceWindows: mappedWindows,
 		CurrentStatus:      domainStatus,
-		LastEvaluatedAt:    lastEval.Time,
-		ProbeIntervalSec:   probeInterval,
-		IsActive:           isActive,
-		CreatedAt:          createdAt.Time,
+		LastEvaluatedAt:    dbMonitor.LastEvaluatedAt.Time,
+		ProbeIntervalSec:   dbMonitor.ProbeIntervalSec,
+		IsActive:           dbMonitor.IsActive,
+		CreatedAt:          dbMonitor.CreatedAt.Time,
 		Expectations:       expectations,
 		Target: &target.Target{
-			ID:               targetID.Bytes,
-			Endpoint:         targetEndpoint,
+			ID:               dbTarget.ID.Bytes,
+			Endpoint:         dbTarget.Endpoint,
 			Config:           networkConfig,
-			IsActive:         targetIsActive,
-			ProbeIntervalSec: targetProbeInterval,
-			ConfigHash:       targetSigHash,
+			IsActive:         dbTarget.IsActive,
+			ProbeIntervalSec: dbTarget.ProbeIntervalSec,
+			ConfigHash:       dbTarget.SignatureHash,
 		},
 		User: &user.User{
-			Login:        userLogin,
-			PasswordHash: userPasswordHash,
+			Login:        dbUser.Login,
+			PasswordHash: dbUser.PasswordHash,
 		},
 	}
 

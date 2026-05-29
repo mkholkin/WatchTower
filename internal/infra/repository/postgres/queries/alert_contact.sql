@@ -6,7 +6,7 @@ INSERT INTO "alert_contact" (id, user_login, type, label, config, is_active)
 VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetAlertContactByID :one
-SELECT a.*, u.*
+SELECT sqlc.embed(a), sqlc.embed(u)
 FROM "alert_contact" a
          JOIN "user" u ON a.user_login = u.login
 WHERE id = $1;
@@ -25,7 +25,7 @@ FROM "alert_contact"
 WHERE id = $1;
 
 -- name: GetAlertContactsByUserLogin :many
-SELECT a.*, u.*
+SELECT sqlc.embed(a), sqlc.embed(u)
 FROM "alert_contact" a
          JOIN "user" u ON a.user_login = u.login
 WHERE a.user_login = $1;
@@ -43,7 +43,7 @@ WHERE id = $1
   AND is_active = TRUE;
 
 -- name: GetAlertContactsByIDBulk :many
-SELECT a.*, u.*
+SELECT sqlc.embed(a), sqlc.embed(u)
 FROM "alert_contact" a
          JOIN "user" u ON a.user_login = u.login
 WHERE a.id = ANY (@ids::uuid[]);

@@ -34,15 +34,17 @@ func TestTargetRepository_Integration(t *testing.T) {
 		err = repo.Create(ctx, tgt)
 		require.NoError(t, err)
 
-		fetchedTarget, err := repo.GetByID(ctx, tgt.ID)
-		if err != nil {
-			t.Logf("GetByID failed with error: %v, underlying: %v", err, err)
-		}
+		var dbEndpoint, dbHash string
+		var dbIsActive bool
+		var dbProbeInterval int32
+		err = pool.QueryRow(ctx, `SELECT endpoint, signature_hash, is_active, probe_interval_sec FROM "target" WHERE id = $1`, tgt.ID).
+			Scan(&dbEndpoint, &dbHash, &dbIsActive, &dbProbeInterval)
 		require.NoError(t, err)
-		assert.Equal(t, tgt.Endpoint, fetchedTarget.Endpoint)
-		assert.Equal(t, tgt.ConfigHash, fetchedTarget.ConfigHash)
-		assert.Equal(t, tgt.IsActive, fetchedTarget.IsActive)
-		assert.Equal(t, tgt.ProbeIntervalSec, fetchedTarget.ProbeIntervalSec)
+
+		assert.Equal(t, tgt.Endpoint, dbEndpoint)
+		assert.Equal(t, tgt.ConfigHash, dbHash)
+		assert.Equal(t, tgt.IsActive, dbIsActive)
+		assert.Equal(t, tgt.ProbeIntervalSec, dbProbeInterval)
 	})
 
 	t.Run("Update target", func(t *testing.T) {
@@ -62,10 +64,14 @@ func TestTargetRepository_Integration(t *testing.T) {
 		err = repo.Update(ctx, tgt)
 		require.NoError(t, err)
 
-		fetchedTarget, err := repo.GetByID(ctx, tgt.ID)
+		var dbEndpoint string
+		var dbProbeInterval int32
+		err = pool.QueryRow(ctx, `SELECT endpoint, probe_interval_sec FROM "target" WHERE id = $1`, tgt.ID).
+			Scan(&dbEndpoint, &dbProbeInterval)
 		require.NoError(t, err)
-		assert.Equal(t, "https://updated.com", fetchedTarget.Endpoint)
-		assert.Equal(t, int32(120), fetchedTarget.ProbeIntervalSec)
+
+		assert.Equal(t, "https://updated.com", dbEndpoint)
+		assert.Equal(t, int32(120), dbProbeInterval)
 	})
 
 	t.Run("Delete target", func(t *testing.T) {
@@ -83,8 +89,10 @@ func TestTargetRepository_Integration(t *testing.T) {
 		err = repo.DeleteByID(ctx, tgt.ID)
 		require.NoError(t, err)
 
-		_, err = repo.GetByID(ctx, tgt.ID)
-		assert.Error(t, err)
+		var count int
+		err = pool.QueryRow(ctx, `SELECT count(*) FROM "target" WHERE id = $1`, tgt.ID).Scan(&count)
+		require.NoError(t, err)
+		assert.Equal(t, 0, count)
 	})
 
 	t.Run("Get target inserted via raw SQL", func(t *testing.T) {
