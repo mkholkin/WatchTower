@@ -3,9 +3,7 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/WatchTower/WatchTower)](https://golang.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**WatchTower** is a(high-performance, multi-user, self-hosted web resource monitoring system. 
-It features a unique architectural approach that includes **target deduplication**, allowing multiple users to track the same resources without multiplying network load or storage requirements.
-
+**WatchTower** is a self-hosted web resource monitoring system.
 ---
 
 ## 📢 Screenshots
@@ -20,10 +18,10 @@ It features a unique architectural approach that includes **target deduplication
 
 ## ✨ Key Features
 
-- ** Target Deduplication:** Automatically merges identical targets across different users to reduce network and storage overhead.
-- ** Multi-user Support:** Built from the ground up for teams. Each user has their own monitors, notification channels, and maintenance windows.
-- ** Flexible Notifications:** Easily route alerts to Telegram, Email, and more.
-- ** Maintenance Windows:** Temporarily mute alerts and pause SLA calculations during planned downtimes.
+- **Target Deduplication:** Automatically merges identical targets across different users to reduce network and storage overhead.
+- **Multi-user Support:** Built from the ground up for teams. Each user has their own monitors, notification channels, and maintenance windows.
+- **Flexible Notifications:** Easily route alerts to Telegram, Email, and more.
+- **Maintenance Windows:** Temporarily mute alerts and pause SLA calculations during planned downtimes.
 
 ---
 
