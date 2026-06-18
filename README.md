@@ -1,6 +1,6 @@
 # WatchTower
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/WatchTower/WatchTower)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.26.0-green)](https://github.com/golang/go/tree/go1.26.0)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **WatchTower** is a self-hosted web resource monitoring system.
