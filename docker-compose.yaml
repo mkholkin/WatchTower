@@ -1,0 +1,84 @@
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    container_name: watchtower-postgres
+    environment:
+      POSTGRES_DB: watchtower
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_cron"
+      - "-c"
+      - "cron.database_name=watchtower"
+    ports:
+      - "5432:5432"
+    volumes:
+      - watchtower_pg_data:/var/lib/postgresql/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d watchtower"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - watchtower-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: watchtower-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - watchtower_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - watchtower-net
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: watchtower-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./docker:/etc/watchtower:ro
+    command: ["/etc/watchtower/config.yaml"]
+    networks:
+      - watchtower-net
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: watchtower-ui
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_BASE_URL: "http://localhost:8080"
+    networks:
+      - watchtower-net
+    restart: unless-stopped
+
+volumes:
+  watchtower_pg_data:
+  watchtower_redis_data:
+
+networks:
+  watchtower-net:
+    driver: bridge

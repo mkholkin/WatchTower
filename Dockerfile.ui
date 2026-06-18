@@ -1,0 +1,18 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY watchtower-ui/ ./
+
+RUN rm -rf node_modules \
+    && npm install --legacy-peer-deps
+
+EXPOSE 3000
+
+ENV HOST=0.0.0.0
+ENV PORT=3000
+ENV BROWSER=none
+ENV WDS_SOCKET_PORT=3000
+ENV CHOKIDAR_USEPOLLING=true
+
+CMD ["npm", "start"]

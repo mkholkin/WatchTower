@@ -19,6 +19,7 @@ import (
 	monitoringsvc "WatchTower/internal/service/monitoring_management"
 	"WatchTower/internal/service/notification"
 	"context"
+	"database/sql"
 	"fmt"
 	"net/url"
 	"time"
@@ -26,6 +27,8 @@ import (
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 	goredis "github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
@@ -72,15 +75,44 @@ func newFilteredWatermillLogger(logger watermill.LoggerAdapter) watermill.Logger
 	return &watermillLogger{LoggerAdapter: logger}
 }
 
+func runMigrations(ctx context.Context, cfg *configs.Config, logger *slog.Logger) error {
+	db, err := sql.Open("pgx", cfg.Database.Migrations.DSN)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping migration db: %w", err)
+	}
+
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("set goose dialect: %w", err)
+	}
+
+	logger.Info("running postgres migrations", "dir", cfg.MigrationsDir)
+
+	if err := goose.UpContext(ctx, db, cfg.MigrationsDir); err != nil {
+		return fmt.Errorf("run goose migrations: %w", err)
+	}
+
+	logger.Info("postgres migrations applied successfully")
+	return nil
+}
+
 func InitApp(ctx context.Context, cfg *configs.Config) (*App, error) {
 	logger, _, err := configs.NewLoggerFromConfig(cfg.Logging)
 	if err != nil {
-		return nil, fmt.Errorf("failed to init logger: %v", err)
+		return nil, fmt.Errorf("failed to init logger: %w", err)
+	}
+
+	if err := runMigrations(ctx, cfg, logger); err != nil {
+		return nil, fmt.Errorf("falied to run migrations: %w", err)
 	}
 
 	redisOpts, err := goredis.ParseURL(cfg.Redis.URL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid redis url in config: %v", err)
+		return nil, fmt.Errorf("invalid redis url in config: %w", err)
 	}
 	redisClient := goredis.NewClient(redisOpts)
 
@@ -152,7 +184,7 @@ func (a *App) initAuthService(ctx context.Context, cfg *configs.Config) (provide
 
 	pool, err := newPgPool(ctx, cfg.Database.Auth.DSN)
 	if err != nil {
-		return nil, fmt.Errorf("failed to init auth db pool: %v", err)
+		return nil, fmt.Errorf("failed to init auth db pool: %w", err)
 	}
 	a.pgPools["auth"] = pool
 

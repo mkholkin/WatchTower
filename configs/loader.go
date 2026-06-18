@@ -66,9 +66,11 @@ func LoadFromEnv() (*Config, error) {
 	setStringFromEnv(&cfg.Database.Analyzer.Type, "WT_DATABASE_ANALYZER_TYPE")
 	setStringFromEnv(&cfg.Database.Contacts.DSN, "WT_DATABASE_CONTACTS_DSN")
 	setStringFromEnv(&cfg.Database.Contacts.Type, "WT_DATABASE_CONTACTS_TYPE")
-
+	
 	setStringFromEnv(&cfg.Redis.URL, "WT_REDIS_URL")
-
+	
+	setStringFromEnv(&cfg.MigrationsDir, "WT_MIGRATIONS_DIR")
+	
 	return &cfg, nil
 }
 

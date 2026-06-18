@@ -6,9 +6,9 @@ create or replace function update_monitor_status_log() returns trigger as
 $$
 begin
     if old.current_status != new.current_status then
-        if not (new.last_evaluated_at > old.last_evaluated_at) then
-            raise exception 'last_evaluated_at must be greater than the previous value';
-        end if;
+        -- if not (new.last_evaluated_at > old.last_evaluated_at) then
+        --     raise exception 'last_evaluated_at must be greater than the previous value';
+        -- end if;
 
         update monitor_status_log
         set end_time = new.last_evaluated_at

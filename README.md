@@ -40,10 +40,9 @@ The easiest way to run both the Web UI and the Backend API is using our unified 
    cd WatchTower
    ```
 
-2. Build and run the image:
+2. Run application:
    ```bash
-   docker build -t watchtower .
-   docker run -d -p 80:80 -p 8080:8080 --volume $(pwd)/configs:/etc/watchtower/configs --name watchtower watchtower
+   docker-compose up
    ```
 
 ---

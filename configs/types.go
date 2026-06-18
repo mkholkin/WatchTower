@@ -10,6 +10,7 @@ type Config struct {
 	Auth     AuthConfig     `yaml:"auth"`
 	Database DatabaseConfig `yaml:"database"`
 	Redis    RedisConfig    `yaml:"redis"`
+	MigrationsDir string 	`yaml:"migrations_dir"`
 }
 
 type LoggingConfig struct {
@@ -31,6 +32,7 @@ type DatabaseConfig struct {
 	Healthchecker ServiceDBConfig `yaml:"healthchecker"`
 	Analyzer      ServiceDBConfig `yaml:"analyzer"`
 	Contacts      ServiceDBConfig `yaml:"contacts"`
+	Migrations	  ServiceDBConfig `yaml:"migrations"`
 }
 
 type ServiceDBConfig struct {
@@ -66,6 +68,8 @@ func (d DatabaseConfig) DSNFor(service string) (string, error) {
 		return d.Analyzer.DSN, nil
 	case "contacts":
 		return d.Contacts.DSN, nil
+	case "migration":
+		return d.Migrations.DSN, nil
 	default:
 		return "", fmt.Errorf("unknown database service: %q", service)
 	}

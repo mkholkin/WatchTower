@@ -1,0 +1,27 @@
+FROM golang:1.26 AS builder
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /watchtower-api ./cmd/api
+
+
+FROM alpine:3.20
+
+WORKDIR /app
+
+RUN apk add --no-cache ca-certificates tzdata
+
+COPY --from=builder /watchtower-api /app/watchtower-api
+COPY api /app/api
+COPY migrations /app/migrations
+
+RUN chmod +x /app/watchtower-api
+
+EXPOSE 8080
+
+ENTRYPOINT ["/app/watchtower-api"]
