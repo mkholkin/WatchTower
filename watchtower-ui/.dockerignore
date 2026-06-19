@@ -1,0 +1,9 @@
+.git
+.gitignore
+
+watchtower-ui/node_modules
+watchtower-ui/build
+watchtower-ui/dist
+watchtower-ui/.cache
+
+node_modules
