@@ -71,12 +71,18 @@ func (r *probeResultRepositoryPG) FetchUnprocessed(ctx context.Context, limit in
 			r.log.Error("failed to map processing status to domain", "status", row.ProcessingStatus, "error", err)
 			return nil, errors.Join(repo.ErrInternal, err)
 		}
+		var errorMessage *string
+		if row.ErrorMessage.Valid {
+			value := row.ErrorMessage.String
+			errorMessage = &value
+		}
 
 		result[i] = &probe.Result{
 			ID:               row.ID.Bytes,
 			LatencyMs:        row.LatencyMs,
 			Meta:             row.Meta,
 			NetworkFailure:   row.NetworkFailure,
+			ErrorMessage:     errorMessage,
 			StatusCode:       toNullInt32(row.StatusCode),
 			Target:           &target.Target{ID: row.TargetID.Bytes},
 			ProbeTime:        row.ProbeTime.Time,

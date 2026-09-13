@@ -570,7 +570,7 @@ func handleGetSummariesForPeriod(
 		return
 	}
 
-	summaries, err := metricsService.GetSummaries(authorizedCtx, monitorID, nil, &from, &to)
+	summaries, err := metricsService.GetSummariesForPeriod(authorizedCtx, monitorID, from, to)
 	if err != nil {
 		fmt.Printf("Get summaries for period failed: %v\n", err)
 		return
@@ -635,7 +635,7 @@ func handleLogin(
 		return currentUser
 	}
 
-	authorizedUser, err := authService.ParseToken(ctx, token)
+	authorizedUser, err := authService.ParseToken(token)
 	if err != nil {
 		fmt.Printf("Token parse failed: %v\n", err)
 		return currentUser
@@ -688,7 +688,7 @@ func handleCreateMonitor(
 		return
 	}
 
-	err = monitoringService.CreateMonitor(authorizedCtx, dto.CreateMonitorDTO{
+	_, err = monitoringService.CreateMonitor(authorizedCtx, dto.CreateMonitorDTO{
 		Label:            label,
 		Endpoint:         endpoint,
 		ProbeIntervalSec: probeIntervalSec,
@@ -1316,7 +1316,7 @@ func handleGetLastSummaries(
 		return
 	}
 
-	summaries, err := metricsService.GetSummaries(authorizedCtx, monitorID, &limit, nil, nil)
+	summaries, err := metricsService.GetLastSummaries(authorizedCtx, monitorID, limit)
 	if err != nil {
 		fmt.Printf("Get summaries failed: %v\n", err)
 		return
@@ -1372,7 +1372,7 @@ func handleGetSLA(
 	fmt.Printf("SLA: monitor_id=%s uptime=%.2f%% downtime=%ds period=[%s..%s]\n",
 		sla.MonitorID,
 		sla.UptimePercent,
-		sla.TotalDowntime,
+		sla.TotalDowntimeSec,
 		sla.PeriodStart.Format(time.RFC3339),
 		sla.PeriodEnd.Format(time.RFC3339),
 	)

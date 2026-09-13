@@ -177,7 +177,7 @@ func (s *monitoringManagementService) EnableMonitor(ctx context.Context, monitor
 	}
 
 	if err := s.syncTargetAfterMonitorLinkage(ctx, mon.Target, mon.ProbeIntervalSec); err != nil {
-		return nil
+		return err
 	}
 
 	s.log.Info("monitor enabled", "monitor_id", monitorId)
@@ -221,7 +221,7 @@ func (s *monitoringManagementService) CreateMonitor(ctx context.Context, createD
 		return nil, err
 	}
 
-	windows, alertContacts, err := s.loadCreateMonitorRelations(ctx, createDTO)
+	windows, alertContacts, err := s.loadCreateMonitorRelations(ctx, createDTO, usr)
 	if err != nil {
 		return nil, err
 	}
@@ -265,15 +265,26 @@ func (s *monitoringManagementService) resolveCreateMonitorConfig(createDTO monit
 func (s *monitoringManagementService) loadCreateMonitorRelations(
 	ctx context.Context,
 	createDTO monitordto.CreateMonitorDTO,
+	usr *user.User,
 ) ([]maintenance.MaintenanceWindow, []alert.Contact, error) {
 	windows, err := s.windowRepo.GetByIDBulk(ctx, createDTO.MaintenanceWindowIDs)
 	if err != nil {
 		return nil, nil, err
 	}
+	for i := range windows {
+		if windows[i].User == nil || windows[i].User.Login != usr.Login {
+			return nil, nil, errors.Join(service.ErrPermissionDenied, errors.New("maintenance window does not belong to user"))
+		}
+	}
 
 	alertContacts, err := s.alertContactRepo.GetByIDBulk(ctx, createDTO.AlertContactIDs)
 	if err != nil {
 		return nil, nil, err
+	}
+	for i := range alertContacts {
+		if alertContacts[i].User == nil || alertContacts[i].User.Login != usr.Login {
+			return nil, nil, errors.Join(service.ErrPermissionDenied, errors.New("alert contact does not belong to user"))
+		}
 	}
 
 	return windows, alertContacts, nil
@@ -343,6 +354,13 @@ func (s *monitoringManagementService) UpdateMonitor(ctx context.Context, dto mon
 	if err != nil {
 		return err
 	}
+	expectations, err := s.resolveMonitorUpdateExpectations(mon, dto)
+	if err != nil {
+		return err
+	}
+	if err := validateMonitorUpdateState(dto, networkConfig, expectations); err != nil {
+		return err
+	}
 
 	if targetChanged {
 		if err := s.applyTargetChanges(ctx, mon, endpoint, probeInterval, networkConfig); err != nil {
@@ -350,9 +368,7 @@ func (s *monitoringManagementService) UpdateMonitor(ctx context.Context, dto mon
 		}
 	}
 
-	if err := s.applyMonitorSimpleFields(mon, dto); err != nil {
-		return err
-	}
+	s.applyMonitorSimpleFields(mon, dto, expectations)
 
 	if err := s.monitorRepo.Update(ctx, mon); err != nil {
 		s.log.Error("failed to update monitor", "monitor_id", mon.ID, "error", err)
@@ -427,25 +443,53 @@ func (s *monitoringManagementService) applyTargetChanges(
 	return nil
 }
 
+func (s *monitoringManagementService) resolveMonitorUpdateExpectations(
+	mon *monitor.Monitor,
+	dto monitordto.UpdateMonitorDTO,
+) (monitor.Expectations, error) {
+	if dto.Expectations == nil {
+		return mon.Expectations, nil
+	}
+	return dto.ToDomainExpectations(s.expectationsMappers)
+}
+
+func validateMonitorUpdateState(
+	dto monitordto.UpdateMonitorDTO,
+	networkConfig target.NetworkConfig,
+	expectations monitor.Expectations,
+) error {
+	if networkConfig == nil || expectations == nil {
+		return errors.New("monitor network config and expectations are required")
+	}
+	if dto.Protocol != nil && *dto.Protocol != networkConfig.Protocol() {
+		return errors.New("protocol does not match network config")
+	}
+	if networkConfig.Protocol() != expectations.Protocol() {
+		return errors.New("network config and expectations protocols do not match")
+	}
+	if networkConfig.Protocol() == target.ProtocolHTTP {
+		if err := networkConfig.Validate(); err != nil {
+			return err
+		}
+		if err := expectations.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *monitoringManagementService) applyMonitorSimpleFields(
 	mon *monitor.Monitor,
 	dto monitordto.UpdateMonitorDTO,
-) error {
+	expectations monitor.Expectations,
+) {
 	if dto.Label != nil {
 		mon.Label = *dto.Label
 	}
 
 	if dto.Expectations != nil {
-		exp, err := dto.ToDomainExpectations(s.expectationsMappers)
-		if err != nil {
-			return err
-		}
-		if exp != nil {
-			mon.Expectations = exp
-		}
+		mon.Expectations = expectations
 	}
-
-	return nil
 }
 
 // getOrCreateTarget returns the target matching the given endpoint and network config, or creates a new one if no such target exists.
@@ -470,7 +514,7 @@ func (s *monitoringManagementService) getOrCreateTarget(
 			return nil, err
 		}
 	case err != nil:
-		return tgt, nil
+		return nil, err
 	}
 
 	return tgt, nil
@@ -491,7 +535,6 @@ func (s *monitoringManagementService) publishTargetEvent(topic string, targetID 
 	msg := message.NewMessage(watermill.NewUUID(), payload)
 	if err := s.publisher.Publish(topic, msg); err != nil {
 		return errors.Join(service.ErrEventPublishFailed, err)
-		return service.ErrEventPublishFailed
 	}
 
 	s.log.Debug("target event published", "topic", topic, "target_id", targetID)
@@ -556,6 +599,9 @@ func (s *monitoringManagementService) getValidatedMonitorAndContact(
 	if err != nil {
 		s.log.Error("failed to get alert contact", "alert_contact_id", alertContactID, "error", err)
 		return nil, nil, err
+	}
+	if contact.User == nil || mon.User == nil || contact.User.Login != mon.User.Login {
+		return nil, nil, errors.Join(service.ErrPermissionDenied, errors.New("alert contact does not belong to user"))
 	}
 
 	return mon, contact, nil

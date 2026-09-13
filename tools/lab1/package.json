@@ -1,0 +1,6 @@
+{
+  "name": "watchtower-lab1-tools",
+  "private": true,
+  "description": "Pinned Allure report generator for the Go unit tests",
+  "devDependencies": {"allure": "3.17.0"}
+}

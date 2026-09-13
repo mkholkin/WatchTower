@@ -61,26 +61,28 @@ type ContactUpdate struct {
 
 // ApplyUpdate applies a partial update to the alert contact.
 func (ac *Contact) ApplyUpdate(upd ContactUpdate) error {
+	next := *ac
 	if upd.Name != nil {
 		if *upd.Name == "" {
 			return wrapValidation("name cannot be empty")
 		}
-		ac.Name = *upd.Name
+		next.Name = *upd.Name
 	}
 
 	if upd.IsActive != nil {
-		ac.IsActive = *upd.IsActive
+		next.IsActive = *upd.IsActive
 	}
 
 	if upd.ConfigUpdate != nil {
-		newCfg, err := upd.ConfigUpdate.Apply(ac.Config)
+		newCfg, err := upd.ConfigUpdate.Apply(next.Config)
 		if err != nil {
 			return err
 		}
-		ac.Config = newCfg
-		ac.Type = newCfg.Type()
+		next.Config = newCfg
+		next.Type = newCfg.Type()
 	}
 
+	*ac = next
 	return nil
 }
 

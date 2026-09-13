@@ -10,5 +10,3 @@ import (
 type ProbeEvaluator interface {
 	Evaluate(ctx context.Context, probeResult *probe.Result, mon *monitor.Monitor) (monitor.Status, error)
 }
-
-

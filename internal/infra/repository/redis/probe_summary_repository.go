@@ -86,10 +86,17 @@ func (r *probeSummaryRepositoryCache) GetMonitorLatestSummaries(
 	key := queueKey(monitorID)
 	cached, err := r.client.LRange(ctx, key, 0, int64(limit-1)).Result()
 	if err == nil && len(cached) > 0 {
-		if ttlErr := r.touchQueueTTL(ctx, key); ttlErr != nil {
-			r.log.Warn("failed to extend queue ttl on read", "monitor_id", monitorID, "error", ttlErr)
+		summaries, decodeErr := decodeSummaries(cached)
+		if decodeErr == nil {
+			if ttlErr := r.touchQueueTTL(ctx, key); ttlErr != nil {
+				r.log.Warn("failed to extend queue ttl on read", "monitor_id", monitorID, "error", ttlErr)
+			}
+			return summaries, nil
 		}
-		return decodeSummaries(cached)
+		r.log.Warn("invalid cached probe summaries, using fallback", "monitor_id", monitorID, "error", decodeErr)
+		if deleteErr := r.client.Del(ctx, key).Err(); deleteErr != nil {
+			r.log.Warn("failed to invalidate probe summary cache", "monitor_id", monitorID, "error", deleteErr)
+		}
 	}
 	if err != nil {
 		r.log.Warn("failed to read probe summaries from redis, using fallback", "monitor_id", monitorID, "error", err)
@@ -129,7 +136,6 @@ func (r *probeSummaryRepositoryCache) Create(ctx context.Context, summary *probe
 	updated, err := r.enqueueIfQueueAlive(ctx, summary)
 	if err != nil {
 		r.log.Error("failed to enqueue probe summary into redis", "monitor_id", summary.MonitorID, "error", err)
-		return nil
 	}
 	if !updated {
 		r.log.Debug("skip cache update on write: queue is absent or expired", "monitor_id", summary.MonitorID)

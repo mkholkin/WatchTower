@@ -28,8 +28,18 @@ func (e HTTPExpectations) Protocol() target.Protocol {
 }
 
 func (e HTTPExpectations) Validate() error {
-	//TODO implement me
-	panic("implement me")
+	if e.MaxLatencyMs < 0 {
+		return wrapValidation("maximum latency must not be negative")
+	}
+	if len(e.StatusCodes) == 0 {
+		return wrapValidation("at least one HTTP status code is required")
+	}
+	for _, code := range e.StatusCodes {
+		if code < 100 || code > 599 {
+			return wrapValidation("HTTP status code must be between 100 and 599")
+		}
+	}
+	return nil
 }
 
 // ----- TCP -------
