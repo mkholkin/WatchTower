@@ -19,8 +19,7 @@ BUSINESS_PKGS := \
 
 .PHONY: test mocks ensure-mockgen build-business build-data build-cli build-components assemble-app build-app clean-build build gen-api gen-repo migrate-down benchmark-read benchmark-read-plot benchmark-update benchmark-update-plot benchmark-all
 
-test: mocks
-	go test ./...
+test: test-unit
 
 mocks: ensure-mockgen
 	$(MOCKGEN_BIN) -source=internal/domain/repo/user.go -destination=internal/service/testmocks/user_repo_mock.go -package=testmocks
@@ -75,3 +74,45 @@ benchmark-update-plot:
 	python3 benchmarks/update/plot.py
 
 benchmark-all: benchmark-read benchmark-update
+
+# Lab 1: setup is explicit; ordinary test runs never regenerate tracked mocks.
+.PHONY: lab1-prepare test-unit test-unit-shuffle test-unit-race test-unit-offline lab1-offline-image test-integration coverage coverage-branch allure-report allure-open test-processes lab1
+lab1-prepare:
+	./tools/lab1/run.sh prepare
+
+test-unit:
+	./tools/lab1/run.sh unit
+
+test-unit-shuffle:
+	SEED=$(or $(SEED),42) ./tools/lab1/run.sh shuffle
+
+test-unit-race:
+	./tools/lab1/run.sh race
+
+coverage:
+	./tools/lab1/run.sh coverage
+
+coverage-branch:
+	./tools/lab1/run.sh branch
+
+allure-report:
+	./tools/lab1/run.sh report
+
+allure-open:
+	./tools/lab1/run.sh open
+
+test-processes:
+	./tools/lab1/run.sh processes
+
+lab1:
+	./tools/lab1/run.sh all
+
+lab1-offline-image:
+	docker build -f tools/lab1/Dockerfile -t watchtower-lab1:local .
+
+test-unit-offline:
+	@mkdir -p build/lab1/offline
+	docker run --rm --network none -v "$(CURDIR)/build/lab1/offline:/workspace/build/lab1" watchtower-lab1:local
+
+test-integration:
+	go test -tags=integration ./internal/infra/repository/postgres

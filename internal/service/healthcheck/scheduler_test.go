@@ -2,6 +2,7 @@ package healtcheck_service
 
 import (
 	"WatchTower/internal/domain/entity/target"
+	"WatchTower/internal/domain/repo"
 	"WatchTower/internal/service/testmocks"
 	"WatchTower/internal/testutil"
 	"context"
@@ -11,270 +12,199 @@ import (
 	"time"
 
 	"github.com/ThreeDotsLabs/watermill/message"
+	allure "github.com/allure-framework/allure-go/commons/gotest"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
 )
 
-func TestSchedulerRun_DispatchesLoadedTarget(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// AAA: each Case arranges fixtures, performs one production operation, then asserts observable behavior.
 
-	fakeClock := clockwork.NewFakeClockAt(time.Now())
-	tgt := target.Target{ID: uuid.New(), Endpoint: "https://example.com", Config: target.HTTPConfig{Method: "GET"}, ProbeIntervalSec: 1}
-	repo := testmocks.NewMockTargetRepository(ctrl)
-	subscriber := testmocks.NewMockSubscriber(ctrl)
-
-	repo.EXPECT().GetAllActive(gomock.Any()).Return([]target.Target{tgt}, nil)
-	subscriber.EXPECT().Subscribe(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string) (<-chan *message.Message, error) {
-		ch := make(chan *message.Message)
-		close(ch)
-		return ch, nil
-	}).AnyTimes()
-
-	queue := make(chan target.Target, 1)
-	s := NewScheduler(repo, subscriber, queue, fakeClock, testutil.NoopLogger())
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- s.Run(ctx) }()
-
-	fakeClock.BlockUntil(1)
-	fakeClock.Advance(2 * time.Second)
-
-	select {
-	case got := <-queue:
-		if got.ID != tgt.ID {
-			t.Fatalf("unexpected target id: got %s, want %s", got.ID, tgt.ID)
-		}
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected scheduler to dispatch loaded target")
-	}
-
-	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("scheduler did not stop after context cancellation")
-	}
+func closedMessageChannel() <-chan *message.Message {
+	ch := make(chan *message.Message)
+	close(ch)
+	return ch
 }
 
-func TestSchedulerRun_ReturnsRepoError(t *testing.T) {
-	expectedErr := errors.New("db down")
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	repo := testmocks.NewMockTargetRepository(ctrl)
-	subscriber := testmocks.NewMockSubscriber(ctrl)
-
-	repo.EXPECT().GetAllActive(gomock.Any()).Return(nil, expectedErr)
-
-	s := NewScheduler(repo, subscriber, make(chan target.Target, 1), clockwork.NewFakeClockAt(time.Now()), testutil.NoopLogger())
-
-	err := s.Run(context.Background())
-	if !errors.Is(err, expectedErr) {
-		t.Fatalf("expected %v, got %v", expectedErr, err)
-	}
-}
-
-func TestSchedulerRun_HandlesTargetCreatedEvent(t *testing.T) {
-	targetID := uuid.New()
-	tgt := target.Target{ID: targetID, Endpoint: "https://example.com", Config: target.HTTPConfig{Method: "GET"}, IsActive: true, ProbeIntervalSec: 1}
-	createdCh := make(chan *message.Message, 1)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	fakeClock := clockwork.NewFakeClockAt(time.Now())
-	repo := testmocks.NewMockTargetRepository(ctrl)
-	subscriber := testmocks.NewMockSubscriber(ctrl)
-
-	repo.EXPECT().GetAllActive(gomock.Any()).Return([]target.Target{}, nil)
-	repo.EXPECT().GetByID(gomock.Any(), targetID).Return(&tgt, nil)
-	subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetCreated).Return(createdCh, nil)
-	subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetUpdated).DoAndReturn(func(_ context.Context, _ string) (<-chan *message.Message, error) {
-		ch := make(chan *message.Message)
-		close(ch)
-		return ch, nil
+func TestSchedulerRun(t *testing.T) {
+	t.Run("dispatches loaded active target", func(t *testing.T) {
+		testutil.Case(t, "healthcheck", "Scheduler.Run", "state-transition", "london", func(t *testing.T, _ *allure.Context) {
+			ctrl := gomock.NewController(t)
+			clock := clockwork.NewFakeClockAt(time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC))
+			tgt := *testutil.ObjectMother{}.Target()
+			tgt.ProbeIntervalSec = 1
+			repository := testmocks.NewMockTargetRepository(ctrl)
+			subscriber := testmocks.NewMockSubscriber(ctrl)
+			repository.EXPECT().GetAllActive(gomock.Any()).Return([]target.Target{tgt}, nil)
+			subscriber.EXPECT().Subscribe(gomock.Any(), gomock.Any()).Return(closedMessageChannel(), nil).AnyTimes()
+			queue := make(chan target.Target, 1)
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan error, 1)
+			go func() { done <- NewScheduler(repository, subscriber, queue, clock, testutil.NoopLogger()).Run(ctx) }()
+			clock.BlockUntil(1)
+			clock.Advance(SchedulerTickInterval)
+			got := <-queue
+			cancel()
+			if err := <-done; err != nil || got.ID != tgt.ID {
+				t.Fatalf("Scheduler.Run() error=%v target=%s, want %s", err, got.ID, tgt.ID)
+			}
+		})
 	})
-	subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetDeleted).DoAndReturn(func(_ context.Context, _ string) (<-chan *message.Message, error) {
-		ch := make(chan *message.Message)
-		close(ch)
-		return ch, nil
+	t.Run("returns active target repository failure", func(t *testing.T) {
+		testutil.Case(t, "healthcheck", "Scheduler.Run", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
+			ctrl := gomock.NewController(t)
+			repository := testmocks.NewMockTargetRepository(ctrl)
+			repository.EXPECT().GetAllActive(gomock.Any()).Return(nil, repo.ErrDB)
+			scheduler := NewScheduler(repository, testmocks.NewMockSubscriber(ctrl), make(chan target.Target, 1), clockwork.NewFakeClock(), testutil.NoopLogger())
+			if err := scheduler.Run(context.Background()); !errors.Is(err, repo.ErrDB) {
+				t.Fatalf("Scheduler.Run() error = %v", err)
+			}
+		})
 	})
-
-	queue := make(chan target.Target, 1)
-	s := NewScheduler(repo, subscriber, queue, fakeClock, testutil.NoopLogger())
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- s.Run(ctx) }()
-
-	fakeClock.BlockUntil(1)
-
-	payload, _ := json.Marshal(TargetEvent{ID: targetID})
-	msg := message.NewMessage(uuid.NewString(), payload)
-	createdCh <- msg
-
-	select {
-	case <-msg.Acked():
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected created event to be acknowledged")
-	}
-
-	fakeClock.Advance(2 * time.Second)
-
-	select {
-	case got := <-queue:
-		if got.ID != tgt.ID {
-			t.Fatalf("unexpected target id: got %s, want %s", got.ID, tgt.ID)
-		}
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected created target to be dispatched")
-	}
-
-	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("scheduler did not stop after context cancellation")
-	}
-}
-
-func TestSchedulerRun_HandlesTargetUpdatedEvent(t *testing.T) {
-	targetID := uuid.New()
-	initial := target.Target{ID: targetID, Endpoint: "https://example.com", Config: target.HTTPConfig{Method: "GET"}, IsActive: true, ProbeIntervalSec: 2}
-	updated := initial
-	updated.ProbeIntervalSec = 1
-	updatedCh := make(chan *message.Message, 1)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	fakeClock := clockwork.NewFakeClockAt(time.Now())
-	repo := testmocks.NewMockTargetRepository(ctrl)
-	subscriber := testmocks.NewMockSubscriber(ctrl)
-
-	repo.EXPECT().GetAllActive(gomock.Any()).Return([]target.Target{initial}, nil)
-	repo.EXPECT().GetByID(gomock.Any(), targetID).Return(&updated, nil)
-	subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetCreated).DoAndReturn(func(_ context.Context, _ string) (<-chan *message.Message, error) {
-		ch := make(chan *message.Message)
-		close(ch)
-		return ch, nil
+	t.Run("created event loads and dispatches target", func(t *testing.T) {
+		testutil.Case(t, "healthcheck", "Scheduler.Run", "state-transition", "london", func(t *testing.T, _ *allure.Context) {
+			ctrl := gomock.NewController(t)
+			clock := clockwork.NewFakeClock()
+			tgt := *testutil.ObjectMother{}.Target()
+			tgt.ProbeIntervalSec = 1
+			created := make(chan *message.Message, 1)
+			repository := testmocks.NewMockTargetRepository(ctrl)
+			subscriber := testmocks.NewMockSubscriber(ctrl)
+			repository.EXPECT().GetAllActive(gomock.Any()).Return(nil, nil)
+			repository.EXPECT().GetByID(gomock.Any(), tgt.ID).Return(&tgt, nil)
+			subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetCreated).Return(created, nil)
+			subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetUpdated).Return(closedMessageChannel(), nil)
+			subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetDeleted).Return(closedMessageChannel(), nil)
+			queue := make(chan target.Target, 1)
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan error, 1)
+			go func() { done <- NewScheduler(repository, subscriber, queue, clock, testutil.NoopLogger()).Run(ctx) }()
+			clock.BlockUntil(1)
+			payload, err := json.Marshal(TargetEvent{ID: tgt.ID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			msg := message.NewMessage(uuid.NewString(), payload)
+			created <- msg
+			<-msg.Acked()
+			clock.Advance(SchedulerTickInterval)
+			got := <-queue
+			cancel()
+			if err := <-done; err != nil || got.ID != tgt.ID {
+				t.Fatalf("Scheduler.Run() error=%v target=%s, want %s", err, got.ID, tgt.ID)
+			}
+		})
 	})
-	subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetUpdated).Return(updatedCh, nil)
-	subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetDeleted).DoAndReturn(func(_ context.Context, _ string) (<-chan *message.Message, error) {
-		ch := make(chan *message.Message)
-		close(ch)
-		return ch, nil
+	t.Run("updated event replaces scheduled target", func(t *testing.T) {
+		testutil.Case(t, "healthcheck", "Scheduler.Run", "state-transition", "london", func(t *testing.T, a *allure.Context) {
+			var clock *clockwork.FakeClock
+			var updated chan *message.Message
+			var updatedTarget target.Target
+			var queue chan target.Target
+			var cancel context.CancelFunc
+			var done chan error
+			a.Step("Arrange loaded target and update subscription", func(*allure.Context) {
+				ctrl := gomock.NewController(t)
+				clock = clockwork.NewFakeClock()
+				initial := *testutil.ObjectMother{}.Target()
+				initial.ProbeIntervalSec = 30
+				updatedTarget = initial
+				updatedTarget.ProbeIntervalSec = 5
+				updated = make(chan *message.Message, 1)
+				repository := testmocks.NewMockTargetRepository(ctrl)
+				subscriber := testmocks.NewMockSubscriber(ctrl)
+				repository.EXPECT().GetAllActive(gomock.Any()).Return([]target.Target{initial}, nil)
+				repository.EXPECT().GetByID(gomock.Any(), initial.ID).Return(&updatedTarget, nil)
+				subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetCreated).Return(closedMessageChannel(), nil)
+				subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetUpdated).Return(updated, nil)
+				subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetDeleted).Return(closedMessageChannel(), nil)
+				queue = make(chan target.Target, 1)
+				scheduler := NewScheduler(repository, subscriber, queue, clock, testutil.NoopLogger())
+				ctx, stop := context.WithCancel(context.Background())
+				cancel = stop
+				done = make(chan error, 1)
+				go func() { done <- scheduler.Run(ctx) }()
+				clock.BlockUntil(1)
+			})
+			a.Step("Act: deliver target update", func(*allure.Context) {
+				payload, err := json.Marshal(TargetEvent{ID: updatedTarget.ID})
+				if err != nil {
+					t.Fatal(err)
+				}
+				msg := message.NewMessage(uuid.NewString(), payload)
+				updated <- msg
+				<-msg.Acked()
+			})
+			a.Step("Assert: next fake-clock tick dispatches the updated target", func(*allure.Context) {
+				clock.Advance(SchedulerTickInterval)
+				got := <-queue
+				cancel()
+				if err := <-done; err != nil || got.ID != updatedTarget.ID || got.ProbeIntervalSec != 5 {
+					t.Fatalf("Scheduler.Run() error=%v dispatched=%#v", err, got)
+				}
+			})
+		})
 	})
-
-	queue := make(chan target.Target, 1)
-	s := NewScheduler(repo, subscriber, queue, fakeClock, testutil.NoopLogger())
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- s.Run(ctx) }()
-
-	fakeClock.BlockUntil(1)
-
-	payload, _ := json.Marshal(TargetEvent{ID: targetID})
-	msg := message.NewMessage(uuid.NewString(), payload)
-	updatedCh <- msg
-
-	select {
-	case <-msg.Acked():
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected updated event to be acknowledged")
-	}
-
-	fakeClock.Advance(2 * time.Second)
-
-	select {
-	case got := <-queue:
-		if got.ProbeIntervalSec != 1 {
-			t.Fatalf("expected updated interval 1, got %d", got.ProbeIntervalSec)
-		}
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected updated target to be dispatched")
-	}
-
-	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("scheduler did not stop after context cancellation")
-	}
-}
-
-func TestSchedulerRun_HandlesTargetDeleted(t *testing.T) {
-	targetID := uuid.New()
-	tgt := target.Target{ID: targetID, Endpoint: "https://example.com", Config: target.HTTPConfig{Method: "GET"}, IsActive: true, ProbeIntervalSec: 1}
-	deletedCh := make(chan *message.Message, 1)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	fakeClock := clockwork.NewFakeClockAt(time.Now())
-	repo := testmocks.NewMockTargetRepository(ctrl)
-	subscriber := testmocks.NewMockSubscriber(ctrl)
-
-	repo.EXPECT().GetAllActive(gomock.Any()).Return([]target.Target{tgt}, nil)
-	subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetCreated).DoAndReturn(func(_ context.Context, _ string) (<-chan *message.Message, error) {
-		ch := make(chan *message.Message)
-		close(ch)
-		return ch, nil
+	t.Run("deleted event removes scheduled target", func(t *testing.T) {
+		testutil.Case(t, "healthcheck", "Scheduler.Run", "state-transition", "london", func(t *testing.T, a *allure.Context) {
+			var clock *clockwork.FakeClock
+			var deleted chan *message.Message
+			var targetID uuid.UUID
+			var survivorID uuid.UUID
+			var queue chan target.Target
+			var cancel context.CancelFunc
+			var done chan error
+			a.Step("Arrange loaded target and delete subscription", func(*allure.Context) {
+				ctrl := gomock.NewController(t)
+				clock = clockwork.NewFakeClock()
+				initial := *testutil.ObjectMother{}.Target()
+				targetID = initial.ID
+				survivor := *testutil.ObjectMother{}.Target()
+				survivorID = survivor.ID
+				deleted = make(chan *message.Message, 1)
+				repository := testmocks.NewMockTargetRepository(ctrl)
+				subscriber := testmocks.NewMockSubscriber(ctrl)
+				repository.EXPECT().GetAllActive(gomock.Any()).Return([]target.Target{initial, survivor}, nil)
+				subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetCreated).Return(closedMessageChannel(), nil)
+				subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetUpdated).Return(closedMessageChannel(), nil)
+				subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetDeleted).Return(deleted, nil)
+				queue = make(chan target.Target, 3)
+				scheduler := NewScheduler(repository, subscriber, queue, clock, testutil.NoopLogger())
+				ctx, stop := context.WithCancel(context.Background())
+				cancel = stop
+				done = make(chan error, 1)
+				go func() { done <- scheduler.Run(ctx) }()
+				clock.BlockUntil(1)
+			})
+			a.Step("Act: deliver target deletion", func(*allure.Context) {
+				payload, err := json.Marshal(TargetEvent{ID: targetID})
+				if err != nil {
+					t.Fatal(err)
+				}
+				msg := message.NewMessage(uuid.NewString(), payload)
+				deleted <- msg
+				<-msg.Acked()
+			})
+			a.Step("Assert: next fake-clock tick dispatches only the surviving target", func(*allure.Context) {
+				clock.Advance(SchedulerTickInterval)
+				got := <-queue
+				barrierPayload, err := json.Marshal(TargetEvent{ID: uuid.New()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				barrier := message.NewMessage(uuid.NewString(), barrierPayload)
+				deleted <- barrier
+				<-barrier.Acked()
+				cancel()
+				if runErr := <-done; runErr != nil || got.ID != survivorID {
+					t.Fatalf("Scheduler.Run() error=%v dispatched=%s, want survivor %s", runErr, got.ID, survivorID)
+				}
+				select {
+				case extra := <-queue:
+					t.Fatalf("deleted target %s was dispatched as extra %#v", targetID, extra)
+				default:
+				}
+			})
+		})
 	})
-	subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetUpdated).DoAndReturn(func(_ context.Context, _ string) (<-chan *message.Message, error) {
-		ch := make(chan *message.Message)
-		close(ch)
-		return ch, nil
-	})
-	subscriber.EXPECT().Subscribe(gomock.Any(), TopicTargetDeleted).Return(deletedCh, nil)
-
-	queue := make(chan target.Target, 1)
-	s := NewScheduler(repo, subscriber, queue, fakeClock, testutil.NoopLogger())
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() { done <- s.Run(ctx) }()
-
-	fakeClock.BlockUntil(1)
-
-	payload, _ := json.Marshal(TargetEvent{ID: targetID})
-	msg := message.NewMessage(uuid.NewString(), payload)
-	deletedCh <- msg
-
-	select {
-	case <-msg.Acked():
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected delete event to be acknowledged")
-	}
-
-	fakeClock.Advance(2 * time.Second)
-
-	select {
-	case got := <-queue:
-		t.Fatalf("expected no target after deletion, got %s", got.ID)
-	case <-time.After(150 * time.Millisecond):
-	}
-
-	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("scheduler did not stop after context cancellation")
-	}
 }

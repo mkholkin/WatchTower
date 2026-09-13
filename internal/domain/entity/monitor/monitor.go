@@ -5,6 +5,7 @@ import (
 	"WatchTower/internal/domain/entity/maintenance"
 	"WatchTower/internal/domain/entity/target"
 	"WatchTower/internal/domain/entity/user"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,6 +54,17 @@ func NewMonitor(
 
 	if user == nil {
 		return nil, wrapValidation("monitor user is required")
+	}
+	if expectations == nil || (reflect.ValueOf(expectations).Kind() == reflect.Pointer && reflect.ValueOf(expectations).IsNil()) {
+		return nil, wrapValidation("monitor expectations are required")
+	}
+	// HTTP is the currently supported runtime protocol; TCP/ICMP validators
+	// are still unimplemented and are not invoked by this constructor.
+	switch expectations.(type) {
+	case HTTPExpectations, *HTTPExpectations:
+		if err := expectations.Validate(); err != nil {
+			return nil, err
+		}
 	}
 
 	if target.Config.Protocol() != expectations.Protocol() {

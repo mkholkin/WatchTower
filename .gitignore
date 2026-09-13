@@ -1,0 +1,7 @@
+.DS_Store
+/build/
+/.cache/
+/tools/lab1/node_modules/
+/watchtower-ui/node_modules/
+/watchtower-ui/build/
+**/allure-results/

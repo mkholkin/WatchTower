@@ -4,6 +4,7 @@ import (
 	"WatchTower/internal/domain/entity/user"
 	"WatchTower/internal/domain/repo"
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -41,6 +42,9 @@ func (s *authService) Register(ctx context.Context, login, password string) erro
 	existingUser, err := s.userRepo.GetByLogin(ctx, login)
 	if err == nil && existingUser != nil {
 		return ErrUserAlreadyExists
+	}
+	if err != nil && !errors.Is(err, repo.ErrNotFound) {
+		return err
 	}
 
 	// Hash password

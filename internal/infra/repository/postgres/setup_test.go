@@ -1,3 +1,5 @@
+//go:build integration
+
 package postgres
 
 import (
@@ -66,4 +68,3 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 
 	return pool, cleanup
 }
-

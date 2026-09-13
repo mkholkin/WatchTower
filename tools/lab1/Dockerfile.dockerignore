@@ -1,0 +1,9 @@
+.git
+build
+.cache
+**/node_modules
+**/allure-results
+watchtower-ui
+tiopo
+img
+.DS_Store
