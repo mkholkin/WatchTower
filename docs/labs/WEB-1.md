@@ -1,6 +1,6 @@
 # WebLab № 1 — отчёт о выполнении
 
-Ветка: WEB-1  
+Ветка: WEB-1.
 Назначение: проектные материалы WatchTower для базового трека WebLab № 1.
 
 ## Соответствие требованиям
@@ -40,4 +40,3 @@
 | git diff --check main -- | Пройдена |
 | Изменения относительно main ограничены README.md и docs/ | Пройдена |
 | go build -o /tmp/watchtower-api-check ./cmd/api | Пройдена |
-
