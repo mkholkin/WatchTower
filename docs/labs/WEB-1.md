@@ -40,3 +40,4 @@
 | git diff --check main -- | Пройдена |
 | Изменения относительно main ограничены README.md и docs/ | Пройдена |
 | go build -o /tmp/watchtower-api-check ./cmd/api | Пройдена |
+| go test ./... | Не пройдена из-за исходных проблем проекта: устаревших вызовов CLI, сигнатуры healthcheck-моков, ожиданий тестов contacts/maintenance и недоступного Docker для PostgreSQL Testcontainers. Код в WebLab № 1 не изменялся. |
