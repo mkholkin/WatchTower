@@ -17,10 +17,13 @@ BUSINESS_PKGS := \
 	./internal/service/monitoring_management/... \
 	./internal/service/notification/...
 
-.PHONY: test mocks ensure-mockgen build-business build-data build-cli build-components assemble-app build-app clean-build build gen-api gen-repo migrate-down benchmark-read benchmark-read-plot benchmark-update benchmark-update-plot benchmark-all
+.PHONY: test validate-api mocks ensure-mockgen build-business build-data build-cli build-components assemble-app build-app clean-build build gen-api gen-repo migrate-down benchmark-read benchmark-read-plot benchmark-update benchmark-update-plot benchmark-all
 
 test: mocks
 	go test ./...
+
+validate-api:
+	go test ./api -run '^TestOpenAPI' -v
 
 mocks: ensure-mockgen
 	$(MOCKGEN_BIN) -source=internal/domain/repo/user.go -destination=internal/service/testmocks/user_repo_mock.go -package=testmocks
