@@ -27,7 +27,7 @@
 
 ## 😀 Getting Started
 
-The easiest way to run both the Web UI and the Backend API is using our unified Dockerfile.
+The easiest way to run the Web UI, API and infrastructure is Docker Compose.
 
 ### Prerequisites
 - [Docker](https://docs.docker.com/get-docker/)
@@ -42,7 +42,34 @@ The easiest way to run both the Web UI and the Backend API is using our unified 
 
 2. Run application:
    ```bash
-   docker-compose up
+   docker compose up --build
    ```
+
+3. Open the required interface:
+
+   - Web UI: http://localhost:3000
+   - Swagger UI: http://localhost:8080/swagger
+   - OpenAPI source: http://localhost:8080/openapi.yaml
+   - REST API v2: `http://localhost:8080/api/v2`
+
+4. Run the terminal UI in another shell. It uses the generated API v2 client:
+
+   ```bash
+   go run ./cmd/cli http://localhost:8080
+   ```
+
+The legacy API remains available under `/api/v1`. Its unversioned routes are also
+kept so the existing Web UI continues to work.
+
+### API development
+
+`api/openapi.yaml` is the source of truth for REST API v2. Regenerate the Go
+server and client types after changing it, then validate the contract:
+
+```bash
+make gen-api
+GOCACHE=/tmp/watchtower-go-cache make validate-api
+go test ./internal/api/http/v2/... ./cmd/api ./cmd/cli
+```
 
 ---

@@ -14,6 +14,7 @@ import (
 const addAlertContactToMonitor = `-- name: AddAlertContactToMonitor :exec
 INSERT INTO "monitor_alert_contact" (monitor_id, contact_id)
 VALUES ($1, $2)
+ON CONFLICT DO NOTHING
 `
 
 type AddAlertContactToMonitorParams struct {

@@ -16,6 +16,7 @@ type UpdateMonitorDTO struct {
 	Protocol         *target.Protocol      `json:"protocol,omitempty"`
 	NetworkConfig    *MonitorNetworkConfig `json:"network_config,omitempty"`
 	Expectations     *MonitorExpectations  `json:"expectations,omitempty"`
+	IsEnabled        *bool                 `json:"is_enabled,omitempty"`
 }
 
 func (dto UpdateMonitorDTO) ToDomainNetworkConfig(mappers map[target.Protocol]NetworkConfigMapper) (target.NetworkConfig, error) {

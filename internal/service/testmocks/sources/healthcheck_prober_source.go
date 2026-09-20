@@ -8,5 +8,5 @@ import (
 
 // Prober mirrors healthcheck.Prober for stable mock generation.
 type Prober interface {
-	Probe(ctx context.Context, target *target.Target) (probe.Result, error)
+	Probe(ctx context.Context, target *target.Target) (*probe.Result, error)
 }

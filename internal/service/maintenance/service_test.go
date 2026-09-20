@@ -4,9 +4,11 @@ import (
 	"WatchTower/internal/domain/entity/maintenance"
 	"WatchTower/internal/domain/entity/monitor"
 	"WatchTower/internal/domain/entity/user"
+	baseservice "WatchTower/internal/service"
 	"WatchTower/internal/service/testmocks"
 	"WatchTower/internal/testutil"
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -52,9 +54,15 @@ func TestMaintenanceService_CreateManualMaintenanceWindow(t *testing.T) {
 
 	svc, mwRepo, _, provider := newMaintenanceTestService(ctrl)
 	provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
-	mwRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&maintenance.MaintenanceWindow{})).Return(nil)
+	mwRepo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(&maintenance.MaintenanceWindow{})).DoAndReturn(func(_ context.Context, window *maintenance.MaintenanceWindow) error {
+		config, ok := window.Config.(maintenance.ManualMaintenanceWindowConfig)
+		if !ok || !config.Active {
+			t.Fatalf("manual config = %#v, want active=true", window.Config)
+		}
+		return nil
+	})
 
-	_, err := svc.CreateManualMaintenanceWindow(context.Background(), CreateManualMaintenanceWindowDTO{Title: "window"})
+	_, err := svc.CreateManualMaintenanceWindow(context.Background(), CreateManualMaintenanceWindowDTO{Title: "window", Active: true})
 	if err != nil {
 		t.Fatalf("CreateManualMaintenanceWindow() error = %v", err)
 	}
@@ -64,16 +72,17 @@ func TestMaintenanceService_AddMonitorToMaintenanceWindow(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	svc, mwRepo, monitorRepo, _ := newMaintenanceTestService(ctrl)
+	svc, mwRepo, monitorRepo, provider := newMaintenanceTestService(ctrl)
 	windowID := uuid.New()
 	monitorID := uuid.New()
 
-	mw := &maintenance.MaintenanceWindow{ID: windowID}
-	mon := &monitor.Monitor{ID: monitorID}
+	mw := &maintenance.MaintenanceWindow{ID: windowID, User: &user.User{Login: "alice"}}
+	mon := &monitor.Monitor{ID: monitorID, User: &user.User{Login: "alice"}}
 
+	provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
 	mwRepo.EXPECT().GetByID(gomock.Any(), windowID).Return(mw, nil)
 	monitorRepo.EXPECT().GetByID(gomock.Any(), monitorID).Return(mon, nil)
-	mwRepo.EXPECT().UnlinkMonitor(gomock.Any(), mw, monitorID).Return(nil)
+	mwRepo.EXPECT().LinkMonitor(gomock.Any(), mw, monitorID).Return(nil)
 
 	err := svc.AddMonitorToMaintenanceWindow(context.Background(), monitorID, windowID)
 	if err != nil {
@@ -85,13 +94,14 @@ func TestMaintenanceService_RemoveMonitorFromMaintenanceWindow(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	svc, mwRepo, monitorRepo, _ := newMaintenanceTestService(ctrl)
+	svc, mwRepo, monitorRepo, provider := newMaintenanceTestService(ctrl)
 	windowID := uuid.New()
 	monitorID := uuid.New()
 
-	mw := &maintenance.MaintenanceWindow{ID: windowID}
-	mon := &monitor.Monitor{ID: monitorID, MaintenanceWindows: []maintenance.MaintenanceWindow{*mw}}
+	mw := &maintenance.MaintenanceWindow{ID: windowID, User: &user.User{Login: "alice"}}
+	mon := &monitor.Monitor{ID: monitorID, User: &user.User{Login: "alice"}, MaintenanceWindows: []maintenance.MaintenanceWindow{*mw}}
 
+	provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
 	mwRepo.EXPECT().GetByID(gomock.Any(), windowID).Return(mw, nil)
 	monitorRepo.EXPECT().GetByID(gomock.Any(), monitorID).Return(mon, nil)
 	mwRepo.EXPECT().UnlinkMonitor(gomock.Any(), mw, monitorID).Return(nil)
@@ -99,6 +109,23 @@ func TestMaintenanceService_RemoveMonitorFromMaintenanceWindow(t *testing.T) {
 	err := svc.RemoveMonitorFromMaintenanceWindow(context.Background(), monitorID, windowID)
 	if err != nil {
 		t.Fatalf("RemoveMonitorFromMaintenanceWindow() error = %v", err)
+	}
+}
+
+func TestMaintenanceService_AddMonitorRejectsForeignMonitor(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	svc, mwRepo, monitorRepo, provider := newMaintenanceTestService(ctrl)
+	windowID := uuid.New()
+	monitorID := uuid.New()
+	provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
+	mwRepo.EXPECT().GetByID(gomock.Any(), windowID).Return(&maintenance.MaintenanceWindow{ID: windowID, User: &user.User{Login: "alice"}}, nil)
+	monitorRepo.EXPECT().GetByID(gomock.Any(), monitorID).Return(&monitor.Monitor{ID: monitorID, User: &user.User{Login: "bob"}}, nil)
+
+	err := svc.AddMonitorToMaintenanceWindow(context.Background(), monitorID, windowID)
+	if !errors.Is(err, baseservice.ErrPermissionDenied) {
+		t.Fatalf("AddMonitorToMaintenanceWindow() error = %v, want ErrPermissionDenied", err)
 	}
 }
 

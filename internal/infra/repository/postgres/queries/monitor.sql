@@ -122,7 +122,8 @@ WHERE m.id = c.id
 
 -- name: AddAlertContactToMonitor :exec
 INSERT INTO "monitor_alert_contact" (monitor_id, contact_id)
-VALUES ($1, $2);
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING;
 
 -- name: RemoveAlertContactFromMonitor :exec
 DELETE
@@ -140,4 +141,3 @@ UPDATE "monitor"
 SET is_active      = FALSE,
     current_status = 'UNKNOWN'
 WHERE id = $1;
-

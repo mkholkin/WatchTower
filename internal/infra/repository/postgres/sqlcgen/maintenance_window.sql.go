@@ -162,6 +162,7 @@ func (q *Queries) GetMaintenanceWindowsByUserLogin(ctx context.Context, userLogi
 const linkMonitor = `-- name: LinkMonitor :exec
 INSERT INTO "maintenance_window_monitor" (monitor_id, window_id)
 VALUES ($1, $2)
+ON CONFLICT DO NOTHING
 `
 
 type LinkMonitorParams struct {

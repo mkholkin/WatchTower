@@ -146,6 +146,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -536,6 +538,10 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -872,9 +878,6 @@ components:
           type: string
           minLength: 1
           maxLength: 120
-        description:
-          type: string
-          maxLength: 1000
         endpoint:
           type: string
           format: uri
@@ -907,9 +910,6 @@ components:
           type: string
           minLength: 1
           maxLength: 120
-        description:
-          type: string
-          maxLength: 1000
         endpoint:
           type: string
           format: uri
@@ -939,13 +939,10 @@ components:
         - alert_contact_ids
         - maintenance_window_ids
         - created_at
-        - updated_at
       properties:
         id:
           $ref: '#/components/schemas/UUID'
         label:
-          type: string
-        description:
           type: string
         endpoint:
           type: string
@@ -973,8 +970,6 @@ components:
           items:
             $ref: '#/components/schemas/UUID'
         created_at:
-          $ref: '#/components/schemas/Timestamp'
-        updated_at:
           $ref: '#/components/schemas/Timestamp'
 
     MonitorCheck:
@@ -1222,7 +1217,6 @@ components:
     MonitorCreateExample:
       value:
         label: Public API
-        description: Production health endpoint
         endpoint: https://api.example.com/health
         probe_interval_sec: 30
         network_config:
@@ -1244,7 +1238,6 @@ components:
       value:
         id: 1b6cae53-a014-4b79-843c-6433ad451b4e
         label: Public API
-        description: Production health endpoint
         endpoint: https://api.example.com/health
         protocol: HTTP
         probe_interval_sec: 30
@@ -1262,12 +1255,10 @@ components:
           - 8f73085c-82cf-4c6e-9724-5f3f85ecb65e
         maintenance_window_ids: []
         created_at: '2026-09-20T10:00:00Z'
-        updated_at: '2026-09-20T10:05:00Z'
     MonitorListExample:
       value:
         - id: 1b6cae53-a014-4b79-843c-6433ad451b4e
           label: Public API
-          description: Production health endpoint
           endpoint: https://api.example.com/health
           protocol: HTTP
           probe_interval_sec: 30
@@ -1285,7 +1276,6 @@ components:
             - 8f73085c-82cf-4c6e-9724-5f3f85ecb65e
           maintenance_window_ids: []
           created_at: '2026-09-20T10:00:00Z'
-          updated_at: '2026-09-20T10:05:00Z'
     MonitorChecksExample:
       value:
         - monitor_id: 1b6cae53-a014-4b79-843c-6433ad451b4e

@@ -1,9 +1,10 @@
-package: apigen
+package: apiv2gen
 generate:
   models: true
   gin-server: true
   strict-server: true
-output: internal/api/http/v1/gen/openapi.gen.go
+  client: true
+output: internal/api/http/v2/gen/openapi.gen.go
 
 import-mapping:
   uuid.UUID: github.com/google/uuid

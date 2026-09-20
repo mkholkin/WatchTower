@@ -19,6 +19,7 @@ type CreateManualMaintenanceWindowDTO struct {
 	UserLogin   string `json:"user_login"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
+	Active      bool   `json:"active"`
 }
 
 // UpdateMaintenanceWindowDTO represents a partial update of a maintenance window.

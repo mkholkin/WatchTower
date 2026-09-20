@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -60,7 +61,33 @@ func (r *monitorRepositoryPG) Create(ctx context.Context, mon *monitor.Monitor) 
 		CreatedAt:        pgtype.Timestamptz{Time: mon.CreatedAt, Valid: true},
 	}
 
-	if err := r.queries.CreateMonitor(ctx, params); err != nil {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return mapPGXErrorToRepo(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	queries := r.queries.WithTx(tx)
+
+	if err := queries.CreateMonitor(ctx, params); err != nil {
+		return mapPGXErrorToRepo(err)
+	}
+	for i := range mon.AlertContacts {
+		if err := queries.AddAlertContactToMonitor(ctx, sqlcgen.AddAlertContactToMonitorParams{
+			MonitorID: pgtype.UUID{Bytes: mon.ID, Valid: true},
+			ContactID: pgtype.UUID{Bytes: mon.AlertContacts[i].ID, Valid: true},
+		}); err != nil {
+			return mapPGXErrorToRepo(err)
+		}
+	}
+	for i := range mon.MaintenanceWindows {
+		if err := queries.LinkMonitor(ctx, sqlcgen.LinkMonitorParams{
+			MonitorID: pgtype.UUID{Bytes: mon.ID, Valid: true},
+			WindowID:  pgtype.UUID{Bytes: mon.MaintenanceWindows[i].ID, Valid: true},
+		}); err != nil {
+			return mapPGXErrorToRepo(err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return mapPGXErrorToRepo(err)
 	}
 

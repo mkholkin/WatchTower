@@ -37,7 +37,8 @@ ORDER BY m.title;
 
 -- name: LinkMonitor :exec
 INSERT INTO "maintenance_window_monitor" (monitor_id, window_id)
-VALUES ($1, $2);
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING;
 
 -- name: UnlinkMonitor :exec
 DELETE

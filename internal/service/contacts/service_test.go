@@ -8,6 +8,7 @@ import (
 	"WatchTower/internal/service/testmocks"
 	"WatchTower/internal/testutil"
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -140,7 +141,7 @@ func TestNotificationService_UpdateAlertContact_PermissionDenied(t *testing.T) {
 	repo.EXPECT().GetByID(gomock.Any(), id).Return(&alert.Contact{ID: id, User: &user.User{Login: "bob"}}, nil)
 
 	err := svc.UpdateAlertContact(context.Background(), contactdto.UpdateAlertContactDTO{ContactID: id})
-	if err != baseservice.ErrPermissionDenied {
+	if !errors.Is(err, baseservice.ErrPermissionDenied) {
 		t.Fatalf("UpdateAlertContact() error = %v, want %v", err, baseservice.ErrPermissionDenied)
 	}
 }

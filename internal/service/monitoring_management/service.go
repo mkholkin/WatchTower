@@ -221,27 +221,54 @@ func (s *monitoringManagementService) CreateMonitor(ctx context.Context, createD
 		return nil, err
 	}
 
-	windows, alertContacts, err := s.loadCreateMonitorRelations(ctx, createDTO)
+	windows, alertContacts, err := s.loadCreateMonitorRelations(ctx, createDTO, usr.Login)
 	if err != nil {
 		return nil, err
 	}
 
-	tgt, err := s.getOrCreateTarget(ctx, createDTO.Endpoint, createDTO.ProbeIntervalSec, networkConfig)
+	tgt, targetCreated, err := s.getOrCreateTarget(ctx, createDTO.Endpoint, createDTO.ProbeIntervalSec, networkConfig)
 	if err != nil {
 		return nil, err
+	}
+	previousActive := tgt.IsActive
+	previousInterval := tgt.ProbeIntervalSec
+	if err := s.syncTargetAfterMonitorLinkage(ctx, tgt, createDTO.ProbeIntervalSec); err != nil {
+		rollbackErr := s.restoreTargetAfterFailedMonitorCreate(ctx, tgt, targetCreated, previousActive, previousInterval)
+		return nil, errors.Join(err, rollbackErr)
 	}
 
 	mon, err := s.createAndStoreMonitor(ctx, createDTO, tgt, alertContacts, windows, expectations, usr)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := s.syncTargetAfterMonitorLinkage(ctx, tgt, createDTO.ProbeIntervalSec); err != nil {
-		return nil, err
+		rollbackErr := s.restoreTargetAfterFailedMonitorCreate(ctx, tgt, targetCreated, previousActive, previousInterval)
+		return nil, errors.Join(err, rollbackErr)
 	}
 
 	s.log.Info("monitor created", "monitor_id", mon.ID, "target_id", tgt.ID)
 	return mon, nil
+}
+
+func (s *monitoringManagementService) restoreTargetAfterFailedMonitorCreate(
+	ctx context.Context,
+	tgt *target.Target,
+	targetCreated bool,
+	previousActive bool,
+	previousInterval int32,
+) error {
+	if targetCreated {
+		if err := s.targetRepo.DeleteByID(ctx, tgt.ID); err != nil {
+			return err
+		}
+		return s.publishTargetEvent(healthchecksvc.TopicTargetDeleted, tgt.ID)
+	}
+	if tgt.IsActive == previousActive && tgt.ProbeIntervalSec == previousInterval {
+		return nil
+	}
+	tgt.IsActive = previousActive
+	tgt.ProbeIntervalSec = previousInterval
+	if err := s.targetRepo.Update(ctx, tgt); err != nil {
+		return err
+	}
+	return s.publishTargetEvent(healthchecksvc.TopicTargetUpdated, tgt.ID)
 }
 
 func (s *monitoringManagementService) resolveCreateMonitorConfig(createDTO monitordto.CreateMonitorDTO) (target.NetworkConfig, monitor.Expectations, error) {
@@ -265,15 +292,32 @@ func (s *monitoringManagementService) resolveCreateMonitorConfig(createDTO monit
 func (s *monitoringManagementService) loadCreateMonitorRelations(
 	ctx context.Context,
 	createDTO monitordto.CreateMonitorDTO,
+	ownerLogin string,
 ) ([]maintenance.MaintenanceWindow, []alert.Contact, error) {
 	windows, err := s.windowRepo.GetByIDBulk(ctx, createDTO.MaintenanceWindowIDs)
 	if err != nil {
 		return nil, nil, err
 	}
+	if len(windows) != len(createDTO.MaintenanceWindowIDs) {
+		return nil, nil, repo.ErrNotFound
+	}
+	for i := range windows {
+		if windows[i].User == nil || windows[i].User.Login != ownerLogin {
+			return nil, nil, errors.Join(service.ErrPermissionDenied, errors.New("maintenance window does not belong to user"))
+		}
+	}
 
 	alertContacts, err := s.alertContactRepo.GetByIDBulk(ctx, createDTO.AlertContactIDs)
 	if err != nil {
 		return nil, nil, err
+	}
+	if len(alertContacts) != len(createDTO.AlertContactIDs) {
+		return nil, nil, repo.ErrNotFound
+	}
+	for i := range alertContacts {
+		if alertContacts[i].User == nil || alertContacts[i].User.Login != ownerLogin {
+			return nil, nil, errors.Join(service.ErrPermissionDenied, errors.New("alert contact does not belong to user"))
+		}
 	}
 
 	return windows, alertContacts, nil
@@ -338,6 +382,7 @@ func (s *monitoringManagementService) UpdateMonitor(ctx context.Context, dto mon
 	if err != nil {
 		return err
 	}
+	wasActive := mon.IsActive
 
 	targetChanged, endpoint, probeInterval, networkConfig, err := s.resolveTargetUpdateParams(mon, dto)
 	if err != nil {
@@ -353,10 +398,21 @@ func (s *monitoringManagementService) UpdateMonitor(ctx context.Context, dto mon
 	if err := s.applyMonitorSimpleFields(mon, dto); err != nil {
 		return err
 	}
+	stateChanged := dto.IsEnabled != nil && wasActive != mon.IsActive
+	if stateChanged && mon.IsActive {
+		if err := s.syncTargetAfterMonitorLinkage(ctx, mon.Target, mon.ProbeIntervalSec); err != nil {
+			return err
+		}
+	}
 
 	if err := s.monitorRepo.Update(ctx, mon); err != nil {
 		s.log.Error("failed to update monitor", "monitor_id", mon.ID, "error", err)
 		return err
+	}
+	if stateChanged && !mon.IsActive {
+		if err := s.maintainTargetConsistency(ctx, mon.Target); err != nil {
+			s.log.Error("monitor disabled but target consistency update failed", "monitor_id", mon.ID, "error", err)
+		}
 	}
 
 	s.log.Info("monitor updated successfully", "monitor_id", mon.ID)
@@ -406,7 +462,7 @@ func (s *monitoringManagementService) applyTargetChanges(
 ) error {
 	oldTarget := mon.Target
 
-	newTgt, err := s.getOrCreateTarget(ctx, endpoint, probeInterval, networkConfig)
+	newTgt, _, err := s.getOrCreateTarget(ctx, endpoint, probeInterval, networkConfig)
 	if err != nil {
 		return err
 	}
@@ -444,6 +500,13 @@ func (s *monitoringManagementService) applyMonitorSimpleFields(
 			mon.Expectations = exp
 		}
 	}
+	if dto.IsEnabled != nil {
+		if *dto.IsEnabled {
+			mon.Enable()
+		} else {
+			mon.Disable()
+		}
+	}
 
 	return nil
 }
@@ -454,26 +517,28 @@ func (s *monitoringManagementService) getOrCreateTarget(
 	endpoint string,
 	probeIntervalSec int32,
 	config target.NetworkConfig,
-) (*target.Target, error) {
+) (*target.Target, bool, error) {
 	targetHash := target.ComputeHash(endpoint, config)
 	tgt, err := s.targetRepo.GetByHash(ctx, targetHash)
 
 	switch {
 	case errors.Is(err, repo.ErrNotFound):
 		if tgt, err = target.NewTarget(endpoint, probeIntervalSec, config); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if err := s.targetRepo.Create(ctx, tgt); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if err := s.publishTargetEvent(healthchecksvc.TopicTargetCreated, tgt.ID); err != nil {
-			return nil, err
+			cleanupErr := s.targetRepo.DeleteByID(ctx, tgt.ID)
+			return nil, false, errors.Join(err, cleanupErr)
 		}
+		return tgt, true, nil
 	case err != nil:
-		return tgt, nil
+		return nil, false, err
 	}
 
-	return tgt, nil
+	return tgt, false, nil
 }
 
 func (s *monitoringManagementService) publishTargetEvent(topic string, targetID uuid.UUID) error {
@@ -491,7 +556,6 @@ func (s *monitoringManagementService) publishTargetEvent(topic string, targetID 
 	msg := message.NewMessage(watermill.NewUUID(), payload)
 	if err := s.publisher.Publish(topic, msg); err != nil {
 		return errors.Join(service.ErrEventPublishFailed, err)
-		return service.ErrEventPublishFailed
 	}
 
 	s.log.Debug("target event published", "topic", topic, "target_id", targetID)
@@ -556,6 +620,9 @@ func (s *monitoringManagementService) getValidatedMonitorAndContact(
 	if err != nil {
 		s.log.Error("failed to get alert contact", "alert_contact_id", alertContactID, "error", err)
 		return nil, nil, err
+	}
+	if contact.User == nil || mon.User == nil || contact.User.Login != mon.User.Login {
+		return nil, nil, errors.Join(service.ErrPermissionDenied, errors.New("alert contact does not belong to user"))
 	}
 
 	return mon, contact, nil

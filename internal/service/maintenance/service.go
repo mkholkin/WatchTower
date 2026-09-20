@@ -2,6 +2,7 @@ package maintenance_service
 
 import (
 	"WatchTower/internal/domain/entity/maintenance"
+	"WatchTower/internal/domain/entity/monitor"
 	"WatchTower/internal/domain/repo"
 	baseservice "WatchTower/internal/service"
 	"WatchTower/internal/service/common/provider"
@@ -99,6 +100,14 @@ func (s *maintenanceService) CreateManualMaintenanceWindow(
 		s.log.Error("validation failed for manual maintenance window", "error", err)
 		return nil, err
 	}
+	if dto.Active {
+		active := true
+		if err := mw.ApplyUpdate(maintenance.MaintenanceWindowUpdate{
+			ConfigUpdate: maintenance.ManualConfigUpdate{Active: &active},
+		}); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := s.MWRepo.Create(ctx, mw); err != nil {
 		s.log.Error("failed to create manual maintenance window", "error", err)
@@ -145,17 +154,8 @@ func (s *maintenanceService) AddMonitorToMaintenanceWindow(
 ) error {
 	s.log.Debug("linking monitor to maintenance window", "window_id", windowID, "monitor_id", monitorID)
 
-	// Check if the maintenance window exists.
-	maintenanceWindow, err := s.MWRepo.GetByID(ctx, windowID)
+	maintenanceWindow, mon, err := s.getOwnedWindowAndMonitor(ctx, windowID, monitorID)
 	if err != nil {
-		s.log.Error("failed to get maintenance window", "window_id", windowID, "error", err)
-		return err
-	}
-
-	// Check if the monitor exists.
-	mon, err := s.MonitorRepo.GetByID(ctx, monitorID)
-	if err != nil {
-		s.log.Error("failed to get monitor", "monitor_id", monitorID, "error", err)
 		return err
 	}
 
@@ -185,17 +185,8 @@ func (s *maintenanceService) RemoveMonitorFromMaintenanceWindow(
 ) error {
 	s.log.Debug("unlinking monitor from maintenance window", "window_id", windowID, "monitor_id", monitorID)
 
-	// Check if the maintenance window exists.
-	maintenanceWindow, err := s.MWRepo.GetByID(ctx, windowID)
+	maintenanceWindow, mon, err := s.getOwnedWindowAndMonitor(ctx, windowID, monitorID)
 	if err != nil {
-		s.log.Error("failed to get maintenance window", "window_id", windowID, "error", err)
-		return err
-	}
-
-	// Check if the monitor exists.
-	mon, err := s.MonitorRepo.GetByID(ctx, monitorID)
-	if err != nil {
-		s.log.Error("failed to get monitor", "monitor_id", monitorID, "error", err)
 		return err
 	}
 
@@ -220,6 +211,32 @@ func (s *maintenanceService) RemoveMonitorFromMaintenanceWindow(
 
 	s.log.Debug("monitor unlinked from maintenance window", "window_id", windowID, "monitor_id", monitorID)
 	return nil
+}
+
+func (s *maintenanceService) getOwnedWindowAndMonitor(
+	ctx context.Context,
+	windowID uuid.UUID,
+	monitorID uuid.UUID,
+) (*maintenance.MaintenanceWindow, *monitor.Monitor, error) {
+	usr, err := s.userProvider.GetAuthorizedUser(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	window, err := s.MWRepo.GetByID(ctx, windowID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if window.User == nil || window.User.Login != usr.Login {
+		return nil, nil, errors.Join(baseservice.ErrPermissionDenied, errors.New("maintenance window does not belong to user"))
+	}
+	mon, err := s.MonitorRepo.GetByID(ctx, monitorID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if mon.User == nil || mon.User.Login != usr.Login {
+		return nil, nil, errors.Join(baseservice.ErrPermissionDenied, errors.New("monitor does not belong to user"))
+	}
+	return window, mon, nil
 }
 
 // UpdateMaintenanceWindow applies a partial update to a maintenance window.

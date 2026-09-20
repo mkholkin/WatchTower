@@ -23,8 +23,8 @@ func TestWorkerPoolRun_SavesProbeResult(t *testing.T) {
 	registry := NewProberRegistry()
 	prober := testmocks.NewMockProber(ctrl)
 	registry.Register(target.ProtocolHTTP, prober)
-	prober.EXPECT().Probe(gomock.Any(), gomock.AssignableToTypeOf(&target.Target{})).DoAndReturn(func(_ context.Context, probed *target.Target) (probe.Result, error) {
-		return probe.Result{ID: uuid.New(), Target: probed, ProbeTime: time.Now()}, nil
+	prober.EXPECT().Probe(gomock.Any(), gomock.AssignableToTypeOf(&target.Target{})).DoAndReturn(func(_ context.Context, probed *target.Target) (*probe.Result, error) {
+		return &probe.Result{ID: uuid.New(), Target: probed, ProbeTime: time.Now()}, nil
 	})
 
 	saved := make(chan struct{}, 1)
