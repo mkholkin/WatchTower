@@ -1,5 +1,5 @@
 @startuml
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 skinparam linetype polyline
 LAYOUT_WITH_LEGEND()
 
@@ -16,28 +16,28 @@ System_Boundary(watchtower, "WatchTower System") {
     ContainerDb(db, "PostgreSQL", "Relational DB", "Persistent Data")
     ContainerDb(redis, "Redis", "Key-Value Store", "Recent ProbeSummary Cache")
 
-    System_Boundary(backend, "Backend Application") {
+    Container_Boundary(backend, "Backend Application") {
 
         ' --- Data Access Layer ---
-        Container(repository, "Repository Layer", "Go Interface", "Абстракция доступа к данным (Postgres + Redis)")
+        Component(repository, "Repository Layer", "Go interfaces and adapters", "Абстракция доступа к PostgreSQL, MongoDB и Redis")
 
         ' --- API Layer ---
-        Container(auth_api, "Auth API", "Go/Gin", "REST Controller")
-        Container(monitoring_api, "Monitoring API", "Go/Gin", "REST Controller")
+        Component(auth_api, "Auth API", "Go/Gin", "REST Controller")
+        Component(monitoring_api, "Monitoring API", "Go/Gin", "REST Controller")
 
         ' --- Domain Services (Business Logic) ---
-        Container(auth_service, "Auth Service", "Go", "Logic: Login, JWT")
-        Container(monitoring_service, "Monitoring Mgmt Service", "Go", "Logic: CRUD Monitors")
-        Container(metric_query_service, "Metric Query Service", "Go", "Logic: Read Stats/History (CQRS Read)")
-        Container(maintenance_service, "Maintenance Service", "Go", "Logic: Windows & Schedules")
-        Container(contact_service, "Contact Service", "Go", "Logic: Alert Contacts")
+        Component(auth_service, "Auth Service", "Go", "Logic: Login, JWT")
+        Component(monitoring_service, "Monitoring Mgmt Service", "Go", "Logic: CRUD Monitors")
+        Component(metric_query_service, "Metric Query Service", "Go", "Logic: Read Stats/History (CQRS Read)")
+        Component(maintenance_service, "Maintenance Service", "Go", "Logic: Windows & Schedules")
+        Component(contact_service, "Contact Service", "Go", "Logic: Alert Contacts")
 
         ' --- Background Workers ---
-        System_Boundary(workers, "Background Workers") {
-            Container(healthchecker, "Health Checker", "Go Routine", "Scheduler & Executor. Writes results to DB.")
-            Container(analyzer, "Analyzer", "Go Routine", "Polls results from DB, evaluates logic.")
-            Container(notifier, "Notifier", "Go Routine", "Sends alerts via providers.")
-            Container(notification_provider, "Notification Provider", "Interface", "Adapter for external APIs")
+        Boundary(workers, "Background Workers") {
+            Component(healthchecker, "Health Checker", "Go routines", "Scheduler and WorkerPool. Writes raw results.")
+            Component(analyzer, "Analyzer", "Go routine", "Polls results, evaluates expectations and updates monitor status.")
+            Component(notifier, "Notification", "Go workers", "Consumes status changes and schedules deliveries.")
+            Component(notification_provider, "Telegram Provider", "Go adapter", "Calls Telegram Bot API.")
         }
     }
 }
@@ -66,7 +66,7 @@ Rel(metric_query_service, repository, "Read Only")
 ' Workers Interactions
 Rel(healthchecker, repository, "Writes Results")
 Rel(analyzer, repository, "Reads Results / Writes Status")
-Rel(analyzer, notifier, " ")
+Rel(analyzer, notifier, "Publishes monitor.status_changed", "Watermill GoChannel")
 Rel(notifier, notification_provider, "Uses")
 Rel(notifier, repository, "Reads Contact Info")
 
