@@ -1,0 +1,63 @@
+@startuml
+!theme plain
+title BPMN: Создание и применение окна обслуживания
+
+skinparam conditionStyle diamond
+skinparam swimlane {
+    BorderColor Black
+    BorderThickness 1
+    TitleBackgroundColor LightGray
+    TitleFontColor Black
+}
+skinparam activity {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+|Пользователь|
+start
+:Выбор типа окна обслуживания;
+
+if (Разовое окно?) then (Да)
+    :Ввод времени начала и окончания;
+else (Нет, ручное)
+    :Выбор ручного состояния;
+endif
+
+:Выбор мониторов;
+:Отправка запроса;
+
+|Сервис обслуживания|
+:Проверка конфигурации окна;
+
+if (Конфигурация корректна?) then (Да)
+    :Проверка принадлежности мониторов;
+    if (Доступ разрешён?) then (Да)
+        :Сохранение окна и связей;
+        |Пользователь|
+        :Получение подтверждения;
+    else (Нет)
+        |Пользователь|
+        :Получение ошибки доступа;
+        stop
+    endif
+else (Нет)
+    |Пользователь|
+    :Получение ошибки валидации;
+    stop
+endif
+
+|Сервис анализа (Analyzer)|
+:Получение результата проверки монитора;
+:Проверка активности связанного окна;
+
+if (Окно активно?) then (Да)
+    :Назначение статуса MAINTENANCE;
+else (Нет)
+    :Обычная оценка UP или DOWN;
+endif
+
+:Сохранение результата оценки;
+stop
+@enduml

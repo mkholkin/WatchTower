@@ -16,11 +16,11 @@ System_Boundary(watchtower, "WatchTower") {
 
     ContainerDb(db, "БД", "PostgreSQL", "Хранит пользователей, конфигурации, цели, также исторические временные ряды проверок.")
 
-    ContainerDb(redis, "In-Memory Cache", "Redis", "Хранит «горячие» данные: последние известные состояния ресурсов (Last Known State) для мгновенной загрузки дашбордов.")
+    ContainerDb(redis, "In-Memory Cache", "Redis", "Кэширует последние сводки проверок (ProbeSummary) для быстрого чтения.")
 }
 
 System_Ext(target_systems, "Целевые ресурсы\n(Web, API, Servers)", "Внешние сайты, API и серверы, доступность которых отслеживается системой.")
-System_Ext(notification_apis, "Платформы оповещений\n(Telegram API, SMTP)", "Внешние провайдеры связи для доставки сообщений об инцидентах.")
+System_Ext(notification_apis, "Telegram Bot API", "Внешний провайдер доставки уведомлений об изменении состояния монитора.")
 
 
 ' === Взаимодействия (Связи) ===
@@ -29,15 +29,15 @@ System_Ext(notification_apis, "Платформы оповещений\n(Telegra
 Rel(user, spa, "Просматривает метрики и настраивает конфигурацию", "HTTPS")
 
 ' Frontend -> Backend
-Rel(spa, backend, "Запрашивает данные и отправляет команды", "JSON/HTTPS/WSS")
+Rel(spa, backend, "Запрашивает данные и отправляет команды", "JSON/HTTP(S)")
 
 ' Backend <-> Базы Данных
 Rel(backend, db, "Чтение/запись конфигураций и исторических данных", "TCP/SQL")
-Rel(backend, redis, "Чтение/обновление текущих статусов", "TCP/RESP")
+Rel(backend, redis, "Чтение/обновление кэша сводок", "TCP/RESP")
 
 ' Backend -> Внешние системы
-Rel(backend, target_systems, "Выполняет проверки доступности", "HTTP/TCP/ICMP")
-Rel(backend, notification_apis, "Отправляет сформированные алерты", "HTTPS/SMTP")
+Rel(backend, target_systems, "Выполняет проверки доступности", "HTTP")
+Rel(backend, notification_apis, "Отправляет сформированные уведомления", "HTTPS")
 
 ' Внешние системы -> Пользователь
 'Rel(notification_apis, user, "Доставляет уведомления")

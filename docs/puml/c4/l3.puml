@@ -3,18 +3,18 @@
 skinparam linetype polyline
 LAYOUT_WITH_LEGEND()
 
-title Диаграмма контейнеров (C4 Level 3) - WatchTower Backend Components
+title Диаграмма компонентов (C4 Level 3) - WatchTower Backend
 
 ' === External ===
 Person(user, "Пользователь", "DevOps/Admin")
-System_Ext(target_systems, "Target Resources", "HTTP/TCP/ICMP Targets")
-System_Ext(notification_apis, "Notification APIs", "Telegram, SMTP")
+System_Ext(target_systems, "Target Resources", "HTTP resources")
+System_Ext(notification_apis, "Telegram Bot API", "Notification provider")
 
 System_Boundary(watchtower, "WatchTower System") {
     Container(spa, "Frontend SPA", "React, TS", "Web Dashboard")
 
     ContainerDb(db, "PostgreSQL", "Relational DB", "Persistent Data")
-    ContainerDb(redis, "Redis", "Key-Value Store", "Hot Cache & Last Known State")
+    ContainerDb(redis, "Redis", "Key-Value Store", "Recent ProbeSummary Cache")
 
     System_Boundary(backend, "Backend Application") {
 
@@ -46,8 +46,8 @@ System_Boundary(watchtower, "WatchTower System") {
 
 ' Frontend to API
 Rel(user, spa, "Uses")
-Rel(spa, monitoring_api, "JSON/HTTPS")
-Rel(spa, auth_api, "JSON/HTTPS")
+Rel(spa, monitoring_api, "JSON/HTTP(S)")
+Rel(spa, auth_api, "JSON/HTTP(S)")
 
 ' API to Services
 Rel(auth_api, auth_service, "Calls")
@@ -71,10 +71,10 @@ Rel(notifier, notification_provider, "Uses")
 Rel(notifier, repository, "Reads Contact Info")
 
 ' Notification Logic
-Rel(notification_provider, notification_apis, "Sends")
+Rel(notification_provider, notification_apis, "Sends notifications", "HTTPS")
 
 ' Checking Logic
-Rel(healthchecker, target_systems, "Pings")
+Rel(healthchecker, target_systems, "Runs availability probes", "HTTP")
 
 ' Persistence
 Rel(repository, db, "SQL")
