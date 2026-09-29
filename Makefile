@@ -116,3 +116,11 @@ test-unit-offline:
 
 test-integration:
 	go test -tags=integration ./internal/infra/repository/postgres
+
+# Lab 2: isolated real stores and ordered container pipeline.
+.PHONY: lab2-build lab2
+lab2-build:
+	./tools/lab2/run.sh build
+
+lab2:
+	./tools/lab2/run.sh

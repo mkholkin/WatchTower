@@ -5,3 +5,4 @@
 /watchtower-ui/node_modules/
 /watchtower-ui/build/
 **/allure-results/
+/tools/lab2/__pycache__/
