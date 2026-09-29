@@ -23,6 +23,13 @@ jobs:
           restore-keys: allure-lab2-${{ github.ref_name }}-
       - name: Unit → integration → E2E in Docker
         run: make lab2
+      - name: Return Docker artifacts to the runner user
+        if: always()
+        run: |
+          # allure-go writes root-owned 0600 files inside the test container.
+          if [ -d build/lab2 ]; then
+            sudo chown -R -- "$(id -u):$(id -g)" build/lab2
+          fi
       - name: Save Allure history even after failure
         if: always()
         uses: actions/cache/save@v4
