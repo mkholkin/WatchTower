@@ -129,7 +129,7 @@ func TestMonitoringDisableMonitor(t *testing.T) {
 			mon := testutil.NewMonitorBuilder().WithStatus(monitor.StatusUp).Build()
 			expectOwnedMonitor(d, mon)
 			d.monitors.EXPECT().Disable(gomock.Any(), mon.ID).Return(nil)
-			d.monitors.EXPECT().GetAllByTargetID(gomock.Any(), mon.Target.ID).Return([]*monitor.Monitor{{ProbeIntervalSec: mon.Target.ProbeIntervalSec}}, nil)
+			d.monitors.EXPECT().GetAllByTargetID(gomock.Any(), mon.Target.ID).Return([]*monitor.Monitor{{IsActive: true, ProbeIntervalSec: mon.Target.ProbeIntervalSec}}, nil)
 			if err := d.service.DisableMonitor(context.Background(), mon.ID); err != nil || mon.IsActive || mon.CurrentStatus != monitor.StatusUnknown {
 				t.Fatalf("DisableMonitor() error=%v monitor=%#v", err, mon)
 			}
@@ -155,6 +155,53 @@ func TestMonitoringDisableMonitor(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestMonitoringDisableMonitorReconcilesActiveMonitors(t *testing.T) {
+	tests := []struct {
+		name         string
+		peerActive   bool
+		wantInterval int32
+	}{
+		{name: "uses remaining active monitor interval", peerActive: true, wantInterval: 30},
+		{name: "disables target when all monitors are inactive", wantInterval: 10},
+	}
+	for _, tc := range testutil.Shuffle(t, tests) {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Case(t, "monitoring", "DisableMonitor", "state-transition", "london", func(t *testing.T, _ *allure.Context) {
+				publisher := &recordingPublisher{}
+				d := newMonitoringService(t, publisher)
+				mon := testutil.NewMonitorBuilder().Build()
+				mon.ProbeIntervalSec = 10
+				mon.Target.ProbeIntervalSec = 10
+				expectOwnedMonitor(d, mon)
+				d.monitors.EXPECT().Disable(gomock.Any(), mon.ID).Return(nil)
+				d.monitors.EXPECT().GetAllByTargetID(gomock.Any(), mon.Target.ID).Return([]*monitor.Monitor{
+					mon,
+					{IsActive: tc.peerActive, ProbeIntervalSec: 30},
+				}, nil)
+				if !tc.peerActive {
+					d.targets.EXPECT().Disable(gomock.Any(), mon.Target.ID).Return(nil)
+				}
+				d.targets.EXPECT().Update(gomock.Any(), mon.Target).DoAndReturn(func(_ context.Context, got *target.Target) error {
+					if got.IsActive != tc.peerActive || got.ProbeIntervalSec != tc.wantInterval {
+						t.Fatalf("persisted target active=%v interval=%d, want active=%v interval=%d", got.IsActive, got.ProbeIntervalSec, tc.peerActive, tc.wantInterval)
+					}
+					return nil
+				})
+
+				if err := d.service.DisableMonitor(context.Background(), mon.ID); err != nil {
+					t.Fatal(err)
+				}
+				if mon.Target.IsActive != tc.peerActive || mon.Target.ProbeIntervalSec != tc.wantInterval {
+					t.Fatalf("target active=%v interval=%d, want active=%v interval=%d", mon.Target.IsActive, mon.Target.ProbeIntervalSec, tc.peerActive, tc.wantInterval)
+				}
+				if publisher.topic != healthchecksvc.TopicTargetUpdated || len(publisher.messages) != 1 {
+					t.Fatalf("target update event topic=%q messages=%d", publisher.topic, len(publisher.messages))
+				}
+			})
+		})
+	}
 }
 
 func TestMonitoringEnableMonitor(t *testing.T) {
@@ -212,7 +259,7 @@ func TestMonitoringDeleteMonitor(t *testing.T) {
 			mon := testutil.NewMonitorBuilder().Build()
 			expectOwnedMonitor(d, mon)
 			d.monitors.EXPECT().DeleteByID(gomock.Any(), mon.ID).Return(nil)
-			d.monitors.EXPECT().GetAllByTargetID(gomock.Any(), mon.Target.ID).Return([]*monitor.Monitor{{ProbeIntervalSec: mon.Target.ProbeIntervalSec}}, nil)
+			d.monitors.EXPECT().GetAllByTargetID(gomock.Any(), mon.Target.ID).Return([]*monitor.Monitor{{IsActive: true, ProbeIntervalSec: mon.Target.ProbeIntervalSec}}, nil)
 			if err := d.service.DeleteMonitor(context.Background(), mon.ID); err != nil {
 				t.Fatal(err)
 			}

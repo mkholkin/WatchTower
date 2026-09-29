@@ -1,0 +1,52 @@
+services:
+  postgres:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.postgres
+    image: watchtower-lab2-postgres:local
+    environment:
+      POSTGRES_PASSWORD: lab2-only
+      POSTGRES_DB: postgres
+    command: [postgres, -c, shared_preload_libraries=pg_cron, -c, cron.database_name=postgres]
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres -d postgres]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+  redis:
+    image: redis:7.4-bookworm
+    command: [redis-server, --save, "", --appendonly, "no"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  probe:
+    image: ${LAB2_TEST_IMAGE:-watchtower-lab2-tests:local}
+    entrypoint: [python3, /workspace/tools/lab2/probe.py]
+  tests:
+    build:
+      context: ../..
+      dockerfile: tools/lab2/Dockerfile
+    image: ${LAB2_TEST_IMAGE:-watchtower-lab2-tests:local}
+    init: true
+    cap_add: [NET_RAW]
+    stop_grace_period: 45s
+    environment:
+      LAB2_TEST_ENV: "1"
+      LAB2_DATABASE_URL: postgres://postgres:lab2-only@postgres:5432/postgres?sslmode=disable
+      LAB2_REDIS_URL: redis://redis:6379/0
+      LAB2_API_URL: http://127.0.0.1:8080
+      LAB2_PROBE_URL: http://probe:8081/health
+      LAB2_FAIL_STAGE: ${LAB2_FAIL_STAGE:-}
+      LAB2_INTEGRATION_REPEAT: ${LAB2_INTEGRATION_REPEAT:-1}
+      LAB2_RUN_ID: ${LAB2_RUN_ID}
+    volumes:
+      - ${LAB2_OUTPUT}:/artifacts
+      - ${LAB2_HISTORY_DIR}:/history
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      probe: {condition: service_started}

@@ -1,12 +1,6 @@
+import { ArrowUpRight, Globe2, Clock3 } from 'lucide-react';
 import { Monitor } from '../../types';
 import StatusBadge from '../shared/StatusBadge';
-
-const borderColor: Record<string, string> = {
-  up: 'border-l-emerald-500',
-  down: 'border-l-red-500',
-  maintenance: 'border-l-amber-500',
-  unknown: 'border-l-slate-500',
-};
 
 interface MonitorCardProps {
   monitor: Monitor;
@@ -16,43 +10,30 @@ interface MonitorCardProps {
 }
 
 export default function MonitorCard({ monitor, onToggle, onClick, index = 0 }: MonitorCardProps) {
-  const disabled = !monitor.is_enabled;
-  const handleToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onToggle(monitor.id, !monitor.is_enabled);
-  };
-
   return (
-    <div
-      onClick={onClick}
-      className={`bg-card-bg rounded-xl border border-border border-l-[3px] ${borderColor[monitor.status]} p-5 cursor-pointer transition-all duration-200 animate-fade-in shadow-sm shadow-black/10 ${
-        disabled
-          ? 'opacity-40 hover:opacity-50'
-          : 'hover:bg-card-hover hover:shadow-md hover:shadow-black/20'
-      }`}
-      style={{ animationDelay: `${index * 50}ms` }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="min-w-0 flex-1">
-          <h4 className="font-semibold text-slate-100 truncate">{monitor.label}</h4>
-          <p className="text-xs text-slate-500 truncate mt-1 font-mono">{monitor.endpoint}</p>
-        </div>
-        <StatusBadge status={monitor.status} />
-      </div>
-      <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-        <span className="text-[11px] text-slate-600 font-mono">
-          Every {monitor.probe_interval}s
+    <article className="group min-w-0 overflow-hidden rounded-xl border border-border bg-card-bg transition-colors hover:border-border-hover animate-fade-in" style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}>
+      <button type="button" onClick={onClick} aria-label={`View ${monitor.label}`} className="block w-full rounded-t-xl p-5 text-left transition-colors hover:bg-card-hover focus-visible:outline-offset-[-4px]">
+        <span className="mb-5 flex items-center justify-between gap-2">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-app-bg text-slate-400"><Globe2 size={19} /></span>
+          <StatusBadge status={monitor.status} />
         </span>
-        <label className="relative inline-flex items-center cursor-pointer" onClick={handleToggle}>
-          <input
-            type="checkbox"
-            checked={monitor.is_enabled}
-            onChange={() => {}}
-            className="sr-only peer"
-          />
-          <div className="w-9 h-5 bg-border rounded-full peer peer-checked:bg-emerald-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
+        <span className="flex min-w-0 items-center justify-between gap-3">
+          <span className="truncate text-base font-semibold tracking-tight text-slate-100">{monitor.label}</span>
+          <ArrowUpRight size={17} className="shrink-0 text-slate-500 transition-colors group-hover:text-emerald-300" />
+        </span>
+        <span className="mt-2 block truncate font-mono text-xs text-slate-500" title={monitor.endpoint}>{monitor.endpoint}</span>
+        <span className="mt-5 inline-flex rounded border border-border px-2 py-1 font-mono text-[10px] text-slate-400">{monitor.network_config.protocol} · {monitor.network_config.method}</span>
+      </button>
+      <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3.5">
+        <span className="flex items-center gap-1.5 text-xs text-slate-500"><Clock3 size={13} />Every {monitor.probe_interval}s</span>
+        <label className="flex cursor-pointer items-center gap-2.5 py-1 text-xs text-slate-400">
+          <span>{monitor.is_enabled ? 'Enabled' : 'Disabled'}</span>
+          <span className="relative inline-flex">
+            <input type="checkbox" aria-label={`Enable monitoring for ${monitor.label}`} checked={monitor.is_enabled} onChange={(e) => onToggle(monitor.id, e.target.checked)} className="peer sr-only" />
+            <span className="h-5 w-9 rounded-full bg-border transition-colors peer-checked:bg-emerald-400 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-emerald-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform after:content-[''] peer-checked:after:translate-x-4" />
+          </span>
         </label>
       </div>
-    </div>
+    </article>
   );
 }

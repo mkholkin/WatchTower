@@ -92,14 +92,14 @@ export default function MonitorDetailPage() {
   return (
     <div>
       {/* Top bar */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-5 border-b border-border pb-7 mb-8">
         <div className="flex items-center gap-4 min-w-0">
-          <Link to="/" className="text-slate-500 hover:text-slate-300 transition-colors shrink-0">
+          <Link to="/" aria-label="Back to overview" className="text-slate-500 hover:text-slate-300 transition-colors shrink-0">
             <ArrowLeft size={20} />
           </Link>
           <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-slate-100 truncate">{monitor.label}</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-100 truncate sm:text-3xl">{monitor.label}</h1>
               <StatusBadge status={monitor.status} />
             </div>
             <p className="text-sm text-slate-500 mt-0.5 font-mono truncate">{monitor.endpoint}</p>
@@ -117,18 +117,35 @@ export default function MonitorDetailPage() {
           >
             {monitor.is_enabled ? 'Disable' : 'Enable'}
           </button>
-          <button onClick={() => setShowEdit(true)} className="p-2 text-slate-500 hover:text-slate-300 rounded-lg hover:bg-border transition-colors">
+          <button aria-label="Edit monitor" onClick={() => setShowEdit(true)} className="p-2 text-slate-500 hover:text-slate-300 rounded-lg hover:bg-border transition-colors">
             <Pencil size={17} />
           </button>
-          <button onClick={() => setShowDelete(true)} className="p-2 text-slate-500 hover:text-red-400 rounded-lg hover:bg-border transition-colors">
+          <button aria-label="Delete monitor" onClick={() => setShowDelete(true)} className="p-2 text-slate-500 hover:text-red-400 rounded-lg hover:bg-border transition-colors">
             <Trash2 size={17} />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left column */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="min-w-0 xl:col-span-2 space-y-6">
+          {/* Status History */}
+          <div className="bg-card-bg rounded-xl border border-border p-6 shadow-sm shadow-black/10">
+            <h3 className="font-semibold text-slate-200 mb-4">Status History</h3>
+            <StatusHistoryBar events={statusHistory} loading={historyLoading} />
+          </div>
+
+          {/* Response Time Chart */}
+          <div className="bg-card-bg rounded-xl border border-border p-6 shadow-sm shadow-black/10">
+            <h3 className="font-semibold text-slate-200 mb-4">Response Time</h3>
+            <ResponseTimeChart checks={checks} loading={checksLoading} />
+          </div>
+
+          {/* Checks table */}
+          <div className="bg-card-bg rounded-xl border border-border p-6 shadow-sm shadow-black/10">
+            <h3 className="font-semibold text-slate-200 mb-4">Check History</h3>
+            <ChecksTable checks={checks} loading={checksLoading} />
+          </div>
           {/* Configuration card */}
           <div className="bg-card-bg rounded-xl border border-border p-6 shadow-sm shadow-black/10">
             <h3 className="font-semibold text-slate-200 mb-4">Configuration</h3>
@@ -162,27 +179,10 @@ export default function MonitorDetailPage() {
             </dl>
           </div>
 
-          {/* Status History */}
-          <div className="bg-card-bg rounded-xl border border-border p-6 shadow-sm shadow-black/10">
-            <h3 className="font-semibold text-slate-200 mb-4">Status History</h3>
-            <StatusHistoryBar events={statusHistory} loading={historyLoading} />
-          </div>
-
-          {/* Response Time Chart */}
-          <div className="bg-card-bg rounded-xl border border-border p-6 shadow-sm shadow-black/10">
-            <h3 className="font-semibold text-slate-200 mb-4">Response Time</h3>
-            <ResponseTimeChart checks={checks} loading={checksLoading} />
-          </div>
-
-          {/* Checks table */}
-          <div className="bg-card-bg rounded-xl border border-border p-6 shadow-sm shadow-black/10">
-            <h3 className="font-semibold text-slate-200 mb-4">Check History</h3>
-            <ChecksTable checks={checks} loading={checksLoading} />
-          </div>
         </div>
 
         {/* Right column */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* SLA card */}
           <div className="bg-card-bg rounded-xl border border-border p-6 shadow-sm shadow-black/10">
             <h3 className="font-semibold text-slate-200 mb-2">Uptime (SLA)</h3>

@@ -1,5 +1,5 @@
 import { AlertContact } from '../../types';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Bell } from 'lucide-react';
 
 interface AlertContactCardProps {
   contact: AlertContact;
@@ -10,19 +10,20 @@ interface AlertContactCardProps {
 
 export default function AlertContactCard({ contact, onToggle, onEdit, onDelete }: AlertContactCardProps) {
   return (
-    <div className={`bg-card-bg rounded-xl border border-border p-5 shadow-sm shadow-black/10 hover:bg-card-hover transition-colors duration-200 ${!contact.is_enabled ? 'opacity-50' : ''}`}>
+    <div className="bg-card-bg rounded-xl border border-border p-5 shadow-sm shadow-black/10 hover:bg-card-hover transition-colors duration-200">
       <div className="flex items-start justify-between">
-        <div>
-          <h4 className="font-semibold text-slate-100">{contact.name}</h4>
+        <div className="min-w-0">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-app-bg text-emerald-300"><Bell size={18} /></div>
+          <h4 className="break-words font-semibold text-slate-100">{contact.name}</h4>
           <span className="inline-block mt-1.5 px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[11px] font-medium rounded-md border border-blue-500/10">
             Telegram
           </span>
         </div>
-        <div className="flex items-center gap-0.5">
-          <button onClick={() => onEdit(contact)} className="p-1.5 text-slate-600 hover:text-slate-300 rounded transition-colors">
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button aria-label={`Edit ${contact.name}`} onClick={() => onEdit(contact)} className="p-1.5 text-slate-600 hover:text-slate-300 rounded transition-colors">
             <Pencil size={15} />
           </button>
-          <button onClick={() => onDelete(contact)} className="p-1.5 text-slate-600 hover:text-red-400 rounded transition-colors">
+          <button aria-label={`Delete ${contact.name}`} onClick={() => onDelete(contact)} className="p-1.5 text-slate-600 hover:text-red-400 rounded transition-colors">
             <Trash2 size={15} />
           </button>
         </div>
@@ -34,6 +35,7 @@ export default function AlertContactCard({ contact, onToggle, onEdit, onDelete }
         <label className="relative inline-flex items-center cursor-pointer">
           <input
             type="checkbox"
+            aria-label={`Enable ${contact.name}`}
             checked={contact.is_enabled}
             onChange={() => onToggle(contact.id, !contact.is_enabled)}
             className="sr-only peer"

@@ -41,7 +41,8 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Dashboard"
+        title="Overview"
+        subtitle="A clear view of your endpoints. A closer look when it matters."
         action={{ label: '+ New Monitor', onClick: () => setShowCreate(true) }}
       />
 
@@ -55,7 +56,7 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
@@ -77,7 +78,11 @@ export default function DashboardPage() {
       {!loading && !error && monitors && monitors.length > 0 && (
         <>
           <StatsBar monitors={monitors} />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-slate-200">Your monitors <span className="ml-2 rounded-md border border-border px-2 py-0.5 text-xs font-normal text-slate-400">{monitors.length}</span></h2>
+            <span className="text-xs text-slate-500">Endpoint availability</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
             {monitors.map((m, i) => (
               <MonitorCard
                 key={m.id}

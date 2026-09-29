@@ -97,7 +97,8 @@ func (q *Queries) DeleteMonitorByID(ctx context.Context, id pgtype.UUID) error {
 const disableMonitor = `-- name: DisableMonitor :exec
 UPDATE "monitor"
 SET is_active      = FALSE,
-    current_status = 'UNKNOWN'
+    current_status = 'UNKNOWN',
+    last_evaluated_at = GREATEST(clock_timestamp(), last_evaluated_at + INTERVAL '1 microsecond')
 WHERE id = $1
 `
 

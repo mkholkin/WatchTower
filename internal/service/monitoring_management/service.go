@@ -552,19 +552,20 @@ func (s *monitoringManagementService) maintainTargetConsistency(ctx context.Cont
 		return err
 	}
 
-	if len(associatedMonitors) == 0 {
+	var minProbeInterval int32
+	for _, mon := range associatedMonitors {
+		if mon.IsActive && (minProbeInterval == 0 || mon.ProbeIntervalSec < minProbeInterval) {
+			minProbeInterval = mon.ProbeIntervalSec
+		}
+	}
+
+	if minProbeInterval == 0 {
 		target.IsActive = false
 		targetUpdated = true
 		if err := s.targetRepo.Disable(ctx, target.ID); err != nil {
 			return err
 		}
 	} else {
-		minProbeInterval := associatedMonitors[0].ProbeIntervalSec
-		for _, mon := range associatedMonitors[1:] {
-			if mon.ProbeIntervalSec < minProbeInterval {
-				minProbeInterval = mon.ProbeIntervalSec
-			}
-		}
 		if minProbeInterval != target.ProbeIntervalSec {
 			target.ProbeIntervalSec = minProbeInterval
 			targetUpdated = true

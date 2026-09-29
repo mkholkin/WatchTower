@@ -1,5 +1,5 @@
 import { MaintenanceWindow, OneTimeConfig, ManualConfig } from '../../types';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, CalendarClock } from 'lucide-react';
 
 interface MaintenanceWindowCardProps {
   window: MaintenanceWindow;
@@ -17,10 +17,11 @@ export default function MaintenanceWindowCard({ window: w, onToggle, onEdit, onD
   const isManual = w.config.type === 'manual';
 
   return (
-    <div className={`bg-card-bg rounded-xl border border-border p-5 shadow-sm shadow-black/10 hover:bg-card-hover transition-colors duration-200 ${isManual && !(w.config as ManualConfig).is_active ? 'opacity-50' : ''}`}>
+    <div className="bg-card-bg rounded-xl border border-border p-5 shadow-sm shadow-black/10 hover:bg-card-hover transition-colors duration-200">
       <div className="flex items-start justify-between mb-3">
-        <div>
-          <h4 className="font-semibold text-slate-100">{w.title}</h4>
+        <div className="min-w-0">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-app-bg text-emerald-300"><CalendarClock size={18} /></div>
+          <h4 className="break-words font-semibold text-slate-100">{w.title}</h4>
           <span className={`inline-block mt-1.5 px-2 py-0.5 text-[11px] font-medium rounded-md border ${
             isOneTime
               ? 'bg-purple-500/10 text-purple-400 border-purple-500/10'
@@ -29,11 +30,11 @@ export default function MaintenanceWindowCard({ window: w, onToggle, onEdit, onD
             {isOneTime ? 'One-time' : 'Manual'}
           </span>
         </div>
-        <div className="flex items-center gap-0.5">
-          <button onClick={() => onEdit(w)} className="p-1.5 text-slate-600 hover:text-slate-300 rounded transition-colors">
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button aria-label={`Edit ${w.title}`} onClick={() => onEdit(w)} className="p-1.5 text-slate-600 hover:text-slate-300 rounded transition-colors">
             <Pencil size={15} />
           </button>
-          <button onClick={() => onDelete(w)} className="p-1.5 text-slate-600 hover:text-red-400 rounded transition-colors">
+          <button aria-label={`Delete ${w.title}`} onClick={() => onDelete(w)} className="p-1.5 text-slate-600 hover:text-red-400 rounded transition-colors">
             <Trash2 size={15} />
           </button>
         </div>
@@ -58,6 +59,7 @@ export default function MaintenanceWindowCard({ window: w, onToggle, onEdit, onD
           <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
+            aria-label={`Enable ${w.title}`}
               checked={(w.config as ManualConfig).is_active}
               onChange={() => onToggle(w.id, !(w.config as ManualConfig).is_active)}
               className="sr-only peer"

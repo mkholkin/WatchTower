@@ -16,7 +16,7 @@ const config: Record<MonitorStatus, { label: string; dotClass: string; textClass
     pulse: true,
   },
   maintenance: {
-    label: 'Maint.',
+    label: 'Maintenance',
     dotClass: 'bg-amber-400',
     textClass: 'text-amber-400',
     bgClass: 'bg-amber-500/10',
@@ -34,7 +34,7 @@ const config: Record<MonitorStatus, { label: string; dotClass: string; textClass
 export default function StatusBadge({ status, className = '' }: { status: MonitorStatus; className?: string }) {
   const { label, dotClass, textClass, bgClass, pulse } = config[status];
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold ${bgClass} ${textClass} ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold ${bgClass} ${textClass} ${className}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${dotClass} ${pulse && status === 'up' ? 'pulse-dot' : ''} ${pulse && status === 'down' ? 'pulse-dot-down' : ''}`} />
       {label}
     </span>

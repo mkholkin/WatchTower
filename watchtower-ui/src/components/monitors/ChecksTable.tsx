@@ -24,6 +24,7 @@ export default function ChecksTable({ checks, loading }: ChecksTableProps) {
   return (
     <div className="overflow-x-auto -mx-6">
       <table className="w-full text-sm">
+        <caption className="sr-only">Monitor check history</caption>
         <thead>
           <tr className="border-b border-border">
             <th className="text-left py-3 px-6 font-medium text-slate-500 text-[11px] uppercase tracking-wider">Time</th>
@@ -33,7 +34,7 @@ export default function ChecksTable({ checks, loading }: ChecksTableProps) {
             <th className="text-left py-3 px-6 font-medium text-slate-500 text-[11px] uppercase tracking-wider">Error</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#1e2a3d]/50">
+        <tbody className="divide-y divide-border">
           {checks.map((c, i) => (
             <tr key={i} className="hover:bg-card-hover/50 transition-colors">
               <td className="py-3 px-6 text-slate-400 whitespace-nowrap text-xs font-mono">{formatTime(c.check_time)}</td>
