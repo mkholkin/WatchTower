@@ -28,7 +28,7 @@ function buildHeaders(entries: HeaderEntry[]): Record<string, string> | null {
     : null;
 }
 
-const inputClass = "w-full px-3 py-2 bg-app-bg border border-border rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 outline-none transition-all";
+const inputClass = "min-w-0 w-full px-3 py-2.5 bg-app-bg border border-border rounded-lg text-sm text-slate-100 placeholder-slate-600 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 outline-none transition-all";
 const labelClass = "block text-sm font-medium text-slate-400 mb-1.5";
 const sectionClass = "bg-app-bg/50 rounded-xl border border-border p-5 space-y-4";
 
@@ -115,39 +115,39 @@ export default function MonitorForm({ initialData, onSubmit, onCancel }: Monitor
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[3vh]">
-      <div className="absolute inset-0 bg-black/70" onClick={onCancel} />
-      <div className="relative bg-card-bg rounded-xl border border-border shadow-2xl shadow-black/40 w-full max-w-2xl mx-4 max-h-[94vh] overflow-y-auto">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-card-bg rounded-2xl border border-border shadow-2xl shadow-black/40 w-full max-w-2xl mx-4 max-h-[94dvh] overflow-y-auto">
         <div className="sticky top-0 bg-card-bg border-b border-border px-6 py-4 flex items-center justify-between rounded-t-xl z-10">
           <h3 className="text-lg font-semibold text-slate-100">{isEdit ? 'Edit Monitor' : 'New Monitor'}</h3>
-          <button onClick={onCancel} className="text-slate-500 hover:text-slate-300 transition-colors"><X size={20} /></button>
+          <button aria-label="Close form" onClick={onCancel} className="text-slate-500 hover:text-slate-300 transition-colors"><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Basic info */}
           <div className={sectionClass}>
             <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Basic Information</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 sm:col-span-1">
-                <label className={labelClass}>Label *</label>
-                <input type="text" required value={label} onChange={(e) => setLabel(e.target.value)} className={inputClass} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-1">
+                <label htmlFor="monitors-label" className={labelClass}>Label *</label>
+                <input id="monitors-label" type="text" required value={label} onChange={(e) => setLabel(e.target.value)} className={inputClass} />
               </div>
-              <div className="col-span-2 sm:col-span-1">
-                <label className={labelClass}>Protocol</label>
-                <select value={protocol} onChange={(e) => setProtocol(e.target.value as MonitorProtocol)} className={inputClass}>
+              <div className="sm:col-span-1">
+                <label htmlFor="monitors-protocol" className={labelClass}>Protocol</label>
+                <select id="monitors-protocol" value={protocol} onChange={(e) => setProtocol(e.target.value as MonitorProtocol)} className={inputClass}>
                   <option value="HTTP">HTTP</option>
                 </select>
               </div>
-              <div className="col-span-2">
-                <label className={labelClass}>Description</label>
-                <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
+              <div className="sm:col-span-2">
+                <label htmlFor="monitors-description" className={labelClass}>Description</label>
+                <input id="monitors-description" type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
               </div>
-              <div className="col-span-2">
-                <label className={labelClass}>Endpoint URL *</label>
-                <input type="url" required value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="https://example.com/health" className={inputClass} />
+              <div className="sm:col-span-2">
+                <label htmlFor="monitors-endpoint-url" className={labelClass}>Endpoint URL *</label>
+                <input id="monitors-endpoint-url" type="url" required value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="https://example.com/health" className={inputClass} />
               </div>
-              <div className="col-span-2 sm:col-span-1">
-                <label className={labelClass}>Probe Interval *</label>
-                <select value={probeInterval} onChange={(e) => setProbeInterval(Number(e.target.value))} className={inputClass}>
+              <div className="sm:col-span-1">
+                <label htmlFor="monitors-probe-interval" className={labelClass}>Probe Interval *</label>
+                <select id="monitors-probe-interval" value={probeInterval} onChange={(e) => setProbeInterval(Number(e.target.value))} className={inputClass}>
                   {PROBE_INTERVALS.map((p) => (<option key={p.value} value={p.value}>{p.label}</option>))}
                 </select>
               </div>
@@ -158,10 +158,10 @@ export default function MonitorForm({ initialData, onSubmit, onCancel }: Monitor
           {protocol === 'HTTP' && (
             <div className={sectionClass}>
               <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Network Configuration — HTTP</h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>Method</label>
-                  <select value={method} onChange={(e) => setMethod(e.target.value as HTTPMethod)} className={inputClass}>
+                  <label htmlFor="monitors-method" className={labelClass}>Method</label>
+                  <select id="monitors-method" value={method} onChange={(e) => setMethod(e.target.value as HTTPMethod)} className={inputClass}>
                     {HTTP_METHODS.map((m) => (<option key={m} value={m}>{m}</option>))}
                   </select>
                 </div>
@@ -182,17 +182,17 @@ export default function MonitorForm({ initialData, onSubmit, onCancel }: Monitor
                 <div className="space-y-2">
                   {headers.map((h, i) => (
                     <div key={i} className="flex gap-2">
-                      <input type="text" value={h.key} onChange={(e) => updateHeader(i, 'key', e.target.value)} placeholder="Header name" className={`flex-1 ${inputClass}`} />
-                      <input type="text" value={h.value} onChange={(e) => updateHeader(i, 'value', e.target.value)} placeholder="Value" className={`flex-1 ${inputClass}`} />
-                      <button type="button" onClick={() => removeHeader(i)} className="p-1.5 text-slate-600 hover:text-red-400 transition-colors"><Trash2 size={16} /></button>
+                      <input aria-label={`Header ${i + 1} name`} type="text" value={h.key} onChange={(e) => updateHeader(i, 'key', e.target.value)} placeholder="Header name" className={`flex-1 ${inputClass}`} />
+                      <input aria-label={`Header ${i + 1} value`} type="text" value={h.value} onChange={(e) => updateHeader(i, 'value', e.target.value)} placeholder="Value" className={`flex-1 ${inputClass}`} />
+                      <button aria-label={`Remove header ${i + 1}`} type="button" onClick={() => removeHeader(i)} className="p-1.5 text-slate-600 hover:text-red-400 transition-colors"><Trash2 size={16} /></button>
                     </div>
                   ))}
                 </div>
               </div>
               {showBodyField && (
                 <div>
-                  <label className={labelClass}>Request Body</label>
-                  <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} className={`${inputClass} font-mono resize-vertical`} />
+                  <label htmlFor="monitors-request-body" className={labelClass}>Request Body</label>
+                  <textarea id="monitors-request-body" value={body} onChange={(e) => setBody(e.target.value)} rows={3} className={`${inputClass} font-mono resize-vertical`} />
                 </div>
               )}
             </div>
@@ -202,14 +202,14 @@ export default function MonitorForm({ initialData, onSubmit, onCancel }: Monitor
           {protocol === 'HTTP' && (
             <div className={sectionClass}>
               <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Success Criteria — HTTP</h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>Expected Status Codes</label>
-                  <input type="text" value={expectedStatusCodes} onChange={(e) => setExpectedStatusCodes(e.target.value)} placeholder="200, 201" className={inputClass} />
+                  <label htmlFor="monitors-expected-status-codes" className={labelClass}>Expected Status Codes</label>
+                  <input id="monitors-expected-status-codes" type="text" value={expectedStatusCodes} onChange={(e) => setExpectedStatusCodes(e.target.value)} placeholder="200, 201" className={inputClass} />
                 </div>
                 <div>
-                  <label className={labelClass}>Max Response Time (ms)</label>
-                  <input type="number" value={expectedResponseTime} onChange={(e) => setExpectedResponseTime(Number(e.target.value))} className={inputClass} />
+                  <label htmlFor="monitors-max-response-time-ms" className={labelClass}>Max Response Time (ms)</label>
+                  <input id="monitors-max-response-time-ms" type="number" value={expectedResponseTime} onChange={(e) => setExpectedResponseTime(Number(e.target.value))} className={inputClass} />
                 </div>
               </div>
             </div>
@@ -223,7 +223,7 @@ export default function MonitorForm({ initialData, onSubmit, onCancel }: Monitor
             <button type="button" onClick={onCancel} disabled={submitting} className="px-4 py-2 text-sm font-medium text-slate-300 bg-border rounded-lg hover:bg-border-hover disabled:opacity-50 transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-semibold text-slate-900 bg-emerald-500 rounded-lg hover:bg-emerald-400 disabled:opacity-50 transition-all">
+            <button type="submit" disabled={submitting} className="primary-button">
               {submitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Monitor'}
             </button>
           </div>

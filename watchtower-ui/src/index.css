@@ -8,7 +8,7 @@
   }
 
   body {
-    background-color: #0b1120;
+    background-color: #101214;
     color: #ecedee;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -30,7 +30,7 @@
   }
 
   .skeleton {
-    background: linear-gradient(90deg, #111b2b 25%, #1e2a3d 50%, #111b2b 75%);
+    background: linear-gradient(90deg, #181b1e 25%, #2b3035 50%, #181b1e 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
   }
@@ -60,9 +60,35 @@
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #0b1120; }
-::-webkit-scrollbar-thumb { background: #1e2a3d; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #253349; }
+::-webkit-scrollbar-track { background: #101214; }
+::-webkit-scrollbar-thumb { background: #2b3035; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3b444b; }
 
 /* Dark inputs */
 input, select, textarea { color-scheme: dark; }
+
+@layer base {
+  html { color-scheme: dark; }
+  body { margin: 0; }
+  button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled), select { cursor: pointer; }
+  button:disabled { cursor: wait; }
+  :focus-visible { outline: 2px solid #6ee7b7; outline-offset: 4px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 2px; }
+  ::selection { background: #6ee7b7; color: #101214; }
+}
+
+@layer components {
+  .eyebrow { @apply text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500; }
+  .primary-button { @apply inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-emerald-300 disabled:opacity-50; }
+  .auth-grid {
+    background-image: linear-gradient(#ffffff04 1px, transparent 1px), linear-gradient(90deg, #ffffff04 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .sr-only:focus-visible + div { outline: 2px solid #6ee7b7; outline-offset: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .animate-fade-in { opacity: 1; }
+}

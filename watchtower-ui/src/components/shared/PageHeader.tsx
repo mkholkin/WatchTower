@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { Plus } from 'lucide-react';
 
 interface PageHeaderProps {
   title: string;
@@ -9,18 +10,19 @@ interface PageHeaderProps {
 
 export default function PageHeader({ title, subtitle, action, children }: PageHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-8">
+    <div className="mb-8 flex flex-wrap items-center justify-between gap-5 border-b border-border pb-7">
       <div>
-        <h2 className="text-2xl font-bold text-slate-100">{title}</h2>
-        {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+        <p className="eyebrow mb-3">Workspace / {title}</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-100">{title}</h1>
+        {subtitle && <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-400">{subtitle}</p>}
         {children}
       </div>
       {action && (
         <button
           onClick={action.onClick}
-          className="px-4 py-2.5 bg-emerald-500 text-slate-900 text-sm font-semibold rounded-lg hover:bg-emerald-400 transition-all"
+          className="primary-button shrink-0"
         >
-          {action.label}
+          <Plus size={16} aria-hidden="true" />{action.label.replace(/^\+\s*/, '')}
         </button>
       )}
     </div>
