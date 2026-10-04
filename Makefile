@@ -124,3 +124,15 @@ lab2-build:
 
 lab2:
 	./tools/lab2/run.sh
+
+# Lab 3: independent single-CPU JSON microbenchmarks and statistical reports.
+.PHONY: lab3 lab3-smoke lab3-check
+lab3:
+	python3 tools/lab3/run.py
+
+lab3-smoke:
+	python3 tools/lab3/run.py --smoke --trials 1
+
+lab3-check:
+	go test ./benchmarks/lab3
+	python3 -m unittest discover -s tools/lab3 -p 'test_*.py'

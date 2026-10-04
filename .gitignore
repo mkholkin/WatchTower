@@ -6,3 +6,4 @@
 /watchtower-ui/build/
 **/allure-results/
 /tools/lab2/__pycache__/
+/tools/lab3/__pycache__/
