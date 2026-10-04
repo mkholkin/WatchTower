@@ -1,0 +1,580 @@
+{
+  "info": {
+    "name": "WatchTower — ЛР №2 — HTTP E2E",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Импортируйте коллекцию и запустите Run collection целиком: 1 iteration, без Environment. Все переменные находятся в Variables коллекции. API должен быть запущен постоянно: docker compose up -d --build postgres redis backend. make lab2 поднимает временный стенд без опубликованного порта и для ручного запуска не подходит. baseUrl — адрес API для Postman; probeUrl — адрес, доступный backend для фоновой проверки. По умолчанию backend проверяет собственный /openapi.yaml (HTTP 200); в тестовой сети можно указать http://probe:8081/health. Регистрация каждый раз использует новый логин; JWT и monitorId сохраняются автоматически. Ожидание фоновой проверки ограничено 30 секундами и использует setNextRequest: автоматические повторы работают в Collection Runner, при ручном Send повторяйте запросы 05 и 06 сами. При таймауте монитор удаляется, проверка остаётся неуспешной. После успешного сценария монитор удалён, тестовый пользователь остаётся. Основа: tests/lab2/e2e/monitor_http_test.go. Справка по порядку запросов: https://learning.postman.com/docs/tests-and-scripts/running-collections/building-workflows"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "probeUrl",
+      "value": "http://127.0.0.1:8080/openapi.yaml",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Lab2Pass-123!",
+      "type": "string"
+    },
+    {
+      "key": "login",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "monitorId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Регистрация",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/register",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set(\"login\", \"postman_\" + Date.now() + \"_\" + pm.variables.replaceIn(\"{{$guid}}\").slice(0, 8));",
+              "[\"token\", \"monitorId\", \"probeDeadline\"].forEach(key => pm.collectionVariables.unset(key));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code !== 201) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Вход",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "const token = pm.response.json().access_token;",
+              "pm.test(\"Получен JWT\", () => pm.expect(token).to.be.a(\"string\").and.not.empty);",
+              "if (typeof token === \"string\" && token.length) pm.collectionVariables.set(\"token\", token);",
+              "else pm.execution.setNextRequest(null);",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Без токена доступ запрещён",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/monitors",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "if (pm.response.code !== 401) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Создание монитора",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/monitors",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"label\": \"Postman probe\",\n  \"endpoint\": \"{{probeUrl}}\",\n  \"probe_interval\": 1,\n  \"alert_contact_ids\": [],\n  \"maintenance_window_ids\": [],\n  \"network_config\": {\n    \"protocol\": \"HTTP\",\n    \"method\": \"GET\",\n    \"headers\": {},\n    \"body\": \"\",\n    \"follow_redirects\": false\n  },\n  \"expectations\": {\n    \"protocol\": \"HTTP\",\n    \"expected_status_codes\": [\n      200\n    ],\n    \"expected_response_time_ms\": 5000\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code !== 201) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "const monitor = pm.response.json();",
+              "pm.test(\"Монитор создан с заданным названием\", () => {",
+              "  pm.expect(monitor.id).to.be.a(\"string\").and.not.empty;",
+              "  pm.expect(monitor.label).to.equal(\"Postman probe\");",
+              "});",
+              "if (typeof monitor.id === \"string\" && monitor.id.length) {",
+              "  pm.collectionVariables.set(\"monitorId\", monitor.id);",
+              "  pm.collectionVariables.set(\"probeDeadline\", Date.now() + 30000);",
+              "} else pm.execution.setNextRequest(null);",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Ожидание статуса up",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "setTimeout(() => {}, 250);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "const monitor = pm.response.json();",
+              "if (monitor.status === \"up\") {",
+              "  pm.test(\"Статус монитора up\", () => pm.expect(monitor.status).to.equal(\"up\"));",
+              "} else if (Date.now() < Number(pm.collectionVariables.get(\"probeDeadline\"))) {",
+              "  pm.execution.setNextRequest(\"05 Ожидание статуса up\");",
+              "} else {",
+              "  pm.test(\"Статус up получен за 30 секунд\", () => pm.expect(monitor.status).to.equal(\"up\"));",
+              "  pm.execution.setNextRequest(\"15 Удаление монитора\");",
+              "}",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 История содержит HTTP 200",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}/checks?limit=10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "const checks = pm.response.json();",
+              "const success = Array.isArray(checks) && checks.some(check => check.status === \"up\" && check.status_code === 200);",
+              "if (success) {",
+              "  pm.test(\"Фоновая проверка: up и HTTP 200\", () => pm.expect(success).to.equal(true));",
+              "} else if (Date.now() < Number(pm.collectionVariables.get(\"probeDeadline\"))) {",
+              "  pm.execution.setNextRequest(\"05 Ожидание статуса up\");",
+              "} else {",
+              "  pm.test(\"Успешная проверка записана за 30 секунд\", () => pm.expect(success).to.equal(true));",
+              "  pm.execution.setNextRequest(\"15 Удаление монитора\");",
+              "}",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Список мониторов",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/monitors"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "pm.test(\"У нового пользователя один монитор со статусом up\", () => {",
+              "  const list = pm.response.json();",
+              "  pm.expect(list).to.be.an(\"array\").with.lengthOf(1);",
+              "  pm.expect(list[0].id).to.equal(pm.collectionVariables.get(\"monitorId\"));",
+              "  pm.expect(list[0].status).to.equal(\"up\");",
+              "});",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Детали и статус",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "pm.test(\"Детали относятся к созданному монитору\", () => {",
+              "  const monitor = pm.response.json();",
+              "  pm.expect(monitor.id).to.equal(pm.collectionVariables.get(\"monitorId\"));",
+              "  pm.expect(monitor.status).to.equal(\"up\");",
+              "});",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 SLA",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}/sla"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "pm.test(\"SLA относится к монитору и лежит в диапазоне 0–100\", () => {",
+              "  const sla = pm.response.json();",
+              "  pm.expect(sla.monitor_id).to.equal(pm.collectionVariables.get(\"monitorId\"));",
+              "  pm.expect(sla.uptime_percentage).to.be.a(\"number\").and.within(0, 100);",
+              "});",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Переименование",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"label\": \"Postman probe renamed\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "pm.test(\"Название изменено\", () => pm.expect(pm.response.json().label).to.equal(\"Postman probe renamed\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Отключение",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}/disable"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Проверка отключения",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "pm.test(\"Монитор отключён\", () => pm.expect(pm.response.json().is_enabled).to.equal(false));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Включение",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}/enable"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Проверка включения",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "pm.test(\"Монитор включён\", () => pm.expect(pm.response.json().is_enabled).to.equal(true));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Удаление монитора",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "if (pm.response.code !== 204) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Удалённый монитор не найден",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/monitors/{{monitorId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "if (pm.response.code !== 404) {",
+              "  pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
