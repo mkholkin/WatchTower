@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>WatchTower — карта проекта</title>
+<style>
+:root{--bg:#faf7f2;--surface:#fffdf9;--border:#ddd6c9;--text:#272e32;--text-dim:#606664;--accent:#234d66;--accent-dim:#e9eff0;--sage:#44634e;--sage-dim:#edf1e8;--gold:#916418;--gold-dim:#f5eddc;--terra:#a44931;--terra-dim:#f6eae4;--font-body:'IBM Plex Sans','Trebuchet MS',sans-serif;--font-mono:'IBM Plex Mono','SFMono-Regular',Consolas,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#191e20;--surface:#20282a;--border:#3b4546;--text:#ece9e0;--text-dim:#b6bdb6;--accent:#a6c9dd;--accent-dim:#263c45;--sage:#b7d0a8;--sage-dim:#2d3b30;--gold:#dfbf79;--gold-dim:#3c3527;--terra:#e7ad94;--terra-dim:#402e2a}}
+*{box-sizing:border-box;min-width:0}body{margin:0;padding:36px;background:var(--bg);background-image:radial-gradient(var(--border) .65px,transparent .65px);background-size:22px 22px;color:var(--text);font:16px/1.65 var(--font-body)}a{color:var(--accent);text-underline-offset:3px}a:hover{text-decoration-thickness:2px}a:focus-visible,summary:focus-visible{outline:3px solid var(--terra);outline-offset:5px}code,.eyebrow,.num,.tag{font-family:var(--font-mono)}code{font-size:.83em;overflow-wrap:anywhere}p{margin:8px 0 16px}h1,h2,h3{line-height:1.16;margin:0 0 14px}h1{font:clamp(48px,7vw,88px)/1 Georgia,serif;letter-spacing:-3px}h2{font:34px/1.15 Georgia,serif}h3{font-size:19px}small,.muted{color:var(--text-dim)}.wrap{max-width:1400px;margin:auto;display:grid;grid-template-columns:180px minmax(0,1fr);gap:40px}.toc{position:sticky;top:30px;align-self:start;max-height:calc(100vh - 60px);overflow:auto}.toc strong{display:block;font:12px var(--font-mono);letter-spacing:2px;margin:0 0 18px}.toc a{display:block;text-decoration:none;border-left:2px solid var(--border);padding:9px 13px;font-size:14px;color:var(--text-dim)}.toc a:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}.hero{padding:36px 0 40px;border-bottom:3px solid var(--text)}.eyebrow{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--terra);margin-bottom:18px}.lead{font-size:21px;max-width:780px;margin-top:24px}.meta{display:flex;gap:9px;flex-wrap:wrap;margin-top:23px}.tag{padding:5px 10px;background:var(--surface);border:1px solid var(--border);font-size:11px}.section{padding-top:55px;scroll-margin-top:24px}.section-head{display:flex;align-items:baseline;gap:18px;margin-bottom:20px}.num{font-size:12px;color:var(--terra)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.three{grid-template-columns:repeat(3,minmax(0,1fr))}.ve-card{background:var(--surface);border:1px solid var(--border);padding:23px;overflow-wrap:anywhere}.ve-card p:last-child{margin-bottom:0}.ve-card.primary{border-top:3px solid var(--accent);background:var(--accent-dim)}.ve-card.store{border-top:3px solid var(--sage);background:var(--sage-dim)}.ve-card.event{border-top:3px solid var(--gold);background:var(--gold-dim)}.ve-card small{display:block}.connector{text-align:center;font:12px/1.6 var(--font-mono);color:var(--text-dim);padding:12px}.connector::before{content:'↓';display:block;font:24px/1 Georgia,serif;color:var(--accent)}.backend{border:1px solid var(--accent);background:var(--surface);padding:22px}.backend-title{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px}.backend-title strong{font-size:22px}.backend-title code{color:var(--accent)}.note{border-left:3px solid var(--terra);background:var(--terra-dim);padding:18px 22px;margin-top:20px}.note p:last-child{margin:0}.relations{display:grid;gap:0}.relation{display:grid;grid-template-columns:1fr 90px 1fr;align-items:center;border-top:1px solid var(--border);padding:14px 0;gap:12px}.relation span:nth-child(2){text-align:center;font:12px var(--font-mono);color:var(--sage)}.steps{counter-reset:step;list-style:none;padding:0;margin:0}.steps li{position:relative;padding:0 0 24px 50px;border-left:1px solid var(--border);margin-left:16px}.steps li:last-child{border-left-color:transparent;padding-bottom:0}.steps li::before{counter-increment:step;content:counter(step);position:absolute;left:-17px;top:0;width:33px;height:33px;display:grid;place-items:center;background:var(--accent-dim);color:var(--accent);border:1px solid var(--border);font:13px var(--font-mono)}.steps strong{display:block;margin-bottom:3px}.table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border)}table{width:100%;border-collapse:collapse;text-align:left;font-size:14px}th,td{padding:14px 18px;vertical-align:top;border-bottom:1px solid var(--border);overflow-wrap:anywhere}th{background:var(--accent-dim);font:11px var(--font-mono);text-transform:uppercase;letter-spacing:1px}td:first-child{width:30%}tr:nth-child(even){background:var(--sage-dim)}tr:last-child td{border-bottom:0}details{border-top:1px solid var(--border);padding:16px 0}summary{font-weight:bold;cursor:pointer;color:var(--accent)}details p{margin:12px 0 0}pre{background:var(--accent-dim);padding:20px;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.8 var(--font-mono)}.reading{font-size:19px;line-height:2}.footer{margin-top:50px;padding:22px 0;border-top:2px solid var(--text);font-size:13px;color:var(--text-dim)}ul{padding-left:22px}li{margin-bottom:7px}
+@media(max-width:1000px){body{padding:0 22px 24px}.wrap{display:block}.toc{display:flex;gap:4px;top:0;z-index:10;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--border);overflow-x:auto;max-height:none}.toc strong{display:none}.toc a{white-space:nowrap;border-left:0;border-bottom:2px solid var(--border);padding:8px;flex-shrink:0;font-size:12px}.section{scroll-margin-top:85px}.hero{padding-top:30px}.three{grid-template-columns:1fr}.lead{font-size:19px}}
+@media(max-width:620px){body{padding-left:16px;padding-right:16px}.grid{grid-template-columns:1fr}.backend{padding:14px}.ve-card{padding:18px}.section{padding-top:38px}h2{font-size:29px}.relation{grid-template-columns:1fr 54px 1fr;font-size:13px}th,td{padding:12px;font-size:12px}.steps li{padding-left:32px}h1{letter-spacing:-2px}}
+@media print{body{padding:0;background:#fff;color:#111;font-size:11px}.wrap{display:block}.toc{display:none}.hero{padding:0 0 20px}.section{padding-top:22px}.ve-card,.note,details{break-inside:avoid}.footer{margin-top:20px}h1{font-size:44px}h2{font-size:24px}a{color:inherit}.lead{font-size:16px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc" aria-label="Разделы карты">
+<strong>WATCHTOWER / MAP</strong>
+<a href="#architecture">01 Архитектура</a><a href="#flow">02 Путь проверки</a><a href="#data">03 Модель данных</a><a href="#code">04 Карта кода</a><a href="#ui">05 UI и API</a><a href="#run">06 Запуск и тесты</a><a href="#limits">07 Ограничения</a><a href="#reading">08 Порядок чтения</a>
+</nav>
+<main>
+<header class="hero">
+<div class="eyebrow">Атлас исходного кода · 20 сентября 2026</div>
+<h1>WatchTower</h1>
+<p class="lead">Одна сетевая проверка. Несколько пользовательских мониторов. Собственные ожидания, история доступности и уведомления для каждого.</p>
+<p class="muted">Система мониторинга самостоятельного размещения: модульный Go-монолит и React SPA.</p>
+<div class="meta"><span class="tag">131 Go-файл</span><span class="tag">43 TS/TSX-файла</span><span class="tag">26 API-операций</span><span class="tag">46 SQL-запросов</span><span class="tag">Go 1.26 · Gin</span><span class="tag">React 19 · TypeScript</span><span class="tag">PostgreSQL · Redis</span><span class="tag">HTTP · Telegram</span></div>
+<p style="margin-top:22px;margin-bottom:0"><a href="project-map.md">Подробная карта в Markdown →</a></p>
+</header>
+
+<section id="architecture" class="section">
+<div class="section-head"><span class="num">01</span><h2>Границы системы</h2></div>
+<div class="grid">
+<article class="ve-card primary"><h3>React SPA</h3><p>Мониторы, графики, SLA, контакты и окна обслуживания.</p><small><a href="../watchtower-ui/src/App.tsx">watchtower-ui/src/App.tsx</a> · порт 3000</small></article>
+<article class="ve-card"><h3>Интерактивный CLI</h3><p>Альтернативная точка входа. Сам собирает зависимости и вызывает бизнес-сервисы.</p><small><a href="../cmd/cli/main.go">cmd/cli/main.go</a> · PostgreSQL / Redis</small></article>
+</div>
+<div class="connector">SPA → HTTP / JSON + Bearer JWT → API<br>CLI → прямые вызовы тех же бизнес-сервисов</div>
+<div class="backend">
+<div class="backend-title"><strong>Backend · один процесс API</strong><code>cmd/api → internal/app · :8080</code></div>
+<div class="grid">
+<article class="ve-card"><h3>Управление</h3><p>Auth · Monitoring Management · Contacts · Maintenance · Metrics</p><small>Gin handlers → сервисы → доменные интерфейсы репозиториев</small></article>
+<article class="ve-card"><h3>Фоновые службы</h3><p>Healthcheck · Analyzer · Notification</p><small>Горутины внутри App. Проверки и анализ связаны через БД.</small></article>
+</div>
+<div class="connector">События между компонентами</div>
+<article class="ve-card event"><h3>Watermill GoChannel</h3><p><code>target.created / updated / deleted</code> → Scheduler<br><code>monitor.status_changed</code> → Notification</p><small>В памяти процесса · Persistent: false · Redis не является шиной событий</small></article>
+</div>
+<div class="connector">Репозитории → постоянные данные и кэш</div>
+<div class="grid three">
+<article class="ve-card store"><h3>PostgreSQL 18</h3><p>Конфигурации, сырые проверки, интервалы статусов. pgx + sqlc; миграции Goose.</p></article>
+<article class="ve-card store"><h3>Redis 7</h3><p>Кэш последних сводок: до 100 записей на монитор, TTL 30 минут по чтению.</p></article>
+<article class="ve-card"><h3>MongoDB</h3><p>Альтернативные адаптеры по настройке сервиса. В Compose отсутствует; запуск App всё ещё требует PostgreSQL для миграций.</p></article>
+</div>
+<p class="muted" style="margin-top:16px">Внешние связи: HTTP-prober → проверяемые ресурсы; Notification → Telegram API. Сборка: <a href="../internal/app/app.go">internal/app/app.go</a>.</p>
+</section>
+
+<section id="flow" class="section">
+<div class="section-head"><span class="num">02</span><h2>От настройки до уведомления</h2></div>
+<ol class="steps">
+<li><strong>Найти общую цель и создать монитор</strong>Monitoring Management вычисляет хеш endpoint + протокол + сетевая конфигурация. Пользователь и ожидания в хеш не входят. <a href="../internal/service/monitoring_management/service.go">Сервис</a></li>
+<li><strong>Назначить сетевую проверку</strong>Scheduler загружает активные Target из БД и обновляет расписание по событиям. Примерно раз в секунду отправляет подошедшие цели работникам. <a href="../internal/service/healthcheck/scheduler.go">Планировщик</a></li>
+<li><strong>Получить сырой ProbeResult</strong>WorkerPool вызывает HTTP-prober и сохраняет время, задержку, код ответа и сетевую ошибку в БД. UP/DOWN на этом шаге не определяется. <a href="../internal/service/healthcheck/worker.go">Работник</a></li>
+<li><strong>Оценить результат для каждого подходящего монитора</strong>Analyzer читает БД каждые 500 мс, применяет ожидания и приоритет maintenance, формирует сводки и обновляет состояние. <a href="../internal/service/analyze/service.go">Анализатор</a></li>
+<li><strong>Доставить смену статуса и показать историю</strong>Событие <code>monitor.status_changed</code> поступает в Notification. Активные контакты получают Telegram-сообщение; UI читает сводки и SLA через Metrics API. <a href="../internal/service/notification/service.go">Уведомления</a></li>
+</ol>
+<aside class="note"><strong>Порядок операций имеет значение.</strong> Analyzer публикует событие во время оценки, до записей в <code>commit</code>. Записи и публикация не объединены одной транзакцией. Очередь уведомлений при переполнении отбрасывает задачи.</aside>
+</section>
+
+<section id="data" class="section">
+<div class="section-head"><span class="num">03</span><h2>Target ≠ Monitor</h2></div>
+<div class="grid">
+<article class="ve-card primary"><h3>Target / общая цель</h3><p>Endpoint, сетевой протокол и конфигурация, активность и интервал проверки.</p><small><a href="../internal/domain/entity/target/target.go">domain/entity/target</a></small></article>
+<article class="ve-card event"><h3>Monitor / взгляд пользователя</h3><p>Владелец, ссылка на Target, ожидания к ответу, интервал, статус, контакты и обслуживание.</p><small><a href="../internal/domain/entity/monitor/monitor.go">domain/entity/monitor</a></small></article>
+</div>
+<div class="relations" aria-label="Связи сущностей" style="margin-top:22px">
+<div class="relation"><strong>User</strong><span>1 → N</span><span>Monitor / AlertContact / MaintenanceWindow</span></div>
+<div class="relation"><strong>Target</strong><span>1 → N</span><span>Monitor / ProbeResult</span></div>
+<div class="relation"><strong>Monitor</strong><span>1 → N</span><span>MonitorStatusLog</span></div>
+<div class="relation"><strong>Monitor</strong><span>N ↔ N</span><span>AlertContact / MaintenanceWindow</span></div>
+</div>
+<div class="grid" style="margin-top:20px">
+<article class="ve-card store"><h3>Как получается сводка</h3><p>В PostgreSQL: <code>probe_result + monitor + monitor_status_log</code> через SQL JOIN. Отдельной таблицы ProbeSummary нет; методы записи сводок — no-op. MongoDB сохраняет отдельные документы.</p><small><a href="../internal/infra/repository/postgres/queries/probe_summary.sql">SQL сводок</a></small></article>
+<article class="ve-card"><h3>Как считается SLA</h3><p style="font:24px/1.5 Georgia,serif">UP / (UP + DOWN) × 100</p><p>По длительности интервалов истории. MAINTENANCE и UNKNOWN не входят в знаменатель.</p><small><a href="../internal/infra/repository/postgres/queries/metrics.sql">SQL метрик</a> · <a href="../migrations/20260417180047_create_monitor_status_log_trigger.sql">Триггер истории</a></small></article>
+</div>
+<p class="muted" style="margin-top:16px">Сырые проверки партиционируются по времени: часовые партиции pg_partman, обслуживание через pg_cron. <a href="../migrations/20260510112042_create_partition.sql">Миграция</a>.</p>
+</section>
+
+<section id="code" class="section">
+<div class="section-head"><span class="num">04</span><h2>Навигация по коду</h2></div>
+<div class="table-wrap"><table><thead><tr><th>Каталог</th><th>Ответственность / когда открывать</th></tr></thead><tbody>
+<tr><td><a href="../cmd">cmd/</a> + <a href="../internal/app/app.go">internal/app</a></td><td>Точки входа, подключение реализаций, фоновые службы, жизненный цикл.</td></tr>
+<tr><td><a href="../internal/domain">internal/domain/</a></td><td>Сущности, ожидания, конфигурации, доменные ошибки, интерфейсы репозиториев.</td></tr>
+<tr><td><a href="../internal/service">internal/service/</a></td><td>auth, monitoring_management, contacts, maintenance, metrics, healthcheck, analyze, notification; common — пользователь и владение.</td></tr>
+<tr><td><a href="../internal/api/http/v1/handler">internal/api/http/v1/</a></td><td>Handlers, middleware, преобразование HTTP-запросов и ответов; gen — сгенерированный сервер.</td></tr>
+<tr><td><a href="../internal/infra">internal/infra/</a></td><td>Адаптеры PostgreSQL/MongoDB/Redis, HTTP-prober и evaluator, Telegram provider.</td></tr>
+<tr><td><a href="../api/openapi.yaml">api/</a></td><td>Контракт OpenAPI и конфигурация oapi-codegen. Сначала менять контракт, затем генерировать сервер.</td></tr>
+<tr><td><a href="../migrations">migrations/</a> + <a href="../sqlc.yaml">sqlc.yaml</a></td><td>Схема БД, роли, триггеры, партиции. Отдельная schema и queries в postgres/ питают генерацию sqlcgen.</td></tr>
+<tr><td><a href="../watchtower-ui/src">watchtower-ui/src/</a></td><td>pages, components, api, context, hooks, types — интерфейс и HTTP-клиент.</td></tr>
+<tr><td><a href="../configs">configs/</a> + <a href="../docker">docker/</a></td><td>YAML, загрузчик, настройки логов, JWT, подключений к БД и Redis.</td></tr>
+<tr><td><a href="../pkg/mapper">pkg/mapper/</a></td><td>Общие преобразования и ошибки маппинга.</td></tr>
+<tr><td><a href="puml">docs/puml/</a> + <a href="db.dbml">db.dbml</a></td><td>C4, ER, use-case, BPMN и sequence. Исторические схемы нужно сверять с подключёнными адаптерами.</td></tr>
+<tr><td><a href="../tiopo/lab1/README.md">tiopo/lab1/</a></td><td>Материалы лабораторной по тестированию; описанный контур не полностью представлен в текущем дереве.</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="ui" class="section">
+<div class="section-head"><span class="num">05</span><h2>Пользовательские поверхности</h2></div>
+<div class="grid">
+<article class="ve-card"><h3>Страницы SPA</h3><p><code>/login · /register</code><br><code>/ · /monitors/:id</code><br><code>/alert-contacts</code><br><code>/maintenance-windows</code></p><small>ProtectedRoute → AppLayout. График задержки, SLA, история и таблица проверок — компоненты монитора.</small><p><a href="../watchtower-ui/src/App.tsx">Маршруты</a> · <a href="../watchtower-ui/src/pages/MonitorDetailPage.tsx">Карточка монитора</a></p></article>
+<article class="ve-card"><h3>HTTP API</h3><p><code>/auth/* · /monitors/*</code><br><code>/alert-contacts/*</code><br><code>/maintenance-windows/*</code><br><code>/monitors/{id}/checks | sla | status-history</code></p><small>URL-префикса /v1 нет. Swagger: /swagger. Axios добавляет JWT из localStorage.</small><p><a href="../api/openapi.yaml">OpenAPI</a> · <a href="../watchtower-ui/src/api/axios.ts">HTTP-клиент</a></p></article>
+</div>
+</section>
+
+<section id="run" class="section">
+<div class="section-head"><span class="num">06</span><h2>Запуск и инструменты</h2></div>
+<p>Команды запуска взяты из конфигурации проекта. Отдельно проверены компиляция API и unit-тесты без PostgreSQL/Testcontainers.</p>
+<pre><code># Полный стек: UI 3000 / API 8080 / PostgreSQL 5432 / Redis 6379
+docker compose up --build
+
+# API локально, с готовой инфраструктурой из YAML
+go run ./cmd/api configs/config.yaml
+
+# Make собирает CLI
+make build
+./build/watchtower configs/config.yaml</code></pre>
+<div class="grid">
+<article class="ve-card"><h3>Генерация</h3><p><code>make gen-api</code> → oapi-codegen<br><code>make gen-repo</code> → sqlc<br><code>make mocks</code> → mockgen</p><small>Генерируемые каталоги: api/http/v1/gen, postgres/sqlcgen, service/testmocks.</small></article>
+<article class="ve-card store"><h3>API собирается</h3><p><code>go build -o /tmp/watchtower-api-check ./cmd/api</code></p><small>Команда завершилась успешно 20.09.2026.</small></article>
+<article class="ve-card event"><h3>Весь модуль не собирается</h3><p><code>go build ./...</code> ломается на <code>cmd/cli</code>: CLI использует старые сигнатуры четырёх сервисных API.</p><small>Dockerfile.backend собирает только рабочий cmd/api, а make build — проблемный cmd/cli.</small></article>
+<article class="ve-card"><h3>Тесты частично устарели</h3><p>Прошли analyze, auth и common/provider. Healthcheck и monitoring_management не компилируют тесты; contacts и maintenance падают.</p><small>PostgreSQL-интеграция не запускалась. TypeScript не проверен: node_modules отсутствует.</small></article>
+</div>
+</section>
+
+<section id="limits" class="section">
+<div class="section-head"><span class="num">07</span><h2>Что важно не перепутать</h2></div>
+<details open><summary>Реализованы HTTP и Telegram</summary><p>TCP/ICMP-prober содержат <code>panic("implement me")</code>; в App зарегистрирован только HTTP. Методы <code>Validate()</code> у ожиданий всех протоколов и у ICMP-конфигурации также не реализованы. Email/SMTP упомянуты в README/C4, но подключённого провайдера нет. <a href="../internal/infra/probe/tcp.go">TCP</a> · <a href="../internal/domain/entity/monitor/expectations.go">Expectations</a> · <a href="../internal/app/app.go">Регистрация</a>.</p></details>
+<details open><summary>API работает как отдельная сборочная цель, CLI отстал</summary><p><code>cmd/api</code> компилируется. <code>cmd/cli</code> вызывает удалённые или изменённые <code>GetSummaries</code>, <code>ParseToken</code>, <code>CreateMonitor</code> и поле <code>TotalDowntime</code>, поэтому <code>go build ./...</code> и текущий <code>make build</code> завершаются ошибкой.</p></details>
+<details open><summary>Maintenance не означает полное отключение сообщений</summary><p>Анализатор присваивает MAINTENANCE, SLA исключает этот интервал. Notification не фильтрует переходы в/из maintenance и уведомляет активные контакты при событии смены статуса. <a href="../internal/service/notification/service.go">Обработка события</a>.</p></details>
+<details open><summary>Связи требуют аудита владения</summary><p>Добавление и удаление связи Monitor ↔ MaintenanceWindow не сравнивает владельцев объектов с текущим пользователем. Связь Monitor ↔ AlertContact проверяет владельца монитора, но не контакта.</p></details>
+<details><summary>Есть ошибки в распространении ошибок</summary><p><code>service.Error.Error()</code> объединяет пустой список, <code>getOrCreateTarget</code> проглатывает часть ошибок репозитория, а <code>EnableMonitor</code> — ошибку синхронизации Target. Это может скрывать первопричины и искажать HTTP-ответ.</p></details>
+<details open><summary>Переменная API URL в Compose не совпадает с Axios</summary><p>Compose задаёт <code>REACT_APP_API_BASE_URL</code>, клиент читает <code>REACT_APP_API_URL</code>. Локальный fallback <code>http://localhost:8080</code> совпадает с портом API, но заданная переменная клиентом не используется.</p></details>
+<details><summary>MongoDB не заменяет PostgreSQL при запуске целиком</summary><p>Репозитории выбираются по сервисам, но InitApp безусловно вызывает PostgreSQL-миграции. MongoDB-сервиса в Compose нет. CLI собирает PostgreSQL-репозитории напрямую.</p></details>
+<details><summary>Миграции и схема sqlc расходятся</summary><p>Миграции делают <code>probe_result</code> партиционированной таблицей с составным ключом и добавляют ограничения уникальности. Отдельная <code>postgres/schema/schema.sql</code> для sqlc описывает обычный UUID primary key и не содержит этих ограничений.</p></details>
+<details><summary>Лабораторные отчёты не подтверждают текущие тесты</summary><p>В документации есть <code>make lab1</code>, <code>test-unit</code>, <code>test-integration</code> и ссылки на отсутствующие скрипты. Свежий ограниченный прогон нашёл несовместимые моки и тесты. Benchmark-цели Makefile также ссылаются на отсутствующий каталог benchmarks.</p></details>
+<details><summary>Часть параметров фоновых служб зашита в код</summary><p>App: PostgreSQL — 200 работников и очередь 10 000; MongoDB — 5 и 100. Переданные анализатору значения −1 заменяются конструктором на лимиты 1000/500, а не отключают ограничения.</p></details>
+</section>
+
+<section id="reading" class="section">
+<div class="section-head"><span class="num">08</span><h2>Маршрут первого чтения</h2></div>
+<p class="reading"><a href="../cmd/api/main.go">API main</a> → <a href="../internal/app/app.go">App</a> → <a href="../internal/domain/entity">Target и Monitor</a> → <a href="../internal/service/monitoring_management/service.go">управление</a> → <a href="../internal/service/healthcheck">проверки</a> → <a href="../internal/service/analyze/service.go">анализ</a> → <a href="../internal/infra/repository/postgres/queries">SQL метрик</a> → <a href="../watchtower-ui/src/pages/MonitorDetailPage.tsx">UI монитора</a></p>
+<aside class="note">Для изменения конкретной функции смотрите раздел «Где менять конкретную функциональность» в <a href="project-map.md">подробной карте</a>.</aside>
+</section>
+<footer class="footer">Карта основана на локальных исходниках и конфигурации на 20.09.2026. API успешно скомпилирован; полный модуль и часть тестов имеют перечисленные ошибки. HTML работает без JavaScript и внешних ресурсов; ссылки ведут к соседним исходникам проекта.</footer>
+</main>
+</div>
+</body>
+</html>
