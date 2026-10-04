@@ -11,6 +11,8 @@ import time
 import urllib.request
 import uuid
 
+from command import run as run_command, stop
+
 OUT = Path('/artifacts')
 RESULTS = OUT / 'allure-results'
 RESULTS.mkdir(parents=True, exist_ok=True)
@@ -27,25 +29,9 @@ api = capture = None
 initialized = False
 
 
-def stop(proc, sig=signal.SIGTERM):
-    if proc is not None and proc.poll() is None:
-        os.killpg(proc.pid, sig)
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            os.killpg(proc.pid, signal.SIGKILL)
-            proc.wait(timeout=5)
-
-
 def run(cmd, name):
-    with (OUT / name).open('w') as output:
-        proc = subprocess.Popen(cmd, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
-        try:
-            code = proc.wait(timeout=600)
-        finally:
-            stop(proc)
-    if code:
-        raise RuntimeError(f'{name}: exit {code}; see artifact log')
+    # Keep raw captured HTTP traffic in artifacts; stream test and replay progress.
+    run_command(cmd, OUT / name, stream=name != 'traffic.txt')
 
 
 def sql(query):

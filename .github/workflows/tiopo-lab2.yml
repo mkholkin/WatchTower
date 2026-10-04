@@ -21,7 +21,9 @@ jobs:
           path: build/lab2/history
           key: allure-lab2-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: allure-lab2-${{ github.ref_name }}-
-      - name: Unit → integration → E2E in Docker
+      - name: Check pipeline logging and cleanup
+        run: python3 -m unittest discover -s tools/lab2 -p 'test_*.py'
+      - name: Unit → integration → E2E in Docker (live logs)
         run: make lab2
       - name: Return Docker artifacts to the runner user
         if: always()

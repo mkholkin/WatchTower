@@ -19,6 +19,7 @@ if [[ ${1:-run} == build ]]; then
 fi
 mkdir "$LAB2_OUTPUT"
 runner_started=0
+logs_pid=
 phase=build
 setup_failure() {
   printf 'Lab 2 preparation failed during %s (exit %s). See setup.log, runner.log and compose.log.\n' "$phase" "$status" > "$LAB2_OUTPUT/setup-failure.txt"
@@ -48,6 +49,10 @@ cleanup() {
   if [[ "$runner_started" == 1 ]]; then
     # Wait for pipeline.py's finally block before removing PostgreSQL and Redis.
     docker stop --time 120 "$project-runner" > "$LAB2_OUTPUT/runner-stop.log" 2>&1 || true
+    if [[ -n "$logs_pid" ]]; then
+      kill "$logs_pid" 2>/dev/null || true
+      wait "$logs_pid" 2>/dev/null || true
+    fi
     docker logs "$project-runner" > "$LAB2_OUTPUT/runner.log" 2>&1 || true
   fi
   if [[ "$status" != 0 && ! -f "$LAB2_OUTPUT/pipeline.json" ]]; then
@@ -71,7 +76,12 @@ phase=readiness
 phase=runner
 runner_started=1
 "${compose[@]}" run -d --name "$project-runner" tests >> "$LAB2_OUTPUT/setup.log" 2>&1
+docker logs --follow "$project-runner" &
+logs_pid=$!
 # Bash processes traps immediately while waiting for a background command.
 docker wait "$project-runner" > "$LAB2_OUTPUT/runner-exit.txt" &
 wait "$!"
+# Drain the final log lines before cleanup stops the follower.
+wait "$logs_pid" || true
+logs_pid=
 exit "$(cat "$LAB2_OUTPUT/runner-exit.txt")"

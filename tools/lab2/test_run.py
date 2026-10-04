@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import select
 import shutil
 import signal
 import subprocess
@@ -32,9 +33,19 @@ if args[0] == 'compose':
 if args[0] == 'stop':
     (root / 'stopped').touch()
 if args[0] == 'wait':
+    while mode == 'live' and not (root / 'release').exists():
+        time.sleep(0.02)
     while mode == 'interrupt' and not (root / 'stopped').exists():
         time.sleep(0.02)
-    print(0)
+    print(9 if mode == 'test-fail' else 0)
+if args[0] == 'logs':
+    print('E2E request completed', flush=True)
+    if '--follow' in args:
+        while mode == 'live' and not (root / 'release').exists():
+            time.sleep(0.02)
+        while mode == 'interrupt' and not (root / 'stopped').exists():
+            time.sleep(0.02)
+        print('E2E runner finished', flush=True)
 if args[0] == 'run':
     # Execute the actual report helper, substituting host paths for mounts.
     os.execv(sys.executable, [sys.executable, str(root / 'tools/lab2/setup_failure.py'),
@@ -76,6 +87,26 @@ class LauncherTests(unittest.TestCase):
             self.env['LAB2_RUN_ID'] = value
             self.assertEqual(self.run_launcher().returncode, 2, value)
         self.assertFalse((self.root / 'docker.log').exists())
+
+    def test_logs_visible_before_runner_finishes(self):
+        proc = subprocess.Popen(self.command, env=dict(self.env, FAKE_MODE='live'),
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        try:
+            ready, _, _ = select.select([proc.stdout], [], [], 5)
+            self.assertTrue(ready, 'No live logs while the test runner is still running')
+            self.assertIn('E2E request completed', proc.stdout.readline())
+            self.assertIsNone(proc.poll())
+        finally:
+            (self.root / 'release').touch()
+            stdout, _ = proc.communicate(timeout=10)
+        self.assertEqual(proc.returncode, 0, stdout)
+        self.assertIn('E2E runner finished', stdout)
+        self.assertIn('E2E request completed', (self.output / 'runner.log').read_text())
+
+    def test_runner_failure_is_not_hidden_by_log_streaming(self):
+        result = self.run_launcher('test-fail')
+        self.assertEqual(result.returncode, 9, result.stdout + result.stderr)
+        self.assertTrue((self.output / 'teardown.log').exists())
 
     def test_setup_failures_record_failed_setup_and_skipped_stages(self):
         for mode in ('build-fail', 'up-fail', 'no-image'):

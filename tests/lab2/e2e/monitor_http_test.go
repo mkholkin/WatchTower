@@ -46,11 +46,13 @@ func (c *apiClient) request(t *testing.T, method, path string, body any, want in
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
+	t.Logf("HTTP %s %s", method, path)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
+	t.Logf("HTTP %s %s -> %d (want %d)", method, path, resp.StatusCode, want)
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		t.Fatal(err)
@@ -135,6 +137,7 @@ func TestHTTPMonitorFromRegistrationToBackgroundCheck(t *testing.T) {
 		})
 		path := "/monitors/" + id
 		a.Step("Фоновая проверка доводит статус до up и записывает HTTP 200", func(*allure.Context) {
+			t.Log("Waiting up to 30s for background probe: monitor up and HTTP 200")
 			deadline := time.Now().Add(30 * time.Second)
 			last := ""
 			for time.Now().Before(deadline) {
@@ -161,12 +164,14 @@ func TestHTTPMonitorFromRegistrationToBackgroundCheck(t *testing.T) {
 					} else {
 						for _, check := range checks {
 							if check.Status == "up" && check.StatusCode != nil && *check.StatusCode == 200 {
+								t.Log("Background probe completed: monitor up, HTTP 200")
 								return
 							}
 						}
 						last = fmt.Sprintf("checks have no successful HTTP 200: %#v", checks)
 					}
 				}
+				t.Logf("Waiting for background probe: %s", last)
 				select {
 				case <-time.After(250 * time.Millisecond):
 				case <-time.After(time.Until(deadline)):
