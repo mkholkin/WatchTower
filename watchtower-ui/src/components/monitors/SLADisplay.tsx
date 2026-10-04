@@ -35,7 +35,7 @@ export default function SLADisplay({ sla, loading }: SLADisplayProps) {
 
   return (
     <div className="text-center py-4">
-      <div className={`text-5xl font-bold font-mono tracking-tight ${pctColor(sla.uptime_percentage)}`}>
+      <div className={`text-3xl 2xl:text-4xl font-semibold tabular-nums tracking-tight ${pctColor(sla.uptime_percentage)}`}>
         {sla.uptime_percentage.toFixed(3)}%
       </div>
       <div className="flex items-center justify-center gap-4 mt-3">

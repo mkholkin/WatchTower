@@ -63,7 +63,7 @@ export default function ResponseTimeChart({ checks, loading }: ResponseTimeChart
 
   return (
     <div className="w-full" onMouseLeave={() => setHoverIndex(null)}>
-      <ResponsiveContainer width="100%" height={160}>
+      <ResponsiveContainer width="100%" height={220}>
         <LineChart
           data={data}
           margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
@@ -72,17 +72,17 @@ export default function ResponseTimeChart({ checks, loading }: ResponseTimeChart
           }}
           onMouseLeave={() => setHoverIndex(null)}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3d" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#2b3035" vertical={false} />
           <XAxis
             dataKey="timeLabel"
-            tick={{ fontSize: 10, fill: '#5e6f8d', fontFamily: 'JetBrains Mono, monospace' }}
-            axisLine={{ stroke: '#1e2a3d' }}
+            tick={{ fontSize: 10, fill: '#8c979f', fontFamily: 'JetBrains Mono, monospace' }}
+            axisLine={{ stroke: '#2b3035' }}
             tickLine={false}
             interval="preserveStartEnd"
           />
           <YAxis
             domain={[0, Math.ceil(maxLatency * 1.15)]}
-            tick={{ fontSize: 10, fill: '#5e6f8d', fontFamily: 'JetBrains Mono, monospace' }}
+            tick={{ fontSize: 10, fill: '#8c979f', fontFamily: 'JetBrains Mono, monospace' }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v: number) => `${v}ms`}
@@ -93,7 +93,7 @@ export default function ResponseTimeChart({ checks, loading }: ResponseTimeChart
             type="monotone"
             dataKey="latency_ms"
             stroke="#10b981"
-            strokeWidth={1}
+            strokeWidth={2}
             dot={false}
             activeDot={false}
             isAnimationActive={false}
@@ -104,7 +104,7 @@ export default function ResponseTimeChart({ checks, loading }: ResponseTimeChart
               y={data[hoverIndex].latency_ms}
               r={4}
               fill="#10b981"
-              stroke="#0b1120"
+              stroke="#101214"
               strokeWidth={2}
               style={{ filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.6))' }}
             />
