@@ -11,7 +11,7 @@ RUN go mod download
 COPY tools/lab1/package*.json tools/lab1/
 RUN npm ci --prefix tools/lab1 --no-audit --no-fund
 COPY . .
-RUN go build -o /usr/local/bin/watchtower-api ./cmd/api && \
-    go build -o /usr/local/bin/lab2-migrate ./tools/lab2/migrate
+RUN go build -v -o /usr/local/bin/watchtower-api ./cmd/api && \
+    go build -v -o /usr/local/bin/lab2-migrate ./tools/lab2/migrate
 ENV GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOTELEMETRY=off
 ENTRYPOINT ["python3", "tools/lab2/pipeline.py"]
