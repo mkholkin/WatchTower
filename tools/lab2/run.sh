@@ -67,15 +67,15 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 if [[ ${LAB2_SKIP_BUILD:-0} != 1 ]]; then
-  "${compose[@]}" build postgres tests >> "$LAB2_OUTPUT/setup.log" 2>&1
+  "${compose[@]}" build postgres tests 2>&1 | tee -a "$LAB2_OUTPUT/setup.log"
 fi
 phase=image-inspection
 docker image inspect "$LAB2_TEST_IMAGE" --format '{{.Id}}' > "$LAB2_OUTPUT/test-image.txt"
 phase=readiness
-"${compose[@]}" up -d --wait postgres redis probe >> "$LAB2_OUTPUT/setup.log" 2>&1
+"${compose[@]}" up -d --wait postgres redis probe 2>&1 | tee -a "$LAB2_OUTPUT/setup.log"
 phase=runner
 runner_started=1
-"${compose[@]}" run -d --name "$project-runner" tests >> "$LAB2_OUTPUT/setup.log" 2>&1
+"${compose[@]}" run -d --name "$project-runner" tests 2>&1 | tee -a "$LAB2_OUTPUT/setup.log"
 docker logs --follow "$project-runner" &
 logs_pid=$!
 # Bash processes traps immediately while waiting for a background command.
