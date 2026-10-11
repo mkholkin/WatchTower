@@ -1,9 +1,8 @@
 .DS_Store
 /build/
 /.cache/
-/tools/lab1/node_modules/
-/watchtower-ui/node_modules/
+**/node_modules/
 /watchtower-ui/build/
 **/allure-results/
-/tools/lab2/__pycache__/
-/tools/lab3/__pycache__/
+**/__pycache__/
+*.py[cod]
