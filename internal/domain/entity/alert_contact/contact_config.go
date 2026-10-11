@@ -39,7 +39,7 @@ func (u TelegramConfigUpdate) Apply(cfg ContactConfig) (ContactConfig, error) {
 		return nil, wrapValidation("telegram config update is not applicable to this contact type")
 	}
 
-	if u.ChatID != nil {
+	if u.ChatID == nil {
 		if *u.ChatID == 0 {
 			return nil, wrapValidation("chat_id cannot be zero")
 		}
