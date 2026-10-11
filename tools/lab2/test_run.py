@@ -77,6 +77,46 @@ class LauncherTests(unittest.TestCase):
         return subprocess.run(self.command, env=dict(self.env, FAKE_MODE=mode),
                               capture_output=True, text=True, timeout=15)
 
+    def run_stage(self, stage, mode=''):
+        return subprocess.run([*self.command, stage], env=dict(self.env, FAKE_MODE=mode),
+                              capture_output=True, text=True, timeout=15)
+
+    def test_separate_steps_keep_stores_until_finish_and_build_only_once(self):
+        for stage in ('prepare', 'unit', 'integration', 'e2e'):
+            result = self.run_stage(stage)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((self.output / 'teardown.log').exists())
+        result = self.run_stage('finish')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.output / 'teardown.log').exists())
+        commands = (self.root / 'docker.log').read_text().splitlines()
+        self.assertEqual(sum(' build ' in c for c in commands), 1)
+        self.assertEqual(sum(' up ' in c for c in commands), 1)
+        self.assertEqual(sum(' down ' in c for c in commands), 1)
+        for stage in ('unit', 'integration', 'e2e', 'finish'):
+            self.assertTrue(any(c.endswith(f'tests {stage}') for c in commands), stage)
+            self.assertTrue((self.output / f'runner-{stage}.log').exists())
+
+    def test_failed_step_preserves_stores_for_final_report(self):
+        self.assertEqual(self.run_stage('prepare').returncode, 0)
+        result = self.run_stage('unit', 'test-fail')
+        self.assertEqual(result.returncode, 9, result.stderr)
+        self.assertEqual((self.output / 'failed-stage.txt').read_text().strip(), 'unit')
+        self.assertFalse((self.output / 'teardown.log').exists())
+        self.run_stage('finish')
+        self.assertTrue((self.output / 'teardown.log').exists())
+
+    def test_preparation_failure_tears_down_immediately(self):
+        result = self.run_stage('prepare', 'up-fail')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue((self.output / 'teardown.log').exists())
+        self.assertTrue((self.output / 'pipeline.json').exists())
+
+    def test_separate_step_requires_prepared_environment(self):
+        result = self.run_stage('unit')
+        self.assertEqual(result.returncode, 2)
+        self.assertFalse((self.root / 'docker.log').exists())
+
     def test_clean_checkout(self):
         result = self.run_launcher()
         self.assertEqual(result.returncode, 0, result.stderr)

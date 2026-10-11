@@ -2,8 +2,10 @@
 from contextlib import redirect_stdout
 import io
 import json
+import os
 from pathlib import Path
 import select
+import signal
 import subprocess
 import sys
 import tempfile
@@ -13,6 +15,83 @@ from tools.lab2.command import run
 
 
 class CommandTests(unittest.TestCase):
+    def test_fail_fast_kills_descendants_that_keep_output_open(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            leader = root / 'leader'
+            ready = root / 'ready'
+            child = (
+                'import json, os, pathlib, signal, sys, time\n'
+                f'pathlib.Path({str(leader)!r}).write_text(str(os.getpid()))\n'
+                'signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n'
+                'if os.fork() == 0:\n'
+                '    signal.signal(signal.SIGTERM, signal.SIG_IGN)\n'
+                f'    pathlib.Path({str(ready)!r}).touch()\n'
+                '    time.sleep(30)\n'
+                '    sys.exit(0)\n'
+                f'while not pathlib.Path({str(ready)!r}).exists(): time.sleep(0.01)\n'
+                'print(json.dumps({"Action": "fail", "Package": "example/unit"}), flush=True)\n'
+                'time.sleep(30)\n'
+            )
+            runner = (
+                'import sys\nfrom pathlib import Path\nfrom tools.lab2.command import run\n'
+                'try:\n'
+                f'    run({[sys.executable, "-c", child]!r}, Path({str(root / "unit.jsonl")!r}), '
+                'timeout=2, fail_fast=True)\n'
+                'except RuntimeError:\n    sys.exit(0)\n'
+                'sys.exit(1)\n'
+            )
+            proc = subprocess.Popen([sys.executable, '-c', runner], stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True)
+            try:
+                try:
+                    output, _ = proc.communicate(timeout=4)
+                except subprocess.TimeoutExpired:
+                    self.fail('Fail-fast hung on a descendant holding stdout open')
+                self.assertEqual(proc.returncode, 0, output)
+            finally:
+                if leader.exists():
+                    try:
+                        os.killpg(int(leader.read_text()), signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                if proc.poll() is None:
+                    proc.kill()
+                proc.communicate(timeout=5)
+
+    def test_fail_fast_stops_remaining_work_and_preserves_failure(self):
+        for test_name in ('TestBroken/case', None):
+            with self.subTest(test_name=test_name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                marker = root / 'continued'
+                log = root / 'unit.jsonl'
+                event = {'Action': 'fail', 'Package': 'example/unit', 'Elapsed': 0.01}
+                if test_name:
+                    event['Test'] = test_name
+                raw = json.dumps(event) + '\n'
+                child = (
+                    'import pathlib, signal, sys, time\n'
+                    # A graceful termination can return zero; the test failure must still win.
+                    'signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n'
+                    f'print({raw!r}, end="", flush=True)\n'
+                    'time.sleep(0.5)\n'
+                    f'pathlib.Path({str(marker)!r}).touch()\n'
+                )
+                with self.assertRaisesRegex(RuntimeError, 'example/unit'):
+                    run([sys.executable, '-c', child], log, timeout=5, fail_fast=True)
+                self.assertFalse(marker.exists(), 'Work continued after the first failure')
+                self.assertIn(raw, log.read_text())
+
+    def test_fail_fast_ignores_diagnostics_and_successful_events(self):
+        with tempfile.TemporaryDirectory() as directory, redirect_stdout(io.StringIO()):
+            log = Path(directory) / 'unit.jsonl'
+            raw = ('compiler diagnostic\n' + json.dumps(['fail']) + '\n' +
+                   json.dumps({'Action': 'output', 'Output': 'FAIL is just test output\n'}) + '\n' +
+                   json.dumps({'Action': 'pass', 'Package': 'example/unit'}) + '\n')
+            run([sys.executable, '-c', f'print({raw!r}, end="", flush=True)'],
+                log, fail_fast=True, stream=False)
+            self.assertEqual(log.read_text(), raw)
+
     def test_streams_output_before_exit_and_keeps_raw_artifact(self):
         for go_json in (False, True):
             with self.subTest(go_json=go_json), tempfile.TemporaryDirectory() as directory:

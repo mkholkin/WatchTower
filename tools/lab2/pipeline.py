@@ -1,4 +1,5 @@
 """Run real tests in order; always restore the disposable stores and build Allure."""
+import argparse
 import fcntl
 import json
 import os
@@ -13,7 +14,13 @@ import uuid
 
 from command import run as run_command, stop
 
-OUT = Path('/artifacts')
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('stage', nargs='?', choices=['run', 'unit', 'integration', 'e2e', 'finish'], default='run')
+parser.add_argument('--artifacts', type=Path, default=Path('/artifacts'))
+parser.add_argument('--history', type=Path, default=Path('/history'))
+args = parser.parse_args()
+OUT = args.artifacts
+HISTORY = args.history
 RESULTS = OUT / 'allure-results'
 RESULTS.mkdir(parents=True, exist_ok=True)
 os.environ['ALLURE_RESULTS_DIR'] = str(RESULTS)
@@ -27,11 +34,25 @@ stages = {name: {'status': 'skipped', 'reason': 'Previous stage did not succeed'
           for name in ['unit', 'integration', 'e2e']}
 api = capture = None
 initialized = False
+previous = {}
+if args.stage != 'run' and (OUT / 'pipeline.json').exists():
+    previous = json.loads((OUT / 'pipeline.json').read_text())
+    stages = previous['stages']
+    initialized = previous.get('initialized', False)
+finalize = args.stage in ('run', 'finish')
 
 
-def run(cmd, name):
+def save_state(status, cleanup=None):
+    state = {'run': os.environ['LAB2_RUN_ID'], 'exit_code': status, 'stages': stages,
+             'initialized': initialized, 'cleanup': cleanup or previous.get('cleanup', {})}
+    temporary = OUT / 'pipeline.json.tmp'
+    temporary.write_text(json.dumps(state, indent=2))
+    temporary.replace(OUT / 'pipeline.json')
+
+
+def run(cmd, name, fail_fast=False):
     # Keep raw captured HTTP traffic in artifacts; stream test and replay progress.
-    run_command(cmd, OUT / name, stream=name != 'traffic.txt')
+    run_command(cmd, OUT / name, stream=name != 'traffic.txt', fail_fast=fail_fast)
 
 
 def sql(query):
@@ -56,7 +77,7 @@ def stage_result(name, status, reason):
             'status': status, 'stage': 'finished', 'start': now, 'stop': now,
             'statusDetails': {'message': reason},
             'labels': [{'name': 'parentSuite', 'value': 'CI pipeline'}, {'name': 'suite', 'value': name}]}
-    (RESULTS / f"{item['uuid']}-result.json").write_text(json.dumps(item))
+    (RESULTS / f'pipeline-{name}-result.json').write_text(json.dumps(item))
 
 
 def start_api():
@@ -90,18 +111,43 @@ def interrupt(signum, frame):
 
 signal.signal(signal.SIGTERM, interrupt)
 signal.signal(signal.SIGINT, interrupt)
-status = 0
-active = 'unit'
+status = previous.get('exit_code', 0) if args.stage == 'finish' else 0
+active = args.stage if args.stage in stages else 'unit'
+if not finalize:
+    prerequisites = list(stages)[:list(stages).index(active)]
+    if previous.get('exit_code', 0) or any(stages[name]['status'] != 'passed' for name in prerequisites):
+        print(f'Cannot run {active}: previous stages did not succeed', file=sys.stderr)
+        sys.exit(1)
+    if stages[active]['status'] != 'skipped':
+        print(f'Cannot run {active}: stage already started', file=sys.stderr)
+        sys.exit(1)
+if args.stage == 'finish':
+    failed_stage = OUT / 'failed-stage.txt'
+    if failed_stage.exists():
+        name = failed_stage.read_text().strip()
+        if name in stages and stages[name]['status'] != 'failed':
+            stages[name] = {'status': 'failed', 'reason': 'Stage runner did not complete successfully; see runner logs'}
+        status = 1
+    for name, result in stages.items():
+        if result['status'] == 'running':
+            stages[name] = {'status': 'failed', 'reason': 'Stage runner interrupted before completion'}
+            status = 1
 try:
-    for active in stages:
+    selected = list(stages) if args.stage == 'run' else [] if args.stage == 'finish' else [args.stage]
+    for active in selected:
         stages[active] = {'status': 'running', 'reason': ''}
+        if not finalize:
+            save_state(status)
         print(f'=== {active} ===', flush=True)
         if active == 'unit':
             packages = Path('tools/lab1/packages.txt').read_text().split() + ['./internal/api/http/v1/...']
-            run(['go', 'test', '-json', '-count=1', '-timeout=120s', *packages], 'unit.jsonl')
+            run(['go', 'test', '-json', '-failfast', '-count=1', '-timeout=120s', *packages],
+                'unit.jsonl', fail_fast=True)
         elif active == 'integration':
             run(['lab2-migrate'], 'migrations.log')
             initialized = True
+            if not finalize:
+                save_state(status)
             reset()
             (OUT / 'baseline.json').write_text(json.dumps(counts(), indent=2))
             repeat = int(os.environ.get('LAB2_INTEGRATION_REPEAT', '1'))
@@ -160,24 +206,24 @@ finally:
         status = 1
         cleanup.update(restored=False, error=str(error))
     (OUT / 'cleanup.json').write_text(json.dumps(cleanup, indent=2))
-    stage_result('cleanup', 'passed' if cleanup['restored'] else 'failed', cleanup.get('error', ''))
-    for name, result in stages.items():
-        stage_result(name, result['status'], result['reason'])
-    if (OUT / 'traffic.pcap').exists():
+    if finalize:
+        stage_result('cleanup', 'passed' if cleanup['restored'] else 'failed', cleanup.get('error', ''))
+        for name, result in stages.items():
+            stage_result(name, result['status'], result['reason'])
+        if (OUT / 'traffic.pcap').exists():
+            try:
+                run(['tcpdump', '-nn', '-A', '-r', str(OUT / 'traffic.pcap')], 'traffic.txt')
+            except Exception as error:
+                status = 1
+                print(error, file=sys.stderr)
         try:
-            run(['tcpdump', '-nn', '-A', '-r', str(OUT / 'traffic.pcap')], 'traffic.txt')
+            # The file lock spans reading history, report generation and appending this launch.
+            with (HISTORY / '.lock').open('w') as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                run(['tools/lab1/node_modules/.bin/allure', 'generate', str(RESULTS),
+                     '--config', 'tools/lab2/allurerc.mjs', '--output', str(OUT / 'allure-report')], 'allure.log')
         except Exception as error:
             status = 1
             print(error, file=sys.stderr)
-    try:
-        # The file lock spans reading history, report generation and appending this launch.
-        with open('/history/.lock', 'w') as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            run(['tools/lab1/node_modules/.bin/allure', 'generate', str(RESULTS),
-                 '--config', 'tools/lab2/allurerc.mjs', '--output', str(OUT / 'allure-report')], 'allure.log')
-    except Exception as error:
-        status = 1
-        print(error, file=sys.stderr)
-    (OUT / 'pipeline.json').write_text(json.dumps({'run': os.environ['LAB2_RUN_ID'], 'exit_code': status,
-                                                  'stages': stages, 'cleanup': cleanup}, indent=2))
+    save_state(status, cleanup)
 sys.exit(status)
