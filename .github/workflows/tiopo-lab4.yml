@@ -1,0 +1,50 @@
+name: TIOPO — load testing
+on:
+  push:
+    branches: [TIOPO-4]
+  pull_request:
+    paths:
+      - tests/lab4/**
+      - tools/lab4/**
+      - internal/**
+      - cmd/api/**
+      - migrations/**
+      - Dockerfile.postgres
+      - tools/lab2/Dockerfile
+      - go.mod
+      - go.sum
+      - Makefile
+      - .github/workflows/tiopo-lab4.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tiopo-lab4-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  load:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check workload, statistics and resource accounting
+        run: make lab4-check
+      - name: Five isolated load profiles with live k6 progress
+        run: make lab4
+      - name: Make Docker artifacts readable by the runner
+        if: always()
+        run: |
+          if [ -d build/lab4 ]; then
+            sudo chown -R -- "$(id -u):$(id -g)" build/lab4
+          fi
+      - name: Publish raw samples, container settings, graphs and Allure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiopo-lab4-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/lab4/runs
+          retention-days: 14
+          if-no-files-found: error

@@ -4,6 +4,8 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **WatchTower** is a self-hosted web resource monitoring system.
+
+Лабораторная работа №4: [нагрузочное тестирование, запуск и отчёты](tiopo/lab4/README.md).
 ---
 
 ## 📢 Screenshots

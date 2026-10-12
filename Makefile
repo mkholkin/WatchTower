@@ -136,3 +136,15 @@ lab3-smoke:
 lab3-check:
 	go test ./benchmarks/lab3
 	python3 -m unittest discover -s tools/lab3 -p 'test_*.py'
+
+# Lab 4: real API load, recovery, resource monitoring and Allure.
+.PHONY: lab4 lab4-smoke lab4-check
+lab4:
+	python3 tools/lab4/run.py
+
+lab4-smoke:
+	python3 tools/lab4/run.py --smoke
+
+lab4-check:
+	node --test tests/lab4/model.test.mjs
+	python3 -m unittest discover -s tools/lab4 -p 'test_*.py'
