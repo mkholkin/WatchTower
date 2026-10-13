@@ -111,7 +111,8 @@ def interrupt(signum, frame):
 
 signal.signal(signal.SIGTERM, interrupt)
 signal.signal(signal.SIGINT, interrupt)
-status = previous.get('exit_code', 0) if args.stage == 'finish' else 0
+prior_status = previous.get('exit_code', 0) if args.stage == 'finish' else 0
+status = 0
 active = args.stage if args.stage in stages else 'unit'
 if not finalize:
     prerequisites = list(stages)[:list(stages).index(active)]
@@ -127,11 +128,11 @@ if args.stage == 'finish':
         name = failed_stage.read_text().strip()
         if name in stages and stages[name]['status'] != 'failed':
             stages[name] = {'status': 'failed', 'reason': 'Stage runner did not complete successfully; see runner logs'}
-        status = 1
+        prior_status = 1
     for name, result in stages.items():
         if result['status'] == 'running':
             stages[name] = {'status': 'failed', 'reason': 'Stage runner interrupted before completion'}
-            status = 1
+            prior_status = 1
 try:
     selected = list(stages) if args.stage == 'run' else [] if args.stage == 'finish' else [args.stage]
     for active in selected:
@@ -218,12 +219,15 @@ finally:
                 print(error, file=sys.stderr)
         try:
             # The file lock spans reading history, report generation and appending this launch.
+            print('=== Generate Allure report ===', flush=True)
             with (HISTORY / '.lock').open('w') as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX)
                 run(['tools/lab1/node_modules/.bin/allure', 'generate', str(RESULTS),
                      '--config', 'tools/lab2/allurerc.mjs', '--output', str(OUT / 'allure-report')], 'allure.log')
+            print(f'Allure report generated: {OUT / "allure-report/index.html"}', flush=True)
         except Exception as error:
             status = 1
-            print(error, file=sys.stderr)
-    save_state(status, cleanup)
+            print(f'Allure generation failed: {error}', file=sys.stderr, flush=True)
+    # finish reports its own errors; pipeline.json retains the overall test result.
+    save_state(status or prior_status, cleanup)
 sys.exit(status)

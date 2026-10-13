@@ -27,6 +27,8 @@ if name == 'psql':
 if name == 'redis-cli':
     print('0' if args[-1] == 'DBSIZE' else 'OK')
 if name == 'allure':
+    if os.environ.get('FAKE_ALLURE_FAIL') == '1':
+        sys.exit(2)
     pathlib.Path('report-generated').touch()
     print('Report generated')
 if name == 'watchtower-api':
@@ -104,8 +106,9 @@ class PipelineStageTests(unittest.TestCase):
             self.assertNotEqual(self.run_stage(stage).returncode, 0)
         self.assertEqual(self.commands(), before, 'A later stage executed after failure')
         finish = self.run_stage('finish')
-        self.assertNotEqual(finish.returncode, 0)
+        self.assertEqual(finish.returncode, 0, finish.stderr)
         state = self.state()
+        self.assertNotEqual(state['exit_code'], 0, 'Overall test failure must remain recorded')
         self.assertEqual(state['stages'][failed_stage]['status'], 'failed')
         for stage in order[order.index(failed_stage) + 1:]:
             self.assertEqual(state['stages'][stage]['status'], 'skipped')
@@ -120,6 +123,22 @@ class PipelineStageTests(unittest.TestCase):
 
     def test_e2e_failure_still_cleans_and_reports(self):
         self.assert_failure_stops_chain('e2e')
+
+    def test_finish_reports_interrupted_runner_without_failing_report_step(self):
+        (self.output / 'failed-stage.txt').write_text('unit\n')
+        finish = self.run_stage('finish')
+        self.assertEqual(finish.returncode, 0, finish.stderr)
+        self.assertEqual(self.state()['stages']['unit']['status'], 'failed')
+        self.assertNotEqual(self.state()['exit_code'], 0)
+        self.assertTrue((self.root / 'report-generated').exists())
+
+    def test_allure_generation_failure_fails_finish(self):
+        self.assertEqual(self.run_stage('unit').returncode, 0)
+        self.env['FAKE_ALLURE_FAIL'] = '1'
+        finish = self.run_stage('finish')
+        self.assertNotEqual(finish.returncode, 0)
+        self.assertNotEqual(self.state()['exit_code'], 0)
+        self.assertFalse((self.root / 'report-generated').exists())
 
     def test_failed_tests_and_unavailable_database_still_produce_report(self):
         self.assertEqual(self.run_stage('unit').returncode, 0)
