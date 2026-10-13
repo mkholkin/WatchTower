@@ -1,0 +1,680 @@
+{
+  "version": "1",
+  "uid": "1b7f6c41058e4a9b9d2bf",
+  "name": "WatchTower — ЛР №2 — HTTP E2E",
+  "items": [
+    {
+      "uid": "7e8d7b1f95a2499f9d9b1",
+      "type": "http-request",
+      "name": "01 Регистрация",
+      "seq": 1,
+      "request": {
+        "url": "{{baseUrl}}/auth/register",
+        "method": "POST",
+        "headers": [
+          {
+            "uid": "ab950bb3018246bcbfb9d",
+            "name": "Content-Type",
+            "value": "application/json",
+            "enabled": true
+          }
+        ],
+        "params": [],
+        "auth": {
+          "mode": "none"
+        },
+        "body": {
+          "mode": "json",
+          "formUrlEncoded": [],
+          "multipartForm": [],
+          "json": "{\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "script": {
+          "req": "bru.setVar(\"login\", \"bruno_\" + Date.now() + \"_\" + Math.random().toString(16).slice(2, 10));\n[\"token\", \"monitorId\", \"probeDeadline\"].forEach(key => bru.deleteVar(key));",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 201\", () => expect(res.getStatus()).to.equal(201));\nif (res.getStatus() !== 201) {\n  bru.setNextRequest(null);\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "5d71fa8c92f04f22a0965",
+      "type": "http-request",
+      "name": "02 Вход",
+      "seq": 2,
+      "request": {
+        "url": "{{baseUrl}}/auth/login",
+        "method": "POST",
+        "headers": [
+          {
+            "uid": "6ce8a7893d03413399fc3",
+            "name": "Content-Type",
+            "value": "application/json",
+            "enabled": true
+          }
+        ],
+        "params": [],
+        "auth": {
+          "mode": "none"
+        },
+        "body": {
+          "mode": "json",
+          "formUrlEncoded": [],
+          "multipartForm": [],
+          "json": "{\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n} else {\n\nconst token = res.getBody().access_token;\ntest(\"Получен JWT\", () => expect(token).to.be.a(\"string\").and.not.empty);\nif (typeof token === \"string\" && token.length) bru.setVar(\"token\", token);\nelse bru.setNextRequest(null);\n\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "c6be5b9d72814773935e7",
+      "type": "http-request",
+      "name": "03 Без токена доступ запрещён",
+      "seq": 3,
+      "request": {
+        "url": "{{baseUrl}}/monitors",
+        "method": "GET",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "none"
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 401\", () => expect(res.getStatus()).to.equal(401));\nif (res.getStatus() !== 401) {\n  bru.setNextRequest(null);\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "f2b13f4fbc154f0d910bd",
+      "type": "http-request",
+      "name": "04 Создание монитора",
+      "seq": 4,
+      "request": {
+        "url": "{{baseUrl}}/monitors",
+        "method": "POST",
+        "headers": [
+          {
+            "uid": "1d64aebb01bf45ec8c6b9",
+            "name": "Content-Type",
+            "value": "application/json",
+            "enabled": true
+          }
+        ],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "json",
+          "formUrlEncoded": [],
+          "multipartForm": [],
+          "json": "{\n  \"label\": \"Bruno probe\",\n  \"endpoint\": \"{{probeUrl}}\",\n  \"probe_interval\": 1,\n  \"alert_contact_ids\": [],\n  \"maintenance_window_ids\": [],\n  \"network_config\": {\n    \"protocol\": \"HTTP\",\n    \"method\": \"GET\",\n    \"headers\": {},\n    \"body\": \"\",\n    \"follow_redirects\": false\n  },\n  \"expectations\": {\n    \"protocol\": \"HTTP\",\n    \"expected_status_codes\": [\n      200\n    ],\n    \"expected_response_time_ms\": 5000\n  }\n}"
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 201\", () => expect(res.getStatus()).to.equal(201));\nif (res.getStatus() !== 201) {\n  bru.setNextRequest(null);\n} else {\n\nconst monitor = res.getBody();\ntest(\"Монитор создан с заданным названием\", () => {\n  expect(monitor.id).to.be.a(\"string\").and.not.empty;\n  expect(monitor.label).to.equal(\"Bruno probe\");\n});\nif (typeof monitor.id === \"string\" && monitor.id.length) {\n  bru.setVar(\"monitorId\", monitor.id);\n  bru.setVar(\"probeDeadline\", Date.now() + 30000);\n} else bru.setNextRequest(null);\n\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "a8da8e6d7d4f49dc85f66",
+      "type": "http-request",
+      "name": "05 Ожидание статуса up",
+      "seq": 5,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}",
+        "method": "GET",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "await new Promise(resolve => setTimeout(resolve, 250));",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n} else {\n\nconst monitor = res.getBody();\nif (monitor.status === \"up\") {\n  test(\"Статус монитора up\", () => expect(monitor.status).to.equal(\"up\"));\n} else if (Date.now() < Number(bru.getVar(\"probeDeadline\"))) {\n  bru.setNextRequest(\"05 Ожидание статуса up\");\n} else {\n  test(\"Статус up получен за 30 секунд\", () => expect(monitor.status).to.equal(\"up\"));\n  bru.setNextRequest(\"15 Удаление монитора\");\n}\n\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "79715c709808494a9004c",
+      "type": "http-request",
+      "name": "06 История содержит HTTP 200",
+      "seq": 6,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}/checks?limit=10",
+        "method": "GET",
+        "headers": [],
+        "params": [
+          {
+            "uid": "e0ea88aec0424a81a331e",
+            "name": "limit",
+            "value": "10",
+            "type": "query",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n} else {\n\nconst checks = res.getBody();\nconst success = Array.isArray(checks) && checks.some(check => check.status === \"up\" && check.status_code === 200);\nif (success) {\n  test(\"Фоновая проверка: up и HTTP 200\", () => expect(success).to.equal(true));\n} else if (Date.now() < Number(bru.getVar(\"probeDeadline\"))) {\n  bru.setNextRequest(\"05 Ожидание статуса up\");\n} else {\n  test(\"Успешная проверка записана за 30 секунд\", () => expect(success).to.equal(true));\n  bru.setNextRequest(\"15 Удаление монитора\");\n}\n\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "0d3ecdcb6c27479aa3e71",
+      "type": "http-request",
+      "name": "07 Список мониторов",
+      "seq": 7,
+      "request": {
+        "url": "{{baseUrl}}/monitors",
+        "method": "GET",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n} else {\n\ntest(\"У нового пользователя один монитор со статусом up\", () => {\n  const list = res.getBody();\n  expect(list).to.be.an(\"array\").with.lengthOf(1);\n  expect(list[0].id).to.equal(bru.getVar(\"monitorId\"));\n  expect(list[0].status).to.equal(\"up\");\n});\n\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "f17da748b9334a4bba142",
+      "type": "http-request",
+      "name": "08 Детали и статус",
+      "seq": 8,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}",
+        "method": "GET",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n} else {\n\ntest(\"Детали относятся к созданному монитору\", () => {\n  const monitor = res.getBody();\n  expect(monitor.id).to.equal(bru.getVar(\"monitorId\"));\n  expect(monitor.status).to.equal(\"up\");\n});\n\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "b75a3a6d04f54f9381f4a",
+      "type": "http-request",
+      "name": "09 SLA",
+      "seq": 9,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}/sla",
+        "method": "GET",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n} else {\n\ntest(\"SLA относится к монитору и лежит в диапазоне 0–100\", () => {\n  const sla = res.getBody();\n  expect(sla.monitor_id).to.equal(bru.getVar(\"monitorId\"));\n  expect(sla.uptime_percentage).to.be.a(\"number\").and.within(0, 100);\n});\n\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "b28620156ee14978bf970",
+      "type": "http-request",
+      "name": "10 Переименование",
+      "seq": 10,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}",
+        "method": "PATCH",
+        "headers": [
+          {
+            "uid": "92217392410f4f8faaa9e",
+            "name": "Content-Type",
+            "value": "application/json",
+            "enabled": true
+          }
+        ],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "json",
+          "formUrlEncoded": [],
+          "multipartForm": [],
+          "json": "{\n  \"label\": \"Bruno probe renamed\"\n}"
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n} else {\n\ntest(\"Название изменено\", () => expect(res.getBody().label).to.equal(\"Bruno probe renamed\"));\n\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "20ec0cbba5974a0f8f220",
+      "type": "http-request",
+      "name": "11 Отключение",
+      "seq": 11,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}/disable",
+        "method": "POST",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "5e0626d085fe4d81bc80f",
+      "type": "http-request",
+      "name": "12 Проверка отключения",
+      "seq": 12,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}",
+        "method": "GET",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n} else {\n\ntest(\"Монитор отключён\", () => expect(res.getBody().is_enabled).to.equal(false));\n\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "b35049b1729c43e9b435b",
+      "type": "http-request",
+      "name": "13 Включение",
+      "seq": 13,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}/enable",
+        "method": "POST",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "e408e84cf43246918e5b9",
+      "type": "http-request",
+      "name": "14 Проверка включения",
+      "seq": 14,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}",
+        "method": "GET",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 200\", () => expect(res.getStatus()).to.equal(200));\nif (res.getStatus() !== 200) {\n  bru.setNextRequest(null);\n} else {\n\ntest(\"Монитор включён\", () => expect(res.getBody().is_enabled).to.equal(true));\n\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "429c13906e3943d78a507",
+      "type": "http-request",
+      "name": "15 Удаление монитора",
+      "seq": 15,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}",
+        "method": "DELETE",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 204\", () => expect(res.getStatus()).to.equal(204));\nif (res.getStatus() !== 204) {\n  bru.setNextRequest(null);\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    },
+    {
+      "uid": "be4a0512f40c4d2499b3a",
+      "type": "http-request",
+      "name": "16 Удалённый монитор не найден",
+      "seq": 16,
+      "request": {
+        "url": "{{baseUrl}}/monitors/{{monitorId}}",
+        "method": "GET",
+        "headers": [],
+        "params": [],
+        "auth": {
+          "mode": "bearer",
+          "bearer": {
+            "token": "{{token}}"
+          }
+        },
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": []
+        },
+        "script": {
+          "req": "",
+          "res": ""
+        },
+        "vars": {
+          "req": [],
+          "res": []
+        },
+        "assertions": [],
+        "tests": "test(\"HTTP 404\", () => expect(res.getStatus()).to.equal(404));\nif (res.getStatus() !== 404) {\n  bru.setNextRequest(null);\n}"
+      },
+      "settings": {
+        "timeout": 5000,
+        "followRedirects": false
+      }
+    }
+  ],
+  "environments": [],
+  "brunoConfig": {
+    "version": "1",
+    "name": "WatchTower — ЛР №2 — HTTP E2E",
+    "type": "collection",
+    "ignore": [
+      "node_modules",
+      ".git"
+    ]
+  },
+  "root": {
+    "meta": {
+      "name": "WatchTower — ЛР №2 — HTTP E2E"
+    },
+    "docs": "Импорт: Import Collection → Bruno Collection → этот JSON. Запуск: Run Collection целиком, 1 iteration, без Environment. В Variables коллекции проверьте baseUrl (по умолчанию http://localhost:8080) и probeUrl (по умолчанию http://127.0.0.1:8080/openapi.yaml). probeUrl запрашивает backend, а не Bruno. В сети лабораторной цели соответствует http://probe:8081/health.\n\nAPI должен быть запущен постоянно: docker compose up -d --build postgres redis backend. make lab2 использует временный стенд без опубликованного порта.\n\n16 запросов воспроизводят tests/lab2/e2e/monitor_http_test.go. Новый логин генерируется в запросе 01; JWT и ID монитора передаются через runtime variables. Запросы 05–06 повторяются до успешной фоновой проверки, максимум 30 секунд; при таймауте проверка падает и выполнение переходит к удалению монитора. Автоматические переходы работают в Collection Runner; при ручном Send повторяйте 05–06 самостоятельно. При неожиданном HTTP-коде запуск останавливается, созданный монитор может остаться — его можно удалить запросом 15. После успешного запуска монитор удалён, тестовый пользователь остаётся.\n\nСправка по импорту: https://blog.usebruno.com/share-bruno-collections\nСправка по скриптам: https://github.com/usebruno/bruno-docs/blob/main/v2/testing/script/javascript-reference.mdx",
+    "request": {
+      "headers": [],
+      "auth": {
+        "mode": "none"
+      },
+      "script": {
+        "req": "",
+        "res": ""
+      },
+      "vars": {
+        "req": [
+          {
+            "uid": "a51e0b51f387429b9b89f",
+            "name": "baseUrl",
+            "value": "http://localhost:8080",
+            "enabled": true
+          },
+          {
+            "uid": "f47fb202c3254ada9e22c",
+            "name": "probeUrl",
+            "value": "http://127.0.0.1:8080/openapi.yaml",
+            "enabled": true
+          },
+          {
+            "uid": "94940d1a0da645b99ad0f",
+            "name": "password",
+            "value": "Lab2Pass-123!",
+            "enabled": true
+          }
+        ],
+        "res": []
+      },
+      "tests": ""
+    }
+  }
+}

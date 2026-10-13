@@ -1,0 +1,200 @@
+"""Launcher regression check; no daemon or downloaded dependencies required."""
+import json
+import os
+from pathlib import Path
+import select
+import shutil
+import signal
+import subprocess
+import tempfile
+import time
+import unittest
+
+
+FAKE_DOCKER = '''#!/usr/bin/env python3
+import os, pathlib, sys, time
+args = sys.argv[1:]
+root = pathlib.Path(os.environ['FAKE_ROOT'])
+with (root / 'docker.log').open('a') as f:
+    f.write(' '.join(args) + '\\n')
+mode = os.environ.get('FAKE_MODE', '')
+if args[:2] == ['image', 'inspect']:
+    sys.exit(1 if mode == 'no-image' else 0)
+if args[0] == 'compose':
+    command = args[5]
+    if command == 'build' and mode in ('build-fail', 'no-image'):
+        sys.exit(7)
+    if command == 'up' and mode == 'up-fail':
+        sys.exit(8)
+    if command == 'run':
+        if mode == 'unhealthy-stores' and '--no-deps' not in args:
+            print('dependency failed to start: postgres is unhealthy', file=sys.stderr)
+            sys.exit(23)
+        (root / 'started').touch()
+    if command == 'down' and mode == 'interrupt':
+        assert (root / 'stopped').exists(), 'dependencies removed before runner stopped'
+if args[0] == 'stop':
+    (root / 'stopped').touch()
+if args[0] == 'wait':
+    while mode == 'live' and not (root / 'release').exists():
+        time.sleep(0.02)
+    while mode == 'interrupt' and not (root / 'stopped').exists():
+        time.sleep(0.02)
+    print(9 if mode == 'test-fail' else 0)
+if args[0] == 'logs':
+    print('E2E request completed', flush=True)
+    if '--follow' in args:
+        while mode == 'live' and not (root / 'release').exists():
+            time.sleep(0.02)
+        while mode == 'interrupt' and not (root / 'stopped').exists():
+            time.sleep(0.02)
+        print('E2E runner finished', flush=True)
+if args[0] == 'run':
+    # Execute the actual report helper, substituting host paths for mounts.
+    os.execv(sys.executable, [sys.executable, str(root / 'tools/lab2/setup_failure.py'),
+        '--artifacts', os.environ['LAB2_OUTPUT'], '--history', os.environ['LAB2_HISTORY_DIR']])
+'''
+
+
+class LauncherTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        target = self.root / 'tools/lab2'
+        target.mkdir(parents=True)
+        for name in ('run.sh', 'setup_failure.py'):
+            source = Path(__file__).with_name(name)
+            if source.exists():
+                shutil.copy(source, target / name)
+        binary = self.root / 'bin'
+        binary.mkdir()
+        (binary / 'docker').write_text(FAKE_DOCKER)
+        (binary / 'docker').chmod(0o755)
+        self.env = dict(os.environ, PATH=f'{binary}:{os.environ["PATH"]}',
+                        FAKE_ROOT=str(self.root), LAB2_RUN_ID='test-run', LAB2_SKIP_BUILD='0')
+        self.command = ['bash', str(target / 'run.sh')]
+        self.output = self.root / 'build/lab2/runs/test-run'
+
+    def run_launcher(self, mode=''):
+        return subprocess.run(self.command, env=dict(self.env, FAKE_MODE=mode),
+                              capture_output=True, text=True, timeout=15)
+
+    def run_stage(self, stage, mode=''):
+        return subprocess.run([*self.command, stage], env=dict(self.env, FAKE_MODE=mode),
+                              capture_output=True, text=True, timeout=15)
+
+    def test_separate_steps_keep_stores_until_finish_and_build_only_once(self):
+        for stage in ('prepare', 'unit', 'integration', 'e2e'):
+            result = self.run_stage(stage)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((self.output / 'teardown.log').exists())
+        result = self.run_stage('finish')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.output / 'teardown.log').exists())
+        commands = (self.root / 'docker.log').read_text().splitlines()
+        self.assertEqual(sum(' build ' in c for c in commands), 1)
+        self.assertEqual(sum(' up ' in c for c in commands), 1)
+        self.assertEqual(sum(' down ' in c for c in commands), 1)
+        for stage in ('unit', 'integration', 'e2e', 'finish'):
+            self.assertTrue(any(c.endswith(f'tests {stage}') for c in commands), stage)
+            self.assertTrue((self.output / f'runner-{stage}.log').exists())
+
+    def test_failed_step_preserves_stores_for_final_report(self):
+        self.assertEqual(self.run_stage('prepare').returncode, 0)
+        result = self.run_stage('unit', 'test-fail')
+        self.assertEqual(result.returncode, 9, result.stderr)
+        self.assertEqual((self.output / 'failed-stage.txt').read_text().strip(), 'unit')
+        self.assertFalse((self.output / 'teardown.log').exists())
+        self.run_stage('finish')
+        self.assertTrue((self.output / 'teardown.log').exists())
+
+    def test_preparation_failure_tears_down_immediately(self):
+        result = self.run_stage('prepare', 'up-fail')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue((self.output / 'teardown.log').exists())
+        self.assertTrue((self.output / 'pipeline.json').exists())
+
+    def test_finish_starts_after_failed_test_even_when_stores_are_unhealthy(self):
+        self.assertEqual(self.run_stage('prepare').returncode, 0)
+        failed = self.run_stage('integration', 'test-fail')
+        self.assertEqual(failed.returncode, 9, failed.stderr)
+        (self.root / 'started').unlink()
+        finish = self.run_stage('finish', 'unhealthy-stores')
+        self.assertEqual(finish.returncode, 0, finish.stderr)
+        self.assertTrue((self.root / 'started').exists(), 'Finalization runner was not started')
+        self.assertTrue((self.output / 'teardown.log').exists())
+
+    def test_separate_step_requires_prepared_environment(self):
+        result = self.run_stage('unit')
+        self.assertEqual(result.returncode, 2)
+        self.assertFalse((self.root / 'docker.log').exists())
+
+    def test_clean_checkout(self):
+        result = self.run_launcher()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.output / 'teardown.log').exists())
+
+    def test_rejects_colliding_ids(self):
+        for value in ('Foo', 'x_y', '../escape'):
+            self.env['LAB2_RUN_ID'] = value
+            self.assertEqual(self.run_launcher().returncode, 2, value)
+        self.assertFalse((self.root / 'docker.log').exists())
+
+    def test_logs_visible_before_runner_finishes(self):
+        proc = subprocess.Popen(self.command, env=dict(self.env, FAKE_MODE='live'),
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        try:
+            ready, _, _ = select.select([proc.stdout], [], [], 5)
+            self.assertTrue(ready, 'No live logs while the test runner is still running')
+            self.assertIn('E2E request completed', proc.stdout.readline())
+            self.assertIsNone(proc.poll())
+        finally:
+            (self.root / 'release').touch()
+            stdout, _ = proc.communicate(timeout=10)
+        self.assertEqual(proc.returncode, 0, stdout)
+        self.assertIn('E2E runner finished', stdout)
+        self.assertIn('E2E request completed', (self.output / 'runner.log').read_text())
+
+    def test_runner_failure_is_not_hidden_by_log_streaming(self):
+        result = self.run_launcher('test-fail')
+        self.assertEqual(result.returncode, 9, result.stdout + result.stderr)
+        self.assertTrue((self.output / 'teardown.log').exists())
+
+    def test_setup_failures_record_failed_setup_and_skipped_stages(self):
+        for mode in ('build-fail', 'up-fail', 'no-image'):
+            with self.subTest(mode=mode):
+                self.env['LAB2_RUN_ID'] = mode
+                self.assertNotEqual(self.run_launcher(mode).returncode, 0)
+                output = self.output.parent / mode
+                results = [json.loads(p.read_text()) for p in (output / 'allure-results').glob('*-result.json')]
+                self.assertEqual({r['name']: r['status'] for r in results},
+                                 {'setup': 'failed', 'unit': 'skipped', 'integration': 'skipped', 'e2e': 'skipped'})
+                self.assertTrue((output / 'setup-failure.txt').exists())
+                self.assertTrue((output / 'teardown.log').exists())
+
+    def test_interrupt_stops_runner_before_dependencies(self):
+        for signum, expected in ((signal.SIGTERM, 143), (signal.SIGINT, 130)):
+            with self.subTest(signal=signum):
+                self.env['LAB2_RUN_ID'] = f'signal-{signum}'
+                for name in ('started', 'stopped'):
+                    (self.root / name).unlink(missing_ok=True)
+                proc = subprocess.Popen(self.command, env=dict(self.env, FAKE_MODE='interrupt'),
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                try:
+                    deadline = time.monotonic() + 5
+                    while not (self.root / 'started').exists() and proc.poll() is None and time.monotonic() < deadline:
+                        time.sleep(0.02)
+                    self.assertTrue((self.root / 'started').exists())
+                    proc.send_signal(signum)
+                    stdout, stderr = proc.communicate(timeout=10)
+                    self.assertEqual(proc.returncode, expected, stdout + stderr)
+                    self.assertTrue((self.root / 'stopped').exists())
+                finally:
+                    if proc.poll() is None:
+                        proc.kill()
+                    proc.communicate()
+
+
+if __name__ == '__main__':
+    unittest.main()

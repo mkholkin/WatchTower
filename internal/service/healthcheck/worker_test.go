@@ -6,96 +6,68 @@ import (
 	"WatchTower/internal/service/testmocks"
 	"WatchTower/internal/testutil"
 	"context"
+	"errors"
 	"testing"
-	"time"
 
+	allure "github.com/allure-framework/allure-go/commons/gotest"
 	"github.com/golang/mock/gomock"
-	"github.com/google/uuid"
 )
 
-func TestWorkerPoolRun_SavesProbeResult(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// AAA: each Case arranges fixtures, performs one production operation, then asserts observable behavior.
 
-	targetID := uuid.New()
-	tgt := target.Target{ID: targetID, Endpoint: "https://example.com", Config: target.HTTPConfig{Method: "GET"}, ProbeIntervalSec: 10}
+func TestWorkerPoolRun(t *testing.T) {
+	t.Run("probes target and persists timestamped result", func(t *testing.T) {
+		testutil.Case(t, "healthcheck", "WorkerPool.Run", "state-transition", "london", func(t *testing.T, _ *allure.Context) {
+			ctrl := gomock.NewController(t)
+			tgt := *testutil.ObjectMother{}.Target()
+			result := &probe.Result{Target: &tgt}
+			registry := NewProberRegistry()
+			prober := testmocks.NewMockProber(ctrl)
+			registry.Register(target.ProtocolHTTP, prober)
+			repository := testmocks.NewMockProbeResultRepository(ctrl)
+			queue := make(chan target.Target, 1)
+			queue <- tgt
+			ctx, cancel := context.WithCancel(context.Background())
+			prober.EXPECT().Probe(gomock.Any(), gomock.Any()).Return(result, nil)
+			repository.EXPECT().Create(result).DoAndReturn(func(got *probe.Result) error {
+				if got.Target.ID != tgt.ID || got.ProbeTime.IsZero() {
+					t.Fatalf("persisted result = %#v", got)
+				}
+				cancel()
+				return nil
+			})
 
-	registry := NewProberRegistry()
-	prober := testmocks.NewMockProber(ctrl)
-	registry.Register(target.ProtocolHTTP, prober)
-	prober.EXPECT().Probe(gomock.Any(), gomock.AssignableToTypeOf(&target.Target{})).DoAndReturn(func(_ context.Context, probed *target.Target) (probe.Result, error) {
-		return probe.Result{ID: uuid.New(), Target: probed, ProbeTime: time.Now()}, nil
+			NewWorkerPool(registry, repository, queue, 1, testutil.NoopLogger()).Run(ctx)
+		})
 	})
+	t.Run("probe failure is not persisted", func(t *testing.T) {
+		testutil.Case(t, "healthcheck", "WorkerPool.Run", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
+			ctrl := gomock.NewController(t)
+			tgt := *testutil.ObjectMother{}.Target()
+			registry := NewProberRegistry()
+			prober := testmocks.NewMockProber(ctrl)
+			registry.Register(target.ProtocolHTTP, prober)
+			repository := testmocks.NewMockProbeResultRepository(ctrl)
+			queue := make(chan target.Target, 1)
+			queue <- tgt
+			ctx, cancel := context.WithCancel(context.Background())
+			prober.EXPECT().Probe(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *target.Target) (*probe.Result, error) {
+				cancel()
+				return nil, errors.New("dial failed")
+			})
 
-	saved := make(chan struct{}, 1)
-	repo := testmocks.NewMockProbeResultRepository(ctrl)
-	repo.EXPECT().Create(gomock.AssignableToTypeOf(&probe.Result{})).DoAndReturn(func(result *probe.Result) error {
-		if result.Target == nil || result.Target.ID != targetID {
-			t.Fatalf("unexpected probe result target in repository create")
-		}
-		saved <- struct{}{}
-		return nil
+			NewWorkerPool(registry, repository, queue, 1, testutil.NoopLogger()).Run(ctx)
+		})
 	})
+	t.Run("missing protocol prober is skipped", func(t *testing.T) {
+		testutil.Case(t, "healthcheck", "WorkerPool.Run", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
+			ctrl := gomock.NewController(t)
+			repository := testmocks.NewMockProbeResultRepository(ctrl)
+			queue := make(chan target.Target, 1)
+			queue <- target.Target{Config: target.TCPConfig{Port: 80}}
+			close(queue)
 
-	queue := make(chan target.Target, 1)
-	wp := NewWorkerPool(registry, repo, queue, 1, testutil.NoopLogger())
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go wp.Run(ctx)
-	queue <- tgt
-
-	select {
-	case <-saved:
-	case <-time.After(2 * time.Second):
-		t.Fatal("expected probe result to be saved")
-	}
-}
-
-func TestWorkerPoolRun_MissingProberDoesNotSave(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	tgt := target.Target{ID: uuid.New(), Endpoint: "127.0.0.1", Config: target.TCPConfig{Port: 80}, ProbeIntervalSec: 10}
-	registry := NewProberRegistry()
-
-	repo := testmocks.NewMockProbeResultRepository(ctrl)
-	repo.EXPECT().Create(gomock.Any()).Times(0)
-
-	queue := make(chan target.Target, 1)
-	wp := NewWorkerPool(registry, repo, queue, 1, testutil.NoopLogger())
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go wp.Run(ctx)
-	queue <- tgt
-	time.Sleep(700 * time.Millisecond)
-}
-
-func TestWorkerPoolRun_StopsOnContextCancel(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	registry := NewProberRegistry()
-	repo := testmocks.NewMockProbeResultRepository(ctrl)
-	queue := make(chan target.Target)
-	wp := NewWorkerPool(registry, repo, queue, 2, testutil.NoopLogger())
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-
-	go func() {
-		wp.Run(ctx)
-		close(done)
-	}()
-
-	cancel()
-
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("worker pool did not stop after context cancellation")
-	}
+			NewWorkerPool(NewProberRegistry(), repository, queue, 1, testutil.NoopLogger()).Run(context.Background())
+		})
+	})
 }

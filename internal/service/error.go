@@ -24,5 +24,23 @@ func NewError(svcError, innerError error) error {
 }
 
 func (err Error) Error() string {
-	return errors.Join().Error()
+	causes := err.Unwrap()
+	if len(causes) == 0 {
+		return ""
+	}
+	if len(causes) == 1 {
+		return causes[0].Error()
+	}
+	return errors.Join(causes...).Error()
+}
+
+func (err Error) Unwrap() []error {
+	causes := make([]error, 0, 2)
+	if err.svcError != nil {
+		causes = append(causes, err.svcError)
+	}
+	if err.innerError != nil {
+		causes = append(causes, err.innerError)
+	}
+	return causes
 }

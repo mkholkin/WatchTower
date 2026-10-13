@@ -37,10 +37,10 @@ func (m *MockProber) EXPECT() *MockProberMockRecorder {
 }
 
 // Probe mocks base method.
-func (m *MockProber) Probe(ctx context.Context, target *target.Target) (probe.Result, error) {
+func (m *MockProber) Probe(ctx context.Context, target *target.Target) (*probe.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Probe", ctx, target)
-	ret0, _ := ret[0].(probe.Result)
+	ret0, _ := ret[0].(*probe.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

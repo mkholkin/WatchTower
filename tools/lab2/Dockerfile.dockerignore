@@ -1,0 +1,12 @@
+.git
+build
+.cache
+**/node_modules
+**/allure-results
+watchtower-ui
+tiopo
+img
+docs
+.DS_Store
+LAB1_RUN=shuffle-2026
+**/__pycache__

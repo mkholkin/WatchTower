@@ -95,26 +95,28 @@ type MaintenanceWindowUpdate struct {
 
 // ApplyUpdate applies a partial update to the maintenance window.
 func (mw *MaintenanceWindow) ApplyUpdate(upd MaintenanceWindowUpdate) error {
+	next := *mw
 	if upd.Title != nil {
 		if *upd.Title == "" {
 			return wrapValidation("title cannot be empty")
 		}
-		mw.Title = *upd.Title
+		next.Title = *upd.Title
 	}
 
 	if upd.Description != nil {
-		mw.Description = *upd.Description
+		next.Description = *upd.Description
 	}
 
 	if upd.ConfigUpdate != nil {
-		newCfg, err := upd.ConfigUpdate.Apply(mw.Config)
+		newCfg, err := upd.ConfigUpdate.Apply(next.Config)
 		if err != nil {
 			return err
 		}
-		mw.Config = newCfg
-		mw.Type = newCfg.Type()
+		next.Config = newCfg
+		next.Type = newCfg.Type()
 	}
 
+	*mw = next
 	return nil
 }
 

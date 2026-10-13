@@ -2,6 +2,7 @@ package v1
 
 import (
 	apigen "WatchTower/internal/api/http/v1/gen"
+	"WatchTower/internal/domain/repo"
 	"WatchTower/internal/service"
 	"errors"
 )
@@ -14,38 +15,36 @@ type ApiError struct {
 func ResponseFromError(err error) ApiError {
 	var response apigen.ErrorResponse
 	var apiError ApiError
-	if svcError, ok := errors.AsType[service.Error](err); ok {
-		switch {
-		case errors.Is(err, service.ErrInvalidData):
-			apiError.Code = 400
-			response = apigen.N400{
-				Code:    "INVALID_DATA",
-				Message: err.Error(),
-			}
-		case errors.Is(svcError, service.ErrUnauthorized):
-			apiError.Code = 401
-			response = apigen.N401{
-				Code:    "UNAUTHORIZED",
-				Message: err.Error(),
-			}
-		case errors.Is(svcError, service.ErrPermissionDenied):
-			apiError.Code = 403
-			response = apigen.N403{
-				Code:    "PERMISSION_DENIED",
-				Message: err.Error(),
-			}
-		case errors.Is(svcError, service.ErrNotFound):
-			apiError.Code = 404
-			response = apigen.N404{
-				Code:    "NOT_FOUND",
-				Message: err.Error(),
-			}
-		default:
-			apiError.Code = 500
-			response = apigen.N500{
-				Code:    "INTERNAL_SERVER_ERROR",
-				Message: err.Error(), // TODO: убрать в релизе
-			}
+	switch {
+	case errors.Is(err, service.ErrInvalidData):
+		apiError.Code = 400
+		response = apigen.N400{
+			Code:    "INVALID_DATA",
+			Message: err.Error(),
+		}
+	case errors.Is(err, service.ErrUnauthorized):
+		apiError.Code = 401
+		response = apigen.N401{
+			Code:    "UNAUTHORIZED",
+			Message: err.Error(),
+		}
+	case errors.Is(err, service.ErrPermissionDenied):
+		apiError.Code = 403
+		response = apigen.N403{
+			Code:    "PERMISSION_DENIED",
+			Message: err.Error(),
+		}
+	case errors.Is(err, service.ErrNotFound), errors.Is(err, repo.ErrNotFound):
+		apiError.Code = 404
+		response = apigen.N404{
+			Code:    "NOT_FOUND",
+			Message: err.Error(),
+		}
+	default:
+		apiError.Code = 500
+		response = apigen.N500{
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: err.Error(), // TODO: убрать в релизе
 		}
 	}
 
