@@ -120,6 +120,9 @@ phase=runner
 runner_started=1
 if [[ "$mode" == run ]]; then
   "${compose[@]}" run -d --name "$runner" tests 2>&1 | tee -a "$LAB2_OUTPUT/setup.log"
+elif [[ "$mode" == finish ]]; then
+  # Failed stores must not prevent the runner from generating Allure.
+  "${compose[@]}" run --no-deps -d --name "$runner" tests finish 2>&1 | tee -a "$LAB2_OUTPUT/setup.log"
 else
   "${compose[@]}" run -d --name "$runner" tests "$mode" 2>&1 | tee -a "$LAB2_OUTPUT/setup.log"
 fi

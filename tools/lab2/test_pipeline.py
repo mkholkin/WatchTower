@@ -20,6 +20,9 @@ if name == 'go':
     print(json.dumps({'Action': 'fail' if failed else 'pass', 'Package': 'example/' + stage, 'Test': 'TestScenario'}), flush=True)
     sys.exit(1 if failed else 0)
 if name == 'psql':
+    if os.environ.get('FAKE_STORES_DOWN') == '1':
+        print('database is unavailable', file=sys.stderr)
+        sys.exit(2)
     print(json.dumps({'user': 0, 'monitor': 0}) if 'json_build_object' in args[-1] else '')
 if name == 'redis-cli':
     print('0' if args[-1] == 'DBSIZE' else 'OK')
@@ -117,6 +120,19 @@ class PipelineStageTests(unittest.TestCase):
 
     def test_e2e_failure_still_cleans_and_reports(self):
         self.assert_failure_stops_chain('e2e')
+
+    def test_failed_tests_and_unavailable_database_still_produce_report(self):
+        self.assertEqual(self.run_stage('unit').returncode, 0)
+        self.env['FAKE_FAIL_STAGE'] = 'integration'
+        self.assertNotEqual(self.run_stage('integration').returncode, 0)
+        self.env['FAKE_STORES_DOWN'] = '1'
+        finish = self.run_stage('finish')
+        self.assertNotEqual(finish.returncode, 0, 'Test and cleanup failures must stay visible')
+        self.assertFalse(self.state()['cleanup']['restored'])
+        self.assertTrue((self.root / 'report-generated').exists())
+        results = [json.loads(p.read_text()) for p in (self.output / 'allure-results').glob('*-result.json')]
+        self.assertEqual({r['name']: r['status'] for r in results},
+                         {'unit': 'passed', 'integration': 'failed', 'e2e': 'skipped', 'cleanup': 'failed'})
 
     def test_cannot_start_integration_before_unit(self):
         result = self.run_stage('integration')

@@ -27,6 +27,9 @@ if args[0] == 'compose':
     if command == 'up' and mode == 'up-fail':
         sys.exit(8)
     if command == 'run':
+        if mode == 'unhealthy-stores' and '--no-deps' not in args:
+            print('dependency failed to start: postgres is unhealthy', file=sys.stderr)
+            sys.exit(23)
         (root / 'started').touch()
     if command == 'down' and mode == 'interrupt':
         assert (root / 'stopped').exists(), 'dependencies removed before runner stopped'
@@ -111,6 +114,16 @@ class LauncherTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertTrue((self.output / 'teardown.log').exists())
         self.assertTrue((self.output / 'pipeline.json').exists())
+
+    def test_finish_starts_after_failed_test_even_when_stores_are_unhealthy(self):
+        self.assertEqual(self.run_stage('prepare').returncode, 0)
+        failed = self.run_stage('integration', 'test-fail')
+        self.assertEqual(failed.returncode, 9, failed.stderr)
+        (self.root / 'started').unlink()
+        finish = self.run_stage('finish', 'unhealthy-stores')
+        self.assertEqual(finish.returncode, 0, finish.stderr)
+        self.assertTrue((self.root / 'started').exists(), 'Finalization runner was not started')
+        self.assertTrue((self.output / 'teardown.log').exists())
 
     def test_separate_step_requires_prepared_environment(self):
         result = self.run_stage('unit')
