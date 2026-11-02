@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: ${LAB5_POSTGRES_IMAGE}
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/database_password
+      POSTGRES_DB: postgres
+    secrets: [database_password]
+    command: [postgres, -c, shared_preload_libraries=pg_cron, -c, cron.database_name=postgres]
+    volumes:
+      - database:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres -d postgres]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+  redis:
+    image: redis:7.4-bookworm
+    command: [redis-server, --save, '', --appendonly, 'no']
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  mailpit:
+    # https://github.com/axllent/mailpit/releases/tag/v1.27.8
+    image: axllent/mailpit:v1.27.8
+    healthcheck:
+      test: [CMD, /mailpit, readyz]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  api:
+    image: ${LAB5_APP_IMAGE}
+    environment:
+      GIN_MODE: release
+    entrypoint: [watchtower-api, /run/secrets/api_config]
+    secrets: [api_config]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      mailpit: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://localhost:8080/openapi.yaml]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+  tests:
+    image: ${LAB5_APP_IMAGE}
+    user: ${LAB5_UID}:${LAB5_GID}
+    profiles: [tests]
+    init: true
+    environment:
+      LAB5_API_URL: http://api:8080
+      LAB5_MAIL_URL: http://mailpit:8025
+      PYTHONDONTWRITEBYTECODE: '1'
+    secrets: [database_url]
+    volumes:
+      - ${LAB5_OUTPUT}:/artifacts
+    depends_on:
+      api: {condition: service_healthy}
+secrets:
+  database_password:
+    file: ${LAB5_SECRET_DIR}/database_password
+  database_url:
+    file: ${LAB5_SECRET_DIR}/database_url
+  api_config:
+    file: ${LAB5_SECRET_DIR}/api_config
+volumes:
+  database:
+networks:
+  default:
+    internal: true

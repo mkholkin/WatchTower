@@ -42,6 +42,9 @@ func authResponseFromFactory[T any](factory v1.ResponseFactory[T], err error) T 
 		if f, ok := factory[401]; ok {
 			return f(authErrorResponse("UNAUTHORIZED", err.Error()))
 		}
+		if f, ok := factory[400]; ok {
+			return f(authErrorResponse("INVALID_DATA", err.Error()))
+		}
 	case errors.Is(err, authsvc.ErrUserAlreadyExists):
 		if f, ok := factory[409]; ok {
 			return f(authErrorResponse("ALREADY_EXISTS", err.Error()))

@@ -38,7 +38,7 @@ const swaggerHTML = `<!DOCTYPE html>
     window.onload = function() {
         // Build a system
         const ui = SwaggerUIBundle({
-            url: "/openapi.yaml",
+            urls: [{url: "/openapi.yaml", name: "WatchTower API"}, {url: "/openapi-mfa.yaml", name: "MFA authentication"}],
             dom_id: '#swagger-ui',
             deepLinking: true,
             presets: [
@@ -58,6 +58,7 @@ const swaggerHTML = `<!DOCTYPE html>
 
 func SetupSwaggerRoute(r *gin.RouterGroup) {
 	r.StaticFile("/openapi.yaml", "./api/openapi.yaml")
+	r.StaticFile("/openapi-mfa.yaml", "./api/mfa.openapi.yaml")
 	r.GET("/swagger", func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(swaggerHTML))
 	})
@@ -120,6 +121,9 @@ func main() {
 	)
 
 	r := SetupRouter(apiHandler)
+	if appObj.MFA != nil {
+		handler.RegisterMFARoutes(r, appObj.MFA)
+	}
 
 	go appObj.Start(ctx)
 

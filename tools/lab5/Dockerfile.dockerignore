@@ -1,0 +1,16 @@
+.git
+.agents
+.codex
+.aws
+.env
+.env.*
+build
+.cache
+**/node_modules
+**/allure-results
+watchtower-ui
+tiopo
+img
+docs
+.DS_Store
+**/__pycache__

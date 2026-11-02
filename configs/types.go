@@ -6,11 +6,11 @@ import (
 )
 
 type Config struct {
-	Logging  LoggingConfig  `yaml:"logging"`
-	Auth     AuthConfig     `yaml:"auth"`
-	Database DatabaseConfig `yaml:"database"`
-	Redis    RedisConfig    `yaml:"redis"`
-	MigrationsDir string 	`yaml:"migrations_dir"`
+	Logging       LoggingConfig  `yaml:"logging"`
+	Auth          AuthConfig     `yaml:"auth"`
+	Database      DatabaseConfig `yaml:"database"`
+	Redis         RedisConfig    `yaml:"redis"`
+	MigrationsDir string         `yaml:"migrations_dir"`
 }
 
 type LoggingConfig struct {
@@ -20,8 +20,19 @@ type LoggingConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret   string `yaml:"jwt_secret"`
-	JWTTTLHours int    `yaml:"jwt_ttl_hours"`
+	JWTSecret   string    `yaml:"jwt_secret"`
+	JWTTTLHours int       `yaml:"jwt_ttl_hours"`
+	MFA         MFAConfig `yaml:"mfa"`
+}
+
+type MFAConfig struct {
+	Enabled             bool   `yaml:"enabled"`
+	SMTPAddress         string `yaml:"smtp_address"`
+	SMTPFrom            string `yaml:"smtp_from"`
+	AllowInsecureSMTP   bool   `yaml:"allow_insecure_smtp"`
+	MaxAttempts         int    `yaml:"max_attempts"`
+	ChallengeTTLSeconds int    `yaml:"challenge_ttl_seconds"`
+	PasswordMaxAgeHours int    `yaml:"password_max_age_hours"`
 }
 
 type DatabaseConfig struct {
@@ -32,7 +43,7 @@ type DatabaseConfig struct {
 	Healthchecker ServiceDBConfig `yaml:"healthchecker"`
 	Analyzer      ServiceDBConfig `yaml:"analyzer"`
 	Contacts      ServiceDBConfig `yaml:"contacts"`
-	Migrations	  ServiceDBConfig `yaml:"migrations"`
+	Migrations    ServiceDBConfig `yaml:"migrations"`
 }
 
 type ServiceDBConfig struct {

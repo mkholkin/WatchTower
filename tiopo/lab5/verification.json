@@ -1,0 +1,173 @@
+{
+  "run_id": "20261102t193339-943d17",
+  "date": "2026-11-02",
+  "command": "DOCKER_CONTEXT=colima-watchtower-lab2 make lab5",
+  "exit_code": 0,
+  "bdd_scenarios": 27,
+  "bdd_steps": 136,
+  "go_tests": [
+    "TestAuthServiceRegister",
+    "TestAuthServiceLogin",
+    "TestAuthServiceParseToken",
+    "TestAuthContextHelpers",
+    "TestPostgresAuthentication",
+    "TestConfigurationAndPasswordPolicy",
+    "TestLegacyEndpointsAndTokensAreRejected",
+    "TestDisabledLegacyRegistrationIsClientError",
+    "TestMFALoginHTTPContract",
+    "TestProtectedMonitorRouteRejectsInvalidAuthorization",
+    "TestAuthSMTPDeliveryAndTLSRequirement"
+  ],
+  "phases": [
+    {
+      "phase": "build BDD and API",
+      "exit_code": 0,
+      "elapsed_s": 38.56
+    },
+    {
+      "phase": "build PostgreSQL",
+      "exit_code": 0,
+      "elapsed_s": 0.93
+    },
+    {
+      "phase": "start isolated services",
+      "exit_code": 0,
+      "elapsed_s": 4.61
+    },
+    {
+      "phase": "PostgreSQL auth regressions",
+      "exit_code": 0,
+      "elapsed_s": 49.92
+    },
+    {
+      "phase": "BDD scenarios",
+      "exit_code": 0,
+      "elapsed_s": 5.73
+    },
+    {
+      "phase": "remove containers networks and volumes",
+      "exit_code": 0,
+      "elapsed_s": 0.53
+    },
+    {
+      "phase": "generate Allure HTML",
+      "exit_code": 0,
+      "elapsed_s": 0.54
+    },
+    {
+      "phase": "remove report container",
+      "exit_code": 0,
+      "elapsed_s": 0.02
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "A consumed login code cannot be replayed",
+      "status": "passed"
+    },
+    {
+      "name": "A correct password does not reset the combined failure counter",
+      "status": "passed"
+    },
+    {
+      "name": "A new login challenge invalidates the previous challenge",
+      "status": "passed"
+    },
+    {
+      "name": "A recovery token can be consumed only once",
+      "status": "passed"
+    },
+    {
+      "name": "An expired login code is rejected",
+      "status": "passed"
+    },
+    {
+      "name": "An expired password requires changing before accessing monitors",
+      "status": "passed"
+    },
+    {
+      "name": "An expired recovery token is rejected",
+      "status": "passed"
+    },
+    {
+      "name": "Another account cannot redeem the recovery token",
+      "status": "passed"
+    },
+    {
+      "name": "Concurrent code redemption creates only one session",
+      "status": "passed"
+    },
+    {
+      "name": "Concurrent password failures cannot bypass the limit",
+      "status": "passed"
+    },
+    {
+      "name": "Duplicate registration is rejected",
+      "status": "passed"
+    },
+    {
+      "name": "Incorrect recovery tokens cannot change the password",
+      "status": "passed"
+    },
+    {
+      "name": "Legacy password routes cannot bypass MFA",
+      "status": "passed"
+    },
+    {
+      "name": "Password alone grants no session and the delivered code completes login",
+      "status": "passed"
+    },
+    {
+      "name": "Password change rejects unchanged and weak passwords",
+      "status": "passed"
+    },
+    {
+      "name": "Password change requires the correct current password",
+      "status": "passed"
+    },
+    {
+      "name": "Recovery cannot set an unchanged or weak password",
+      "status": "passed"
+    },
+    {
+      "name": "Recovery revokes existing sessions and outstanding challenges",
+      "status": "passed"
+    },
+    {
+      "name": "Registration accepts passwords at byte length boundaries -- @1.1 ",
+      "status": "passed"
+    },
+    {
+      "name": "Registration accepts passwords at byte length boundaries -- @1.2 ",
+      "status": "passed"
+    },
+    {
+      "name": "Registration rejects passwords outside byte length limits -- @1.1 ",
+      "status": "passed"
+    },
+    {
+      "name": "Registration rejects passwords outside byte length limits -- @1.2 ",
+      "status": "passed"
+    },
+    {
+      "name": "Three incorrect second factors lock the account",
+      "status": "passed"
+    },
+    {
+      "name": "Three password failures lock the account until recovery",
+      "status": "passed"
+    },
+    {
+      "name": "Unknown credentials and an incorrect password are rejected",
+      "status": "passed"
+    },
+    {
+      "name": "Unknown recovery requests have the same public response",
+      "status": "passed"
+    },
+    {
+      "name": "Voluntary password change revokes sessions and outstanding challenges",
+      "status": "passed"
+    }
+  ]
+}

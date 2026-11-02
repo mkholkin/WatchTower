@@ -148,3 +148,12 @@ lab4-smoke:
 lab4-check:
 	node --test tests/lab4/model.test.mjs
 	python3 -m unittest discover -s tools/lab4 -p 'test_*.py'
+
+# Lab 5: real HTTP/SMTP BDD authentication with isolated ephemeral stores.
+.PHONY: lab5 lab5-check
+lab5:
+	python3 tools/lab5/run.py
+
+lab5-check:
+	python3 -m unittest discover -s tools/lab5 -p 'test_*.py'
+	python3 -m unittest discover -s tests/lab5 -p 'test_*.py'

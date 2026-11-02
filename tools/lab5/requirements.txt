@@ -1,0 +1,4 @@
+# Verified release pages: https://pypi.org/project/<package>/<version>/
+behave==1.2.6
+allure-behave==2.13.5
+psycopg[binary]==3.2.3

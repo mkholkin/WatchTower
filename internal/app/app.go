@@ -16,6 +16,7 @@ import (
 	healthchecksvc "WatchTower/internal/service/healthcheck"
 	maintenancesvc "WatchTower/internal/service/maintenance"
 	metricssvc "WatchTower/internal/service/metrics"
+	"WatchTower/internal/service/mfa"
 	monitoringsvc "WatchTower/internal/service/monitoring_management"
 	"WatchTower/internal/service/notification"
 	"context"
@@ -37,6 +38,7 @@ import (
 
 type App struct {
 	AuthSvc          authsvc.AuthService
+	MFA              *mfa.Service
 	MonitoringSvc    monitoringsvc.MonitoringManagementService
 	AlertContactsSvc contactssvc.ContactService
 	MaintenanceSvc   maintenancesvc.MaintenanceService
@@ -172,6 +174,9 @@ func InitApp(ctx context.Context, cfg *configs.Config) (*App, error) {
 
 func (a *App) initAuthService(ctx context.Context, cfg *configs.Config) (provider.UserProvider, error) {
 	if cfg.Database.Auth.DBType() == "mongodb" {
+		if cfg.Auth.MFA.Enabled {
+			return nil, fmt.Errorf("MFA requires PostgreSQL authentication storage")
+		}
 		db, err := a.getOrCreateMongoDB(ctx, cfg.Database.Auth.DSN, "auth")
 		if err != nil {
 			return nil, fmt.Errorf("failed to init auth mongo db: %w", err)
@@ -191,6 +196,22 @@ func (a *App) initAuthService(ctx context.Context, cfg *configs.Config) (provide
 	userRepo := postgres.NewUserRepository(pool, a.logger)
 	jwtTTL := time.Duration(cfg.Auth.JWTTTLHours) * time.Hour
 	a.AuthSvc = authsvc.NewService(userRepo, cfg.Auth.JWTSecret, jwtTTL)
+	if cfg.Auth.MFA.Enabled {
+		sender, err := notifinfra.NewAuthSMTPSender(cfg.Auth.MFA.SMTPAddress, cfg.Auth.MFA.SMTPFrom, cfg.Auth.MFA.AllowInsecureSMTP)
+		if err != nil {
+			return nil, err
+		}
+		secure, err := mfa.New(pool, sender, mfa.Config{
+			JWTSecret: cfg.Auth.JWTSecret, TokenTTL: jwtTTL,
+			MaxAttempts:    cfg.Auth.MFA.MaxAttempts,
+			ChallengeTTL:   time.Duration(cfg.Auth.MFA.ChallengeTTLSeconds) * time.Second,
+			PasswordMaxAge: time.Duration(cfg.Auth.MFA.PasswordMaxAgeHours) * time.Hour,
+		})
+		if err != nil {
+			return nil, err
+		}
+		a.MFA, a.AuthSvc = secure, secure
+	}
 
 	return provider.NewUserProvider(userRepo), nil
 }

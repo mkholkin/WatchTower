@@ -1,0 +1,162 @@
+openapi: 3.0.3
+info:
+  title: WatchTower MFA authentication
+  version: 1.0.0
+  description: >-
+    Available when auth.mfa.enabled is true. Password-only legacy login and
+    registration are disabled in this mode. Mail delivery is required. Login
+    returns a challenge, never a session; verification completes the second factor.
+paths:
+  /auth/mfa/register:
+    post:
+      summary: Register an account with an email second factor
+      operationId: enrollMFA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [login, email, password]
+              properties:
+                login: {type: string}
+                email: {type: string, format: email}
+                password: {$ref: '#/components/schemas/Password'}
+      responses:
+        '201': {description: Account created; email possession is checked at login}
+        '400': {$ref: '#/components/responses/InvalidInput'}
+        '409': {description: Account exists}
+  /auth/mfa/login:
+    post:
+      summary: Check the password and deliver a one-time email code
+      operationId: beginMFA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [login, password]
+              properties:
+                login: {type: string}
+                password: {$ref: '#/components/schemas/Password'}
+      responses:
+        '202':
+          description: Code sent; no JWT or authenticated cookie is issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [challenge_id]
+                properties:
+                  challenge_id: {type: string}
+        '400': {$ref: '#/components/responses/InvalidInput'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '423': {$ref: '#/components/responses/Locked'}
+        '503': {description: Email delivery unavailable}
+  /auth/mfa/verify:
+    post:
+      summary: Consume the one-time second factor
+      operationId: verifyMFA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [challenge_id, code]
+              properties:
+                challenge_id: {type: string}
+                code: {type: string, pattern: '^[0-9]{6}$'}
+      responses:
+        '200':
+          description: >-
+            MFA JWT. If password_change_required is true, the token authorizes
+            only POST /auth/mfa/password; protected resource requests reject it.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, password_change_required]
+                properties:
+                  access_token: {type: string}
+                  password_change_required: {type: boolean}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '410': {$ref: '#/components/responses/Expired'}
+        '423': {$ref: '#/components/responses/Locked'}
+  /auth/mfa/recover:
+    post:
+      summary: Deliver a one-time recovery token to the registered email
+      operationId: recoverMFA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [login]
+              properties:
+                login: {type: string}
+      responses:
+        '202': {description: Same response for known and unknown accounts}
+        '400': {$ref: '#/components/responses/InvalidInput'}
+        '503': {description: Email delivery unavailable}
+  /auth/mfa/reset:
+    post:
+      summary: Consume recovery token, unlock account and revoke old sessions
+      operationId: resetMFA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [login, token, new_password]
+              properties:
+                login: {type: string}
+                token: {type: string}
+                new_password: {$ref: '#/components/schemas/Password'}
+      responses:
+        '204': {description: Password replaced; a fresh MFA login is required}
+        '400': {$ref: '#/components/responses/InvalidInput'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '410': {$ref: '#/components/responses/Expired'}
+  /auth/mfa/password:
+    post:
+      summary: Change password using an MFA session and current password
+      operationId: changeMFAPassword
+      security: [{bearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [current_password, new_password]
+              properties:
+                current_password: {$ref: '#/components/schemas/Password'}
+                new_password: {$ref: '#/components/schemas/Password'}
+      responses:
+        '204': {description: All previous JWTs and outstanding codes/tokens revoked}
+        '400': {$ref: '#/components/responses/InvalidInput'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '423': {$ref: '#/components/responses/Locked'}
+components:
+  securitySchemes:
+    bearer: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    Password:
+      type: string
+      format: password
+      description: Between 12 and 72 UTF-8 bytes; the new password must differ from the current one
+  responses:
+    InvalidInput: {description: Invalid JSON or password/input policy violation}
+    Unauthorized: {description: Invalid credentials, consumed secret or invalid/revoked JWT}
+    Locked: {description: Account blocked after the configured number of failures; email recovery required}
+    Expired: {description: One-time secret expired}

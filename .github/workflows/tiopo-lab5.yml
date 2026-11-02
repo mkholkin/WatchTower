@@ -1,0 +1,43 @@
+name: TIOPO — BDD authentication
+on:
+  push:
+    branches: [TIOPO-5]
+  pull_request:
+    paths:
+      - tests/lab5/**
+      - tools/lab5/**
+      - internal/**
+      - configs/**
+      - cmd/api/**
+      - migrations/**
+      - api/**
+      - Dockerfile.postgres
+      - tools/lab1/package*.json
+      - go.mod
+      - go.sum
+      - Makefile
+      - .github/workflows/tiopo-lab5.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tiopo-lab5-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  bdd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check runner failure paths
+        run: make lab5-check
+      - name: Run isolated PostgreSQL, Redis, Mailpit and real API BDD
+        run: make lab5
+      - name: Publish safe results and Allure HTML even after failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiopo-lab5-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/lab5/runs
+          retention-days: 14
+          if-no-files-found: error

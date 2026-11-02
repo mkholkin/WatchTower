@@ -6,6 +6,7 @@
 **WatchTower** is a self-hosted web resource monitoring system.
 
 Лабораторная работа №4: [нагрузочное тестирование, запуск и отчёты](tiopo/lab4/README.md).
+Лабораторная работа №5: [BDD-аутентификация с email MFA](tiopo/lab5/README.md).
 ---
 
 ## 📢 Screenshots
