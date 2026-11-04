@@ -320,11 +320,11 @@ def unchanged_password(context):
     }, token=f.account.token)
 
 
-@when("the account attempts to change to a short password")
+@when("the account attempts to change to a empty password")
 def short_password(context):
     f = context.fixture
     f.http("/auth/mfa/password", {
-        "current_password": f.account.password, "new_password": secrets.token_urlsafe(6),
+        "current_password": f.account.password, "new_password": "",
     }, token=f.account.token)
 
 
@@ -334,10 +334,10 @@ def unchanged_reset(context):
     f.reset(f.account, f.account.password)
 
 
-@when("recovery is attempted with a short password")
+@when("recovery is attempted with a empty password")
 def short_reset(context):
     f = context.fixture
-    f.reset(f.account, secrets.token_urlsafe(6))
+    f.reset(f.account, "")
 
 
 @when("password change is attempted with an incorrect current password")

@@ -154,7 +154,7 @@ components:
     Password:
       type: string
       format: password
-      description: Between 12 and 72 UTF-8 bytes; the new password must differ from the current one
+      description: Between 1 and 72 UTF-8 bytes; the new password must differ from the current one
   responses:
     InvalidInput: {description: Invalid JSON or password/input policy violation}
     Unauthorized: {description: Invalid credentials, consumed secret or invalid/revoked JWT}

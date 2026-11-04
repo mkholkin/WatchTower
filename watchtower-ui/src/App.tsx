@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoadingSpinner } from './components/shared/LoadingSpinner';
 import AppLayout from './components/layout/AppLayout';
+import RecoveryPage from './pages/RecoveryPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
@@ -34,6 +36,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/recover" element={<RecoveryPage />} />
+          <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>

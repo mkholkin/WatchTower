@@ -95,7 +95,7 @@ func New(pool *pgxpool.Pool, sender Sender, cfg Config) (*Service, error) {
 	return &Service{pool: pool, sender: sender, cfg: cfg}, nil
 }
 
-func validPassword(password string) bool { return len(password) >= 12 && len(password) <= 72 }
+func validPassword(password string) bool { return len(password) > 0 && len(password) <= 72 }
 
 func (s *Service) Enroll(ctx context.Context, login, email, password string) error {
 	address, err := mail.ParseAddress(email)

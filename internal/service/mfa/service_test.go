@@ -18,7 +18,7 @@ func TestConfigurationAndPasswordPolicy(t *testing.T) {
 	}
 	// Policy checks precede persistence and never accept truncated bcrypt input.
 	s := &mfa.Service{}
-	for _, password := range []string{"", "short", strings.Repeat("a", 73), strings.Repeat("я", 37)} {
+	for _, password := range []string{"", strings.Repeat("a", 73), strings.Repeat("я", 37)} {
 		if err := s.Enroll(context.Background(), "test", "test@example.org", password); !errors.Is(err, mfa.ErrPolicy) {
 			t.Fatalf("invalid password: %v", err)
 		}

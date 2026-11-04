@@ -1,12 +1,13 @@
 import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/layout/AuthLayout';
+import { mfaEnabled, authError } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ login: '', password: '' });
+  const [form, setForm] = useState({ login: '', password: '', email: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -15,10 +16,10 @@ export default function RegisterPage() {
     setError('');
     setSubmitting(true);
     try {
-      await register(form.login, form.password);
-      navigate('/');
+      await register(form.login, form.password, form.email);
+      navigate(mfaEnabled ? '/login' : '/');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed');
+      setError(authError(err));
     } finally {
       setSubmitting(false);
     }
@@ -53,8 +54,13 @@ export default function RegisterPage() {
             placeholder="Choose a password"
           />
         </div>
+        {mfaEnabled && <div>
+          <label htmlFor="email" className="block text-sm text-slate-400 mb-2">Email</label>
+          <input id="email" type="email" autoComplete="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="w-full px-3 py-2.5 bg-app-bg border border-border rounded-lg text-slate-100" />
+          <p className="mt-2 text-xs text-slate-400">Verification codes and recovery instructions will be sent here. Use a password of 1–72 UTF-8 bytes.</p>
+        </div>}
         {error && (
-          <div className="bg-red-950 border border-red-900/50 text-red-400 px-4 py-2.5 rounded-lg text-sm">{error}</div>
+          <div role="alert" className="bg-red-950 border border-red-900/50 text-red-400 px-4 py-2.5 rounded-lg text-sm">{error}</div>
         )}
         <button
           type="submit"

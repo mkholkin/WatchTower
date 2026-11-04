@@ -36,7 +36,7 @@ No credentials belong in feature files, command arguments, reports, or attachmen
 - OTP replay, expiry and challenge replacement.
 - Recovery token replay, expiry, invalid tokens, account enumeration resistance and cross-user token binding.
 - Ninety-day password rotation, restricted session, voluntary password change, existing session and outstanding challenge revocation.
-- Registration byte-length boundaries, duplicate registration, unchanged/short replacement passwords and incorrect current password.
+- Registration byte-length boundaries, duplicate registration, unchanged/empty replacement passwords and incorrect current password.
 - Legacy authentication routes cannot bypass MFA.
 
 Requirement tags in the feature file map these behaviors to the Lab 5 requirements document.

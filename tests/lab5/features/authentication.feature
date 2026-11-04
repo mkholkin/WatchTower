@@ -145,7 +145,7 @@ Feature: Real HTTP authentication requires a second factor
     Then the response status is 400
     Examples:
       | length |
-      | 11     |
+      | 0      |
       | 73     |
 
   @REQ-POLICY
@@ -154,24 +154,24 @@ Feature: Real HTTP authentication requires a second factor
     Then the response status is 201
     Examples:
       | length |
-      | 12     |
+      | 1      |
       | 72     |
 
   @REQ-POLICY
-  Scenario: Password change rejects unchanged and weak passwords
+  Scenario: Password change rejects unchanged and empty passwords
     Given the account has a full session
     When the account attempts to reuse its current password
     Then the response status is 400
-    When the account attempts to change to a short password
+    When the account attempts to change to a empty password
     Then the response status is 400
     And a full session can read monitors
 
   @REQ-POLICY
-  Scenario: Recovery cannot set an unchanged or weak password
+  Scenario: Recovery cannot set an unchanged or empty password
     When the account requests recovery
     And recovery is attempted with the unchanged password
     Then the response status is 400
-    When recovery is attempted with a short password
+    When recovery is attempted with a empty password
     Then the response status is 400
     When the account submits its recovery token with a fresh password
     Then the response status is 204
