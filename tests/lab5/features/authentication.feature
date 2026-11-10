@@ -21,32 +21,35 @@ Feature: Real HTTP authentication requires a second factor
     When the account submits an incorrect password
     Then the response status is 401
 
-  @REQ-LOCK @REQ-RECOVERY
-  Scenario: Three password failures lock the account until recovery
+  @REQ-ATTEMPTS @REQ-RECOVERY
+  Scenario: Password failures preserve access and recovery remains available
     Given the account has a full session
     When three incorrect passwords are submitted
-    Then the account is locked and its prior session is rejected
+    Then the account remains accessible and its prior session is accepted
     When the account recovers with its delivered token and a fresh password
     Then the old password is rejected and the fresh password completes MFA
 
-  @REQ-LOCK
-  Scenario: A correct password does not reset the combined failure counter
+  @REQ-ATTEMPTS
+  Scenario: A fresh login challenge resets its failure counter
     When two incorrect passwords are submitted
     And the account submits its correct password
     And the account submits an incorrect login code
-    Then the response status is 423
-    And the account is locked
+    Then the response status is 401
+    When the account submits its delivered login code
+    Then a full session can read monitors
 
-  @REQ-LOCK
-  Scenario: Three incorrect second factors lock the account
+  @REQ-ATTEMPTS
+  Scenario: Three incorrect second factors invalidate only the challenge
     When the account submits its correct password
     And three incorrect login codes are submitted
-    Then the account is locked
+    Then the used login challenge is rejected
+    When the account completes MFA with its current password
+    Then a full session can read monitors
 
-  @REQ-CONCURRENCY @REQ-LOCK
-  Scenario: Concurrent password failures cannot bypass the limit
+  @REQ-CONCURRENCY @REQ-ATTEMPTS
+  Scenario: Concurrent password failures do not lock the account
     When six incorrect passwords are submitted concurrently
-    Then the account is locked with exactly three recorded failures
+    Then the account is accessible with exactly three recorded failures
 
   @REQ-OTP
   Scenario: A consumed login code cannot be replayed

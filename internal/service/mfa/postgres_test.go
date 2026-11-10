@@ -178,7 +178,7 @@ func TestPostgresAuthentication(t *testing.T) {
 			assertError(t, err, authsvc.ErrTokenInvalid)
 		}
 	})
-	t.Run("combined failures persist and locking revokes issued access", func(t *testing.T) {
+	t.Run("failed attempts expire only the challenge and preserve issued access", func(t *testing.T) {
 		enroll(t, "locked")
 		access := login(t, "locked", password)
 		_, err := service.BeginLogin(ctx, "locked", "wrong-password")
@@ -187,21 +187,16 @@ func TestPostgresAuthentication(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = service.Verify(ctx, challenge, "invalid")
+		for range 3 {
+			_, err = service.Verify(ctx, challenge, "invalid")
+			assertError(t, err, mfa.ErrInvalid)
+		}
+		_, err = service.Verify(ctx, challenge, sender.secret("locked@example.org", "login"))
 		assertError(t, err, mfa.ErrInvalid)
-		_, err = service.Verify(ctx, challenge, "invalid")
-		assertError(t, err, mfa.ErrLocked)
-		_, err = service.ParseToken(access.AccessToken)
-		assertError(t, err, authsvc.ErrTokenInvalid)
-		_, err = service.BeginLogin(ctx, "locked", password)
-		assertError(t, err, mfa.ErrLocked)
-		var attempts int
-		if err := pool.QueryRow(ctx, `SELECT failed_attempts FROM auth_mfa WHERE login='locked'`).Scan(&attempts); err != nil {
-			t.Fatal(err)
+		if _, err := service.ParseToken(access.AccessToken); err != nil {
+			t.Fatal("failed attempts revoked existing session")
 		}
-		if attempts != 3 {
-			t.Fatalf("counter=%d", attempts)
-		}
+		login(t, "locked", password)
 		if err := service.Recover(ctx, "locked"); err != nil {
 			t.Fatal(err)
 		}
@@ -306,6 +301,18 @@ func TestPostgresAuthentication(t *testing.T) {
 		recovery := sender.secret("parallel@example.org", "recovery")
 		race(func() error { return service.Reset(ctx, "parallel", recovery, replacementPassword) })
 	})
+	t.Run("previously locked accounts can sign in", func(t *testing.T) {
+		enroll(t, "previous-lock")
+		exec(t, `UPDATE auth_mfa SET locked=true WHERE login='previous-lock'`)
+		login(t, "previous-lock", password)
+		var locked bool
+		if err := pool.QueryRow(ctx, `SELECT locked FROM auth_mfa WHERE login='previous-lock'`).Scan(&locked); err != nil {
+			t.Fatal(err)
+		}
+		if locked {
+			t.Fatal("fresh login retained legacy lock flag")
+		}
+	})
 	t.Run("parallel failures cannot lose increments", func(t *testing.T) {
 		enroll(t, "attempts")
 		results := make(chan error, 8)
@@ -314,7 +321,7 @@ func TestPostgresAuthentication(t *testing.T) {
 		}
 		for range 8 {
 			err := <-results
-			if !errors.Is(err, mfa.ErrInvalid) && !errors.Is(err, mfa.ErrLocked) {
+			if !errors.Is(err, mfa.ErrInvalid) {
 				t.Fatal(err)
 			}
 		}
@@ -323,9 +330,10 @@ func TestPostgresAuthentication(t *testing.T) {
 		if err := pool.QueryRow(ctx, `SELECT failed_attempts,locked FROM auth_mfa WHERE login='attempts'`).Scan(&attempts, &locked); err != nil {
 			t.Fatal(err)
 		}
-		if attempts != 3 || !locked {
+		if attempts != 3 || locked {
 			t.Fatalf("attempts=%d locked=%v", attempts, locked)
 		}
+		login(t, "attempts", password)
 	})
 	t.Run("delivery failure is sanitized and rolls back replacement challenge", func(t *testing.T) {
 		enroll(t, "delivery")

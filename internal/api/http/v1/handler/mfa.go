@@ -44,8 +44,6 @@ func mfaError(c *gin.Context, err error) {
 		status, message = 400, "invalid input or password policy"
 	case errors.Is(err, mfa.ErrInvalid):
 		status, message = 401, "invalid credentials or secret"
-	case errors.Is(err, mfa.ErrLocked):
-		status, message = 423, "account locked; recovery required"
 	case errors.Is(err, mfa.ErrExpired):
 		status, message = 410, "secret expired"
 	case errors.Is(err, mfa.ErrConflict):

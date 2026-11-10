@@ -3,7 +3,6 @@ package handler
 import (
 	apigen "WatchTower/internal/api/http/v1/gen"
 	authsvc "WatchTower/internal/service/auth"
-	"WatchTower/internal/service/mfa"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -54,7 +53,6 @@ func TestMFALoginHTTPContract(t *testing.T) {
 		status, calls int
 	}{
 		{"challenge only", `{"login":"alice","password":"not-a-real-password"}`, nil, 202, 1},
-		{"locked", `{"login":"alice","password":"not-a-real-password"}`, mfa.ErrLocked, 423, 1},
 		{"unknown field", `{"login":"alice","password":"x","admin":true}`, nil, 400, 0},
 		{"extra JSON", `{"login":"alice","password":"x"}{}`, nil, 400, 0},
 		{"empty body", `{}`, nil, 400, 0},

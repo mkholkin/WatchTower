@@ -11,7 +11,6 @@ export function authError(err: any): string {
   switch (err.response?.status) {
     case 401: return 'Incorrect credentials or verification code.';
     case 410: return 'Code expired. Start again to request a new one.';
-    case 423: return 'Account locked. Recover your account to continue.';
     case 409: return 'This username is already registered.';
     case 400: return 'Check your input. Passwords must contain 1–72 UTF-8 bytes and a new password must be different.';
     case 503: return 'Email delivery is unavailable. Please try again later.';

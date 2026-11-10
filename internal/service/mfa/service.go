@@ -24,7 +24,6 @@ import (
 
 var (
 	ErrInvalid  = errors.New("invalid credentials or secret")
-	ErrLocked   = errors.New("account locked")
 	ErrExpired  = errors.New("secret expired")
 	ErrPolicy   = errors.New("invalid input or password policy")
 	ErrConflict = errors.New("account already exists")
@@ -69,7 +68,6 @@ type tokenClaims struct {
 type account struct {
 	login, email, password    string
 	attempts                  int
-	locked                    bool
 	changed                   time.Time
 	version                   int64
 	otp, recovery             []byte
@@ -128,7 +126,7 @@ func (s *Service) transaction(ctx context.Context, fn func(pgx.Tx) error) error 
 	}
 	defer tx.Rollback(ctx)
 	result := fn(tx)
-	if result != nil && !errors.Is(result, ErrInvalid) && !errors.Is(result, ErrLocked) && !errors.Is(result, ErrExpired) && !errors.Is(result, ErrPolicy) {
+	if result != nil && !errors.Is(result, ErrInvalid) && !errors.Is(result, ErrExpired) && !errors.Is(result, ErrPolicy) {
 		return result
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -143,10 +141,10 @@ func load(ctx context.Context, tx pgx.Tx, byChallenge bool, key string) (account
 	if byChallenge {
 		predicate = "m.challenge_id=$1"
 	}
-	err := tx.QueryRow(ctx, `SELECT m.login,m.email,u.password_hash,m.failed_attempts,m.locked,m.password_changed_at,m.token_version,
+	err := tx.QueryRow(ctx, `SELECT m.login,m.email,u.password_hash,m.failed_attempts,m.password_changed_at,m.token_version,
  COALESCE(m.otp_hash,''::bytea),COALESCE(m.otp_expires_at,'epoch'::timestamptz),
  COALESCE(m.recovery_hash,''::bytea),COALESCE(m.recovery_expires_at,'epoch'::timestamptz)
- FROM auth_mfa m JOIN "user" u ON u.login=m.login WHERE `+predicate+` FOR UPDATE OF m,u`, key).Scan(&a.login, &a.email, &a.password, &a.attempts, &a.locked, &a.changed, &a.version, &a.otp, &a.otpExpiry, &a.recovery, &a.recoveryExpiry)
+ FROM auth_mfa m JOIN "user" u ON u.login=m.login WHERE `+predicate+` FOR UPDATE OF m,u`, key).Scan(&a.login, &a.email, &a.password, &a.attempts, &a.changed, &a.version, &a.otp, &a.otpExpiry, &a.recovery, &a.recoveryExpiry)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return a, ErrInvalid
 	}
@@ -154,17 +152,13 @@ func load(ctx context.Context, tx pgx.Tx, byChallenge bool, key string) (account
 }
 
 func (s *Service) failure(ctx context.Context, tx pgx.Tx, a account) error {
-	locked := a.attempts+1 >= s.cfg.MaxAttempts
-	_, err := tx.Exec(ctx, `UPDATE auth_mfa SET failed_attempts=failed_attempts+1,locked=$2,
- token_version=token_version+CASE WHEN $2 THEN 1 ELSE 0 END,
+	exhausted := a.attempts+1 >= s.cfg.MaxAttempts
+	_, err := tx.Exec(ctx, `UPDATE auth_mfa SET failed_attempts=LEAST(failed_attempts+1,$3),locked=false,
  challenge_id=CASE WHEN $2 THEN NULL ELSE challenge_id END,
  otp_hash=CASE WHEN $2 THEN NULL ELSE otp_hash END,
- otp_expires_at=CASE WHEN $2 THEN NULL ELSE otp_expires_at END WHERE login=$1`, a.login, locked)
+ otp_expires_at=CASE WHEN $2 THEN NULL ELSE otp_expires_at END WHERE login=$1`, a.login, exhausted, s.cfg.MaxAttempts)
 	if err != nil {
 		return err
-	}
-	if locked {
-		return ErrLocked
 	}
 	return ErrInvalid
 }
@@ -185,9 +179,6 @@ func (s *Service) BeginLogin(ctx context.Context, login, password string) (strin
 		if err != nil {
 			return err
 		}
-		if a.locked {
-			return ErrLocked
-		}
 		if !validPassword(password) || bcrypt.CompareHashAndPassword([]byte(a.password), []byte(password)) != nil {
 			return s.failure(ctx, tx, a)
 		}
@@ -200,7 +191,7 @@ func (s *Service) BeginLogin(ctx context.Context, login, password string) (strin
 			return err
 		}
 		code := fmt.Sprintf("%06d", n.Int64())
-		_, err = tx.Exec(ctx, `UPDATE auth_mfa SET challenge_id=$2,otp_hash=$3,otp_expires_at=$4 WHERE login=$1`, a.login, challenge, secretHash(code), time.Now().Add(s.cfg.ChallengeTTL))
+		_, err = tx.Exec(ctx, `UPDATE auth_mfa SET failed_attempts=0,locked=false,challenge_id=$2,otp_hash=$3,otp_expires_at=$4 WHERE login=$1`, a.login, challenge, secretHash(code), time.Now().Add(s.cfg.ChallengeTTL))
 		if err != nil {
 			return err
 		}
@@ -221,9 +212,6 @@ func (s *Service) Verify(ctx context.Context, challengeID, code string) (AuthRes
 		a, err := load(ctx, tx, true, challengeID)
 		if err != nil {
 			return err
-		}
-		if a.locked {
-			return ErrLocked
 		}
 		if !time.Now().Before(a.otpExpiry) {
 			return ErrExpired
@@ -333,9 +321,6 @@ func (s *Service) ChangePassword(ctx context.Context, bearer, currentPassword, n
 		if err != nil {
 			return err
 		}
-		if a.locked {
-			return ErrLocked
-		}
 		if claims.Version != a.version {
 			return ErrInvalid
 		}
@@ -360,11 +345,10 @@ func (s *Service) ParseToken(token string) (string, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	var locked bool
 	var version int64
 	var changed time.Time
-	err = s.pool.QueryRow(ctx, `SELECT locked,token_version,password_changed_at FROM auth_mfa WHERE login=$1`, claims.Subject).Scan(&locked, &version, &changed)
-	if err != nil || locked || version != claims.Version || !time.Now().Before(changed.Add(s.cfg.PasswordMaxAge)) {
+	err = s.pool.QueryRow(ctx, `SELECT token_version,password_changed_at FROM auth_mfa WHERE login=$1`, claims.Subject).Scan(&version, &changed)
+	if err != nil || version != claims.Version || !time.Now().Before(changed.Add(s.cfg.PasswordMaxAge)) {
 		return "", authsvc.ErrTokenInvalid
 	}
 	return claims.Subject, nil

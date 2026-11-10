@@ -11,7 +11,7 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => jest.fn(),
 }), { virtual: true });
 jest.mock('../api/auth', () => ({
-  authError: err => ({401: 'Incorrect code', 410: 'Code expired', 423: 'Account locked'})[err.response?.status] || 'Request failed',
+  authError: err => ({401: 'Incorrect code', 410: 'Code expired'})[err.response?.status] || 'Request failed',
   mfaEnabled: true,
   login: jest.fn(), register: jest.fn(), verify: jest.fn(), changePassword: jest.fn(),
 }));
@@ -56,10 +56,10 @@ test('incorrect and expired codes leave the code form open without a session', a
   expect(localStorage.getItem('access_token')).toBeNull();
 });
 
-test('a locked account has a recovery link', async () => {
-  authApi.login.mockRejectedValue({ response: { status: 423 } });
+test('incorrect credentials leave recovery available', async () => {
+  authApi.login.mockRejectedValue({ response: { status: 401 } });
   loginForm();
-  expect(await screen.findByRole('alert')).toHaveTextContent(/locked/i);
+  expect(await screen.findByRole('alert')).toHaveTextContent(/incorrect/i);
   expect(screen.getByRole('link', { name: /recover/i })).toHaveAttribute('href', '/recover');
 });
 

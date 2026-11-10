@@ -107,7 +107,7 @@ def two_passwords(context):
 
 @when("three incorrect passwords are submitted")
 def three_passwords(context):
-    for expected in (401, 401, 423):
+    for expected in (401, 401, 401):
         status(incorrect_password(context.fixture), expected)
 
 
@@ -118,20 +118,21 @@ def bad_code(context):
 
 @when("three incorrect login codes are submitted")
 def three_codes(context):
-    for expected in (401, 401, 423):
+    for expected in (401, 401, 401):
         status(incorrect_code(context.fixture), expected)
 
 
-@then("the account is locked")
-def locked(context):
+@then("the used login challenge is rejected")
+def expired_challenge(context):
     f = context.fixture
-    status(f.http("/auth/mfa/login", {"login": f.account.login, "password": f.account.password}), 423)
+    status(f.verify(f.account), 401)
 
 
-@then("the account is locked and its prior session is rejected")
-def locked_session(context):
-    locked(context)
-    monitors(context.fixture, context.fixture.account.token, 401)
+@then("the account remains accessible and its prior session is accepted")
+def accessible_session(context):
+    f = context.fixture
+    monitors(f, f.account.token, 200)
+    f.login(f.account)
 
 
 @when("six incorrect passwords are submitted concurrently")
@@ -140,16 +141,16 @@ def concurrent_failures(context):
     payloads = [{"login": f.account.login, "password": secrets.token_urlsafe(24)} for _ in range(6)]
     with ThreadPoolExecutor(max_workers=6) as pool:
         responses = list(pool.map(lambda payload: request(f.api, "POST", "/auth/mfa/login", payload), payloads))
-    require(sorted(response.status for response in responses) == [401, 401, 423, 423, 423, 423],
-            "Concurrent failures did not enforce the three-attempt limit")
+    require(sorted(response.status for response in responses) == [401, 401, 401, 401, 401, 401],
+            "Concurrent failures unexpectedly blocked the account")
 
 
-@then("the account is locked with exactly three recorded failures")
-def locked_count(context):
-    locked(context)
+@then("the account is accessible with exactly three recorded failures")
+def attempt_count(context):
     f = context.fixture
     row = f.sql("SELECT failed_attempts, locked FROM auth_mfa WHERE login = %s", (f.account.login,), fetch=True)
-    require(row == (3, True), "The locked account must have exactly three recorded failures")
+    require(row == (3, False), "Incorrect attempts must not lock the account")
+    f.authenticate(f.account)
 
 
 @when("its {field} expires in the database")
