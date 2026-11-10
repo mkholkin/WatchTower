@@ -31,7 +31,7 @@ No credentials belong in feature files, command arguments, reports, or attachmen
 ## Scenario coverage
 
 - Successful MFA; no session or session cookie after the password stage; protected route rejects absent/invalid credentials.
-- Unknown credentials, incorrect passwords, password/OTP combined failure count, three OTP failures, blocked session rejection and recovery unlock.
+- Unknown credentials, incorrect passwords, challenge expiry after failed attempts, preserved existing sessions, fresh login after failures and password recovery.
 - Concurrent password failures and concurrent OTP redemption.
 - OTP replay, expiry and challenge replacement.
 - Recovery token replay, expiry, invalid tokens, account enumeration resistance and cross-user token binding.
@@ -45,6 +45,6 @@ Requirement tags in the feature file map these behaviors to the Lab 5 requiremen
 
 Every scenario starts with a fresh login and `@example.test` address. `secrets.token_urlsafe` generates passwords in memory. Every account is tracked before attempting registration, so even partially successful or rejected setup reaches cleanup. `after_scenario` deletes each tracked login from `"user"`, then verifies both the user and its cascaded `auth_mfa` state are absent. Failed cleanup attempts do not prevent cleanup of other users; `after_all` retries remaining accounts and fails the run if cleanup is still incomplete. The stand additionally removes its disposable database and mailbox volumes.
 
-Expiry tests update `otp_expires_at`, `recovery_expires_at`, or `password_changed_at` in PostgreSQL. They never wait for the actual five-minute, ten-minute or ninety-day deadline. A read-only assertion checks the locked account's persisted failure count.
+Expiry tests update `otp_expires_at`, `recovery_expires_at`, or `password_changed_at` in PostgreSQL. They never wait for the actual five-minute, ten-minute or ninety-day deadline. A read-only assertion checks the accessible account's capped failure count.
 
 Mail retrieval uses [Mailpit's primary API contract](https://mailpit.axllent.org/docs/api-v1/): `GET /api/v1/search?query=to:...` locates addressed messages, then `GET /api/v1/message/{ID}` reads `Text`. The recipient is checked again before parsing the JSON message's `kind` and `secret` fields. Previously consumed message IDs are ignored. Polling waits at most ten seconds for delivery; OTP and recovery expiry use SQL instead of polling.
