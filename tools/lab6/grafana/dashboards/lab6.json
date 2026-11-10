@@ -1,0 +1,731 @@
+{
+  "id": null,
+  "uid": "lab6-observability",
+  "title": "Lab 6 — tracing and debug logging cost",
+  "description": "Historical WatchTower workload matrix from saved measurement artifacts. Collector and API resources are separate.",
+  "tags": [
+    "watchtower",
+    "lab6",
+    "historical"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "run",
+        "label": "Run",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "lab6-prometheus"
+        },
+        "query": "label_values(lab6_memory_bytes{}, run)",
+        "definition": "label_values(lab6_memory_bytes{}, run)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        },
+        "options": []
+      },
+      {
+        "name": "profile",
+        "label": "Profile",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "lab6-prometheus"
+        },
+        "query": "label_values(lab6_memory_bytes{run=~\"${run:regex}\"}, profile)",
+        "definition": "label_values(lab6_memory_bytes{run=~\"${run:regex}\"}, profile)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "soak-0",
+          "value": "soak-0",
+          "selected": true
+        },
+        "options": []
+      },
+      {
+        "name": "variant",
+        "label": "Variant",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "lab6-prometheus"
+        },
+        "query": "label_values(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\"}, variant)",
+        "definition": "label_values(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\"}, variant)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        },
+        "options": []
+      },
+      {
+        "name": "repetition",
+        "label": "Repetition",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "lab6-prometheus"
+        },
+        "query": "label_values(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\"}, repetition)",
+        "definition": "label_values(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\"}, repetition)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        },
+        "options": []
+      },
+      {
+        "name": "component",
+        "label": "Component",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "lab6-prometheus"
+        },
+        "query": "label_values(lab6_memory_bytes{}, component)",
+        "definition": "label_values(lab6_memory_bytes{}, component)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "api",
+          "value": "api",
+          "selected": true
+        },
+        "options": []
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "Tempo — trace lookup",
+      "type": "link",
+      "url": "/explore?schemaVersion=1&panes={%22lab6%22%3A{%22datasource%22%3A%22lab6-tempo%22%2C%22queries%22%3A%5B{%22refId%22%3A%22A%22%2C%22datasource%22%3A{%22type%22%3A%22tempo%22%2C%22uid%22%3A%22lab6-tempo%22}%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%22}%5D%2C%22range%22%3A{%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22}}}",
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Saved measurements: how to read this dashboard",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Metrics are backfilled from the saved Docker samples at their **original timestamps**. Select a profile to compare its four variants; select Component to switch API / collector in the first two rows. CPU = percent of one core; memory = Docker working set without inactive file cache. Summary panels use the report's measurement window, not the currently zoomed interval. A summary appears only when its sample timestamp is within the selected time range.\n\nCollector panels are fixed to `component=collector`; load panels are fixed to `component=api`. **Grafana, Prometheus and Tempo were added after the full workload matrix**; their later live resource measurements do not form part of that historical matrix.\n\n[Open Tempo Explore](/explore?schemaVersion=1&panes={%22lab6%22%3A{%22datasource%22%3A%22lab6-tempo%22%2C%22queries%22%3A%5B{%22refId%22%3A%22A%22%2C%22datasource%22%3A{%22type%22%3A%22tempo%22%2C%22uid%22%3A%22lab6-tempo%22}%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%22}%5D%2C%22range%22%3A{%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22}}}): choose **TraceQL**, paste an ID from imported `traces.jsonl`. Example for the saved full run: `__EXAMPLE_TRACE_ID__` (selected imported run). A trace lookup needs an imported trace; an empty search result does not invalidate CPU/RAM samples. Historical spans may be outside Tempo's time-based search window; use Trace ID lookup."
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "CPU — selected component (% of one core)",
+      "description": "10-second rate of the cumulative CPU-seconds counter. 100% means one fully occupied CPU core.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(lab6_cpu_seconds_total{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=~\"${component:regex}\"}[10s]) * 100",
+          "legendFormat": "{{profile}} / {{variant}} / r{{repetition}} / {{component}} / {{run}}",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "RAM — selected component (MiB)",
+      "description": "Samples older than 5 seconds are hidden to avoid Prometheus lookback extending a finished workload.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: MiB",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=~\"${component:regex}\"} and (time() - timestamp(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=~\"${component:regex}\"}) < 5)) / 1048576",
+          "legendFormat": "{{profile}} / {{variant}} / r{{repetition}} / {{component}} / {{run}}",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "bargauge",
+      "title": "CPU per measured workload — compare variants (CPU s)",
+      "description": "CPU counter delta over the report measurement window; sample timestamp must be in the dashboard range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_cpu_seconds{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=~\"${component:regex}\"}[$__range])",
+          "legendFormat": "{{profile}} / {{variant}} / r{{repetition}} / {{component}} / {{run}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "bargauge",
+      "title": "RAM per measured workload — min / median / max (MiB)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: MiB",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=~\"${component:regex}\"}[$__range]) / 1048576",
+          "legendFormat": "{{profile}} / {{variant}} / r{{repetition}} / {{component}} / {{run}} / {{stat}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Median RPS — API workload",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_rps{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=\"api\"}[$__range])",
+          "legendFormat": "{{profile}} / {{variant}} / r{{repetition}} / {{component}} / {{run}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "Unexpected responses — API workload",
+      "description": "Unexpected errors only. Expected 401/400 operations are classified separately in the workload report.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_unexpected_ratio{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=\"api\"}[$__range])",
+          "legendFormat": "{{profile}} / {{variant}} / r{{repetition}} / {{component}} / {{run}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Collector CPU (% of one core)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(lab6_cpu_seconds_total{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=\"collector\"}[10s]) * 100",
+          "legendFormat": "{{profile}} / {{variant}} / r{{repetition}} / {{component}} / {{run}}",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Collector RAM (MiB)",
+      "description": "Samples older than 5 seconds are hidden to avoid Prometheus lookback extending a finished workload.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 26,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: MiB",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=\"collector\"} and (time() - timestamp(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=\"collector\"}) < 5)) / 1048576",
+          "legendFormat": "{{profile}} / {{variant}} / r{{repetition}} / {{component}} / {{run}}",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "Collector CPU per measured workload (CPU s)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_cpu_seconds{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=\"collector\"}[$__range])",
+          "legendFormat": "{{profile}} / {{variant}} / r{{repetition}} / {{component}} / {{run}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "Collector RAM per measured workload — min / median / max (MiB)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 34,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: MiB",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",variant=~\"${variant:regex}\",repetition=~\"${repetition:regex}\",component=\"collector\"}[$__range]) / 1048576",
+          "legendFormat": "{{profile}} / {{variant}} / r{{repetition}} / {{component}} / {{run}} / {{stat}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      }
+    }
+  ]
+}

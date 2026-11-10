@@ -1,0 +1,125 @@
+{
+  "phase": "post-import viewer, not original workload",
+  "run_id": "20261110t105253-a41b89",
+  "measurement_start": 1794325534.5491729,
+  "measurement_end": 1794325595.0070279,
+  "measurement_seconds": 60.457854986190796,
+  "resources": {
+    "grafana": {
+      "cpu_seconds": 0.40651077551378295,
+      "cpu_start_ns": 2015790224.486217,
+      "cpu_end_ns": 2422301000.0,
+      "cpu_boundary_method": "linear interpolation of adjacent raw cumulative counters",
+      "mean_cpu_percent": 0.6723870299510862,
+      "memory_bytes": {
+        "min": 276004864,
+        "median": 276099072,
+        "max": 276160512
+      },
+      "memory_samples": 59
+    },
+    "prometheus": {
+      "cpu_seconds": 0.16638147858558608,
+      "cpu_start_ns": 278833586.67100006,
+      "cpu_end_ns": 445215065.25658613,
+      "cpu_boundary_method": "linear interpolation of adjacent raw cumulative counters",
+      "mean_cpu_percent": 0.2752024176570428,
+      "memory_bytes": {
+        "min": 49696768,
+        "median": 52498432,
+        "max": 52559872
+      },
+      "memory_samples": 59
+    },
+    "tempo": {
+      "cpu_seconds": 1.3727785662008614,
+      "cpu_start_ns": 1710929000.0,
+      "cpu_end_ns": 3083707566.2008615,
+      "cpu_boundary_method": "linear interpolation of adjacent raw cumulative counters",
+      "mean_cpu_percent": 2.2706372340110614,
+      "memory_bytes": {
+        "min": 261124096,
+        "median": 371492864.0,
+        "max": 375529472
+      },
+      "memory_samples": 60
+    }
+  },
+  "checks": {
+    "prometheus": true,
+    "grafana": true,
+    "tempo": true
+  },
+  "metrics_import": {
+    "run_id": "20261110t105253-a41b89",
+    "original_from": 1794308010.656,
+    "original_to": 1794313666.544,
+    "series": 440,
+    "samples": 58856
+  },
+  "traces_import": {
+    "files": 10,
+    "spans": 365715,
+    "root_spans": 107994,
+    "batches": 737,
+    "example_trace_id": "c3e2193a4cd938c5ebc4ff58d4f6887e"
+  },
+  "query_checks": {
+    "panels": [
+      {
+        "panel": "CPU — selected component (% of one core)",
+        "series": 120
+      },
+      {
+        "panel": "RAM — selected component (MiB)",
+        "series": 120
+      },
+      {
+        "panel": "CPU per measured workload — compare variants (CPU s)",
+        "series": 40
+      },
+      {
+        "panel": "RAM per measured workload — min / median / max (MiB)",
+        "series": 120
+      },
+      {
+        "panel": "Median RPS — API workload",
+        "series": 20
+      },
+      {
+        "panel": "Unexpected responses — API workload",
+        "series": 20
+      },
+      {
+        "panel": "Collector CPU (% of one core)",
+        "series": 20
+      },
+      {
+        "panel": "Collector RAM (MiB)",
+        "series": 20
+      },
+      {
+        "panel": "Collector CPU per measured workload (CPU s)",
+        "series": 20
+      },
+      {
+        "panel": "Collector RAM per measured workload — min / median / max (MiB)",
+        "series": 60
+      }
+    ],
+    "correlated_spans": 3
+  },
+  "software": {
+    "grafana": "13.3.0",
+    "prometheus": "3.15.1",
+    "tempo": "2.9.0"
+  },
+  "container_limits": {
+    "cpus_each": 1,
+    "memory_bytes": {
+      "grafana": 805306368,
+      "prometheus": 805306368,
+      "tempo": 1073741824
+    }
+  }
+}

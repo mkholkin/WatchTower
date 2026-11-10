@@ -1,0 +1,22 @@
+apiVersion: 1
+
+datasources:
+  - name: Lab 6 Prometheus
+    uid: lab6-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 1s
+  - name: Lab 6 Tempo
+    uid: lab6-tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      nodeGraph:
+        enabled: true

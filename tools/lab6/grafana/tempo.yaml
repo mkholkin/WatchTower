@@ -1,0 +1,43 @@
+# Tempo 2.9.0, local post-experiment viewer. Raw experiment timestamps stay intact.
+# https://github.com/grafana/tempo/blob/v2.9.0/docs/sources/tempo/configuration/_index.md
+# WAL slack and retention allow re-importing the November 2026 experiment for ten years.
+# The source JSONL remains the durable archive; this local storage may be recreated.
+target: all
+auth_enabled: false
+server:
+  http_listen_port: 3200
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+ingester:
+  lifecycler:
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+  trace_idle_period: 5s
+  flush_check_period: 5s
+  max_block_duration: 1m
+compactor:
+  compaction:
+    block_retention: 87600h
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+      ingestion_time_range_slack: 87600h
+    local:
+      path: /var/tempo/blocks
+# The finite saved run is replayed much faster than its original traffic.
+overrides:
+  defaults:
+    ingestion:
+      max_traces_per_user: 200000
+      rate_limit_bytes: 50000000
+      burst_size_bytes: 50000000
+usage_report:
+  reporting_enabled: false

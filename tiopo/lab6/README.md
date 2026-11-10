@@ -65,3 +65,7 @@ DOCKER_CONTEXT=colima-watchtower-lab4 python3 tools/lab6/run.py \
 ```
 
 VM предварительно запускается по инструкции ЛР №4. Для smoke добавляется `--smoke`, для повторов — `--repetitions N`. Обычный `make lab6` собирает runtime и PostgreSQL с нуля. Каждый опыт получает отдельный образ с меткой запуска; идентификаторы базовых и экспериментальных образов сохраняются в manifest.json.
+
+## Grafana
+
+Дашборд, Prometheus и Tempo: [запуск и методика](grafana.md). Команда `make lab6-grafana` импортирует сохранённые результаты и открывает стенд на http://localhost:3036. Исходные timestamps сохранены. Ресурсы просмотра измеряются отдельно от исходной нагрузки.

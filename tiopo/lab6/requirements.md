@@ -12,3 +12,5 @@
 | Allure, Markdown, JSON и графики | `tools/lab6/report.py`; `allure-results/`, `results.md`, `summary.json`, `plots/` |
 | Сохранить артефакты опыта в CI | `.github/workflows/tiopo-lab6.yml` |
 | Зафиксировать методику и ограничения | `tiopo/lab6/README.md` |
+| Grafana: CPU/RAM, RPS, ошибки и HTTP/SQL-трассы | `make lab6-grafana`; `tools/lab6/grafana/`; `tiopo/lab6/grafana.md` |
+| Проверить импорт в Prometheus и Tempo, измерить стоимость просмотра | `make lab6-grafana-check`; `viewer-resources.json`, `viewer-resources.jsonl` |

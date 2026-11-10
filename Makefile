@@ -169,3 +169,13 @@ lab6-smoke:
 lab6-check:
 	node --test tests/lab4/model.test.mjs
 	python3 -m unittest discover -s tools/lab6 -p 'test_*.py'
+
+.PHONY: lab6-grafana lab6-grafana-down lab6-grafana-check
+lab6-grafana:
+	python3 tools/lab6/grafana_stack.py up --measure-seconds 60
+
+lab6-grafana-down:
+	python3 tools/lab6/grafana_stack.py down
+
+lab6-grafana-check:
+	python3 tools/lab6/grafana_stack.py check --measure-seconds 60

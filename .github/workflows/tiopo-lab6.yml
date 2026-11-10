@@ -39,11 +39,23 @@ jobs:
         run: make lab6-check
       - name: Repeat all five Lab 4 workloads in four instrumentation modes
         run: make lab6
+      - name: Import measurements into Grafana and verify Prometheus and Tempo
+        run: make lab6-grafana
+      - name: Stop Grafana viewer
+        if: always()
+        run: make lab6-grafana-down
       - name: Publish measurements, traces and comparison report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tiopo-lab6-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/lab6/runs
+          path: |
+            build/lab6/runs
+            build/lab6/grafana/*/import.json
+            build/lab6/grafana/*/metrics.om
+            build/lab6/grafana/*/dashboards
+            build/lab6/grafana/*/traces-import.json
+            build/lab6/grafana/*/query-checks.json
+            build/lab6/grafana/*/viewer-resources.json*
           retention-days: 14
           if-no-files-found: error
