@@ -42,7 +42,7 @@ def command(argv, env, timeout):
                     try:
                         code = process.wait(timeout=min(1, remaining))
                         poll_progress(env["LAB5_OUTPUT"], positions)
-                        if 'tests' in argv and '--domain-tests' not in argv:
+                        if 'run' in argv and 'tests' in argv and '--domain-tests' not in argv:
                             counts = Counter(positions.get('_bdd_results', {}).values())
                             print('BDD summary: '+', '.join(f'{counts[status]} {status}' for status in
                                   ('passed', 'failed', 'skipped', 'undefined', 'untested')), flush=True)
