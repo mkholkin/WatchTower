@@ -53,6 +53,7 @@ services:
       LAB5_API_URL: http://api:8080
       LAB5_MAIL_URL: http://mailpit:8025
       PYTHONDONTWRITEBYTECODE: '1'
+      LAB5_PROGRESS_FILE: /artifacts/bdd-progress.jsonl
     secrets: [database_url]
     volumes:
       - ${LAB5_OUTPUT}:/artifacts

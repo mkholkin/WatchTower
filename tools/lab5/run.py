@@ -1,5 +1,6 @@
 """Isolated BDD stand: private runtime secrets, safe logs and unconditional cleanup."""
 from datetime import datetime, timezone
+from collections import Counter
 import html
 import json
 import os
@@ -11,6 +12,10 @@ import sys
 import tempfile
 import time
 import uuid
+
+from progress import poll_progress
+
+_PROGRESS = {}
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -28,16 +33,27 @@ def command(argv, env, timeout):
                               stderr=subprocess.STDOUT, start_new_session=True) as process:
             try:
                 deadline = time.monotonic() + timeout
+                heartbeat = time.monotonic() + 30
+                positions = _PROGRESS.setdefault(env["LAB5_OUTPUT"], {})
                 while True:
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
                         raise subprocess.TimeoutExpired('private command', timeout)
                     try:
-                        return process.wait(timeout=min(30, remaining))
+                        code = process.wait(timeout=min(1, remaining))
+                        poll_progress(env["LAB5_OUTPUT"], positions)
+                        if 'tests' in argv and '--domain-tests' not in argv:
+                            counts = Counter(positions.get('_bdd_results', {}).values())
+                            print('BDD summary: '+', '.join(f'{counts[status]} {status}' for status in
+                                  ('passed', 'failed', 'skipped', 'undefined', 'untested')), flush=True)
+                        return code
                     except subprocess.TimeoutExpired:
                         if time.monotonic() >= deadline:
                             raise
-                        print('Lab 5: command still running; raw output withheld.', flush=True)
+                        poll_progress(env["LAB5_OUTPUT"], positions)
+                        if time.monotonic() >= heartbeat:
+                            print('Lab 5: command still running; raw output withheld.', flush=True)
+                            heartbeat = time.monotonic() + 30
             except (subprocess.TimeoutExpired, KeyboardInterrupt):
                 os.killpg(process.pid, signal.SIGKILL)
                 process.wait()
