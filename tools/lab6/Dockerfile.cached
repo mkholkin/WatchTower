@@ -1,0 +1,8 @@
+ARG BASE
+FROM ${BASE}
+WORKDIR /workspace
+COPY . .
+RUN go build -v -o /usr/local/bin/watchtower-api ./cmd/api && \
+    go build -v -o /usr/local/bin/lab2-migrate ./tools/lab2/migrate
+ENV GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOTELEMETRY=off
+ENTRYPOINT ["python3"]

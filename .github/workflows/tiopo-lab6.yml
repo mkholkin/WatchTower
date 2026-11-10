@@ -1,0 +1,49 @@
+name: TIOPO — tracing and logging overhead
+on:
+  push:
+    branches: [TIOPO-6]
+  pull_request:
+    paths:
+      - tools/lab6/**
+      - tools/lab4/**
+      - tests/lab4/**
+      - internal/**
+      - configs/**
+      - cmd/api/**
+      - migrations/**
+      - api/**
+      - Dockerfile.postgres
+      - tools/lab1/package*.json
+      - go.mod
+      - go.sum
+      - Makefile
+      - .github/workflows/tiopo-lab6.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tiopo-lab6-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  matrix-experiment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Check tracing correlation and redaction
+        run: go test -race ./internal/observability ./cmd/api
+      - name: Check workload and runner failure paths
+        run: make lab6-check
+      - name: Repeat all five Lab 4 workloads in four instrumentation modes
+        run: make lab6
+      - name: Publish measurements, traces and comparison report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiopo-lab6-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/lab6/runs
+          retention-days: 14
+          if-no-files-found: error

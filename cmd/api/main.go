@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"WatchTower/internal/app"
+	"WatchTower/internal/observability"
 )
 
 const swaggerHTML = `<!DOCTYPE html>
@@ -74,8 +75,11 @@ func setupCORS(r *gin.Engine) {
 	r.Use(corsMiddleware)
 }
 
-func SetupRouter(handler *handler.ApiHandler) *gin.Engine {
-	r := gin.Default()
+func SetupRouter(handler *handler.ApiHandler, middleware ...gin.HandlerFunc) *gin.Engine {
+	r := gin.New()
+	r.ContextWithFallback = true
+	r.Use(middleware...)
+	r.Use(gin.Recovery())
 	setupCORS(r)
 
 	SetupSwaggerRoute(&r.RouterGroup)
@@ -106,6 +110,26 @@ func main() {
 		log.Fatalf("failed to load config %q: %v", configPath, err)
 	}
 
+	var recorder *observability.Recorder
+	if path := os.Getenv("WT_TRACE_FILE"); path != "" {
+		recorder, err = observability.New(path)
+		if err != nil {
+			log.Fatal("cannot open trace output")
+		}
+		observability.SetCurrent(recorder)
+		defer func() {
+			if err := recorder.Close(); err != nil {
+				log.Print(err)
+			}
+		}()
+	}
+	logger, closer, err := configs.NewLoggerFromConfig(cfg.Logging)
+	if err != nil {
+		log.Fatal("cannot initialize request logger")
+	}
+	if closer != nil {
+		defer closer.Close()
+	}
 	appObj, err := app.InitApp(ctx, cfg)
 	if err != nil {
 		log.Fatalf("failed to init app: %v", err)
@@ -120,7 +144,7 @@ func main() {
 		appObj.MetricsQuerySvc,
 	)
 
-	r := SetupRouter(apiHandler)
+	r := SetupRouter(apiHandler, observability.Middleware(recorder, logger, os.Getenv("WT_HTTP_DEBUG") == "true"))
 	if appObj.MFA != nil {
 		handler.RegisterMFARoutes(r, appObj.MFA)
 	}

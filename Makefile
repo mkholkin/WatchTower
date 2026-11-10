@@ -157,3 +157,15 @@ lab5:
 lab5-check:
 	python3 -m unittest discover -s tools/lab5 -p 'test_*.py'
 	python3 -m unittest discover -s tests/lab5 -p 'test_*.py'
+
+# Lab 6: unchanged Lab 4 workloads with tracing/logging in a 2x2 matrix.
+.PHONY: lab6 lab6-smoke lab6-check
+lab6:
+	python3 tools/lab6/run.py
+
+lab6-smoke:
+	python3 tools/lab6/run.py --smoke
+
+lab6-check:
+	node --test tests/lab4/model.test.mjs
+	python3 -m unittest discover -s tools/lab6 -p 'test_*.py'

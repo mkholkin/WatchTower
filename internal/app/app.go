@@ -9,6 +9,7 @@ import (
 	"WatchTower/internal/infra/repository/mongodb"
 	"WatchTower/internal/infra/repository/postgres"
 	"WatchTower/internal/infra/repository/redis"
+	"WatchTower/internal/observability"
 	analyzationsvc "WatchTower/internal/service/analyze"
 	authsvc "WatchTower/internal/service/auth"
 	"WatchTower/internal/service/common/provider"
@@ -59,11 +60,19 @@ type App struct {
 }
 
 func newPgPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, dsn)
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, err
+	}
+	if recorder := observability.Current(); recorder != nil {
+		config.ConnConfig.Tracer = observability.QueryTracer{Recorder: recorder}
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, err
 	}
 	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
 		return nil, err
 	}
 	return pool, nil
