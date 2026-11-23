@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 import tempfile
+import re
+from urllib.parse import parse_qs, urlsplit
 import unittest
 
 from tools.lab6.grafana_stack import prepare
@@ -35,6 +37,28 @@ class GrafanaImportTests(unittest.TestCase):
             dashboard = json.loads((root/'output/dashboards/lab6.json').read_text())
             self.assertEqual(dashboard['time']['from'], '1970-01-01T00:01:25Z')
             self.assertTrue(data.endswith('# EOF\n'))
+            self.assertIn('window_start_ms="100000"', data)
+            self.assertIn('window_end_ms="111000"', data)
+            detail = json.loads((root/'output/dashboards/detail.json').read_text())
+            selected = {v['name']: v['current']['value'] for v in detail['templating']['list']}
+            self.assertEqual((selected['profile'], selected['variant'], selected['run']), ('ramp', 'trace', 'test-run'))
+            self.assertEqual(detail['time'], {'from': '1970-01-01T00:01:40Z', 'to': '1970-01-01T00:01:51Z'})
+
+    def test_drilldown_link_uses_experiment_labels_without_array_formatting(self):
+        dashboard = json.loads((Path(__file__).parent/'grafana/dashboards/lab6.json').read_text())
+        labels = dict(run='run-1', profile='soak-0', repetition='1', variant='debug', component='api',
+                      window_start_ms='1794309658396', window_end_ms='1794309959396')
+        for panel in dashboard['panels']:
+            if panel['type'] != 'bargauge':
+                continue
+            template = panel['fieldConfig']['defaults']['links'][0]['url']
+            link = re.sub(r'\$\{__field.labels.([a-z_]+)\}', lambda match: labels[match[1]], template)
+            self.assertNotIn('${', link, 'Links must not depend on array-valued dashboard variables')
+            params = parse_qs(urlsplit(link).query)
+            self.assertEqual({key: params['var-'+key] for key in ('run', 'profile', 'repetition', 'variant', 'component')},
+                             {key: [labels[key]] for key in ('run', 'profile', 'repetition', 'variant', 'component')})
+            self.assertEqual(params['from'], [labels['window_start_ms']])
+            self.assertEqual(params['to'], [labels['window_end_ms']])
 
     def test_failed_experiment_and_escaping_artifacts_are_rejected(self):
         for change in ('failed_profiles', 'artifact_path'):

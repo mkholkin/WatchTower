@@ -1,0 +1,452 @@
+{
+  "id": null,
+  "uid": "lab6-detail",
+  "title": "ЛР №6 — один опыт подробно",
+  "description": "Графики одного режима в его фактическом измерительном окне.",
+  "tags": [
+    "watchtower",
+    "lab6",
+    "historical"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 4,
+  "editable": false,
+  "refresh": "",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "run",
+        "label": "Запуск",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "lab6-prometheus"
+        },
+        "query": "label_values(lab6_memory_bytes{}, run)",
+        "definition": "label_values(lab6_memory_bytes{}, run)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "",
+          "value": "",
+          "selected": true
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "profile",
+        "label": "Профиль нагрузки",
+        "type": "custom",
+        "query": "Плавный рост : ramp, Перегрузка : stress, Длительная · 0% ошибок : soak-0, Длительная · 10% ошибок : soak-10, Длительная · 20% ошибок : soak-20",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "Длительная · 0% ошибок",
+          "value": "soak-0",
+          "selected": true
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "variant",
+        "label": "Режим",
+        "type": "custom",
+        "query": "Без диагностики : baseline, Трассировка : trace, Расширенные логи : debug, Трассировка и логи : trace-debug",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "Без диагностики",
+          "value": "baseline",
+          "selected": true
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "repetition",
+        "label": "Повторение",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "lab6-prometheus"
+        },
+        "query": "label_values(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\"}, repetition)",
+        "definition": "label_values(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\"}, repetition)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "1",
+          "value": "1",
+          "selected": true
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "component",
+        "label": "Компонент",
+        "type": "custom",
+        "query": "Приложение API : api, Сборщик метрик : collector",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "Приложение API",
+          "value": "api",
+          "selected": true
+        },
+        "options": [],
+        "hide": 2
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "← К сравнению режимов",
+      "type": "link",
+      "url": "/d/lab6-observability?${run:queryparam}&${profile:queryparam}&${repetition:queryparam}&${component:queryparam}",
+      "targetBlank": false
+    },
+    {
+      "title": "Tempo — поиск трассы",
+      "type": "link",
+      "url": "/explore?schemaVersion=1&panes={%22lab6%22%3A{%22datasource%22%3A%22lab6-tempo%22%2C%22queries%22%3A%5B{%22refId%22%3A%22A%22%2C%22datasource%22%3A{%22type%22%3A%22tempo%22%2C%22uid%22%3A%22lab6-tempo%22}%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%22}%5D%2C%22range%22%3A{%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22}}}",
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Выбранный опыт",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Профиль:** ${profile:text} · **Режим:** ${variant:text} · **Компонент:** ${component:text} · **Повторение:** `${repetition}`. Время ограничено выбранным опытом. Для другого режима вернитесь к сравнению и нажмите на нужный столбец.\n\n`baseline` — без диагностики; `trace` — трассировка; `debug` — расширенные логи; `trace-debug` — оба режима. Трасса для просмотра в Tempo: `__EXAMPLE_TRACE_ID__` (пример импортированного запуска, может относиться к другому опыту)."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "CPU за опыт",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: CPU-с",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_cpu_seconds{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\"}[$__range])",
+          "instant": true,
+          "range": false,
+          "legendFormat": "CPU за опыт"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Память — минимум",
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: МиБ",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\",stat=\"min\"}[$__range]) / 1048576",
+          "instant": true,
+          "range": false,
+          "legendFormat": "Память — минимум"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Память — медиана",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: МиБ",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\",stat=\"median\"}[$__range]) / 1048576",
+          "instant": true,
+          "range": false,
+          "legendFormat": "Память — медиана"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Память — максимум",
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: МиБ",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\",stat=\"max\"}[$__range]) / 1048576",
+          "instant": true,
+          "range": false,
+          "legendFormat": "Память — максимум"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Загрузка CPU во времени",
+      "description": "Скорость изменения накопленного CPU-счётчика за 10 секунд. 100% соответствует одному полностью занятому ядру.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false,
+            "showPoints": "never"
+          },
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(lab6_cpu_seconds_total{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\"}[10s]) * 100",
+          "legendFormat": "CPU",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Память во времени",
+      "description": "Отсчёты старше пяти секунд скрыты: стандартный интервал поиска Prometheus не продлевает завершённый опыт.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: МиБ",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false,
+            "showPoints": "never"
+          },
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#73BF69"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\"} and (time() - timestamp(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\"}) < 5)) / 1048576",
+          "legendFormat": "Память",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    }
+  ]
+}

@@ -52,13 +52,14 @@ def prepare(run, target):
                 if cpu is not None:
                     add('lab6_cpu_seconds_total', tags, cpu/1e9, row['time'])
                 add('lab6_memory_bytes', tags, row.get('memory_bytes'), row['time'])
+        window = dict(common, window_start_ms=str(int(start*1000)), window_end_ms=str(int(end*1000)+1000))
         for component, resource in profile['resources'].items():
-            tags = dict(common, component=component)
+            tags = dict(window, component=component)
             add('lab6_summary_cpu_seconds', tags, resource['cpu_seconds'], end-.001)
             for stat, value in resource['memory_bytes'].items():
                 add('lab6_summary_memory_bytes', dict(tags, stat=stat), value, end-.001)
-        add('lab6_summary_rps', dict(common, component='api'), profile['load']['rps']['median'], end-.001)
-        add('lab6_summary_unexpected_ratio', dict(common, component='api'), profile['load']['unexpected_ratio'], end-.001)
+        add('lab6_summary_rps', dict(window, component='api'), profile['load']['rps']['median'], end-.001)
+        add('lab6_summary_unexpected_ratio', dict(window, component='api'), profile['load']['unexpected_ratio'], end-.001)
     if not series:
         raise ValueError('No measured samples found')
     target.mkdir(parents=True, exist_ok=True)
@@ -70,10 +71,29 @@ def prepare(run, target):
             for stamp, value in sorted(samples):
                 stream.write(f'{metric} {value:.12g} {stamp:.6f}\n')
         stream.write('# EOF\n')
-    dashboard = json.loads((ROOT/'tools/lab6/grafana/dashboards/lab6.json').read_text())
-    dashboard['time'] = {'from': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(minimum-15)),
-                         'to': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(maximum+15))}
-    (target/'dashboards/lab6.json').write_text(json.dumps(dashboard, indent=2)+'\n')
+    for source in (ROOT/'tools/lab6/grafana/dashboards').glob('*.json'):
+        dashboard = json.loads(source.read_text())
+        start, end = minimum-15, maximum+15
+        profile_names = {p['name'] for p in summary['profiles']}
+        for variable in dashboard['templating']['list']:
+            if variable['name'] == 'profile' and variable['current']['value'] not in profile_names:
+                variable['current'] = dict(text=summary['profiles'][0]['name'], value=summary['profiles'][0]['name'], selected=True)
+            if variable['name'] == 'run':
+                variable['current'] = dict(text=summary['run_id'], value=summary['run_id'], selected=True)
+        if dashboard['uid'] == 'lab6-detail':
+            defaults = {v['name']: v['current']['value'] for v in dashboard['templating']['list']}
+            variants = [p['variant'] for p in summary['profiles'] if p['name'] == defaults['profile']]
+            if defaults['variant'] not in variants:
+                defaults['variant'] = variants[0]
+                variable = next(v for v in dashboard['templating']['list'] if v['name'] == 'variant')
+                variable['current'] = dict(text=variants[0], value=variants[0], selected=True)
+            selected = next((p for p in summary['profiles'] if p['name'] == defaults['profile']
+                             and p['variant'] == defaults['variant'] and str(p['repetition']) == defaults['repetition']), None)
+            if selected:
+                start, end = selected['measurement_start'], selected['measurement_end']+1
+        dashboard['time'] = {'from': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start)),
+                             'to': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(end))}
+        (target/'dashboards'/source.name).write_text(json.dumps(dashboard, indent=2, ensure_ascii=False)+'\n')
     metadata = dict(run_id=summary['run_id'], original_from=minimum, original_to=maximum,
                     series=len(series), samples=sum(map(len, series.values())))
     (target/'import.json').write_text(json.dumps(metadata, indent=2)+'\n')
@@ -122,8 +142,8 @@ def main():
         ready('http://localhost:9096/-/ready'); ready('http://localhost:3206/ready'); ready('http://localhost:3036/api/health')
         traces = import_traces(run, 'http://localhost:4316')
         (target/'traces-import.json').write_text(json.dumps(traces, indent=2)+'\n')
-        dashboard = target/'dashboards/lab6.json'
-        dashboard.write_text(dashboard.read_text().replace('__EXAMPLE_TRACE_ID__', traces['example_trace_id']))
+        for dashboard in (target/'dashboards').glob('*.json'):
+            dashboard.write_text(dashboard.read_text().replace('__EXAMPLE_TRACE_ID__', traces['example_trace_id']))
     meta = json.loads((target/'import.json').read_text())
     import urllib.parse
     query = urllib.parse.urlencode({'query':f'count(last_over_time(lab6_summary_cpu_seconds[{math.ceil(meta["original_to"]-meta["original_from"])+30}s]))','time':meta['original_to']})
@@ -131,18 +151,20 @@ def main():
     expected = len(json.loads((run/'summary.json').read_text())['profiles'])*2
     if not result['data']['result'] or int(result['data']['result'][0]['value'][1]) != expected:
         raise RuntimeError('Prometheus summary series do not match the experiment')
-    dashboard = request('http://localhost:3036/api/dashboards/uid/lab6-observability')['dashboard']
     panel_checks = []
-    for panel in dashboard['panels']:
-        for expression in panel.get('targets', []):
-            expression = re.sub(r'\$\{[a-z]+:regex\}', '.*', expression['expr'])
-            expression = expression.replace('$__range', f'{math.ceil(meta["original_to"]-meta["original_from"])+30}s')
-            query = urllib.parse.urlencode(dict(query=expression, start=meta['original_from'],
-                                                end=meta['original_to']+15, step=10))
-            result = request('http://localhost:3036/api/datasources/proxy/uid/lab6-prometheus/api/v1/query_range?'+query)
-            if result.get('status') != 'success' or not result['data']['result']:
-                raise RuntimeError(f'Grafana panel has no data: {panel["title"]}')
-            panel_checks.append(dict(panel=panel['title'], series=len(result['data']['result'])))
+    for uid in ('lab6-observability', 'lab6-detail'):
+        dashboard = request('http://localhost:3036/api/dashboards/uid/'+uid)['dashboard']
+        defaults = {v['name']: v['current']['value'] for v in dashboard['templating']['list']}
+        for panel in dashboard['panels']:
+            for expression in panel.get('targets', []):
+                expression = re.sub(r'\$\{([a-z]+):regex\}', lambda match: json.dumps(re.escape(defaults[match[1]]))[1:-1], expression['expr'])
+                expression = expression.replace('$__range', f'{math.ceil(meta["original_to"]-meta["original_from"])+30}s')
+                query = urllib.parse.urlencode(dict(query=expression, start=meta['original_from'],
+                                                    end=meta['original_to']+15, step=10))
+                result = request('http://localhost:3036/api/datasources/proxy/uid/lab6-prometheus/api/v1/query_range?'+query)
+                if result.get('status') != 'success' or not result['data']['result']:
+                    raise RuntimeError(f'Grafana panel has no data: {panel["title"]}')
+                panel_checks.append(dict(dashboard=uid, panel=panel['title'], series=len(result['data']['result'])))
     traces = json.loads((target/'traces-import.json').read_text())
     trace_url = 'http://localhost:3036/api/datasources/proxy/uid/lab6-tempo/api/traces/'+traces['example_trace_id']
     ready(trace_url)
