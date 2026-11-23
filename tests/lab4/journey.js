@@ -18,7 +18,7 @@ export const options={
   systemTags:['method','status','name','scenario','expected_response'],
 };
 function payload(label) {
-  return {label,endpoint:'http://probe:8081/health',probe_interval:30,alert_contact_ids:[],maintenance_window_ids:[],
+  return {label,endpoint:__ENV.LAB4_TARGET_URL || 'http://probe:8081/health',probe_interval:30,alert_contact_ids:[],maintenance_window_ids:[],
     network_config:{protocol:'HTTP',method:'GET',headers:{},body:'',follow_redirects:false},
     expectations:{protocol:'HTTP',expected_status_codes:[200],expected_response_time_ms:5000}};
 }
@@ -49,6 +49,9 @@ export default function () {
     if(valid && (operation==='login' || operation==='create')) {
       try { valid=!!r.json(operation==='login' ? 'access_token' : 'id'); } catch (_) {valid=false;}
     }
+    if(valid && operation==='domain-registration') {
+      try { valid=r.json('domain')==='example.com' && !!r.json('expires_at'); } catch (_) {valid=false;}
+    }
     latency.add(Date.now()-before,{operation,expected_error:String(invalid),outcome:valid?'ok':'unexpected',
       status:String(r.status),phase:phaseAt(cfg,(Date.now()-exec.scenario.startTime)/1000).name});
     check(r,{'expected status and payload':()=>valid});success=success&&valid;
@@ -66,6 +69,7 @@ export default function () {
   request(5,'sla','GET',path+'/sla',null,200,token);
   request(6,'edit','PATCH',path,{label:cfg.errorPercent>=20?42:'Renamed monitor'},cfg.errorPercent>=20?400:200,token);
   request(7,'detail-after-edit','GET',path,null,200,token);
+  if(__ENV.LAB8_RDAP === '1') request(10,'domain-registration','GET',path+'/registration',null,200,token);
   request(8,'delete','DELETE',path,null,204,token);
   request(9,'list-after-delete','GET','/monitors',null,200,token);
   sleep(0.8+(__VU%5)*0.1);

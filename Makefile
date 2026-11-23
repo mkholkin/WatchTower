@@ -191,3 +191,34 @@ install-hooks:
 lab7-check:
 	GOMODCACHE="$(CURDIR)/.cache/lab7/modules" GOCACHE="$(CURDIR)/.cache/go-build" go test -C tools/lab7/metrics ./...
 	python3 -m unittest discover -s tools/lab7 -p 'test_*.py'
+
+# Lab 8: configurable external RDAP service, mock/real E2E and fixed mock load.
+.PHONY: lab8 lab8-smoke lab8-check lab8-mock lab8-real lab8-load lab8-demo-mock lab8-demo-real lab8-down
+lab8:
+	python3 tools/lab8/run.py
+
+lab8-smoke:
+	python3 tools/lab8/run.py --smoke
+
+lab8-mock:
+	python3 tools/lab8/run.py e2e --mode mock
+
+lab8-real:
+	python3 tools/lab8/run.py e2e --mode real
+
+lab8-load:
+	python3 tools/lab8/run.py load
+
+lab8-demo-mock:
+	python3 tools/lab8/run.py demo --mode mock
+
+lab8-demo-real:
+	python3 tools/lab8/run.py demo --mode real
+
+lab8-down:
+	python3 tools/lab8/run.py down
+
+lab8-check:
+	GOCACHE="$(CURDIR)/.cache/go-build" go test ./internal/infra/rdap ./internal/api/http/v1/handler ./cmd/api ./configs
+	python3 -m unittest discover -s tools/lab8 -p 'test_*.py'
+	node --test tests/lab4/model.test.mjs tests/lab8/journey.test.mjs

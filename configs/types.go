@@ -5,7 +5,14 @@ import (
 	"strings"
 )
 
+type RDAPConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	BaseURL   string `yaml:"base_url"`
+	TimeoutMS int    `yaml:"timeout_ms"`
+}
+
 type Config struct {
+	RDAP          RDAPConfig     `yaml:"rdap"`
 	Logging       LoggingConfig  `yaml:"logging"`
 	Auth          AuthConfig     `yaml:"auth"`
 	Database      DatabaseConfig `yaml:"database"`

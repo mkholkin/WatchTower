@@ -4,10 +4,12 @@ import (
 	"WatchTower/configs"
 	apigen "WatchTower/internal/api/http/v1/gen"
 	"WatchTower/internal/api/http/v1/handler"
+	"WatchTower/internal/infra/rdap"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"context"
 
@@ -39,7 +41,7 @@ const swaggerHTML = `<!DOCTYPE html>
     window.onload = function() {
         // Build a system
         const ui = SwaggerUIBundle({
-            urls: [{url: "/openapi.yaml", name: "WatchTower API"}, {url: "/openapi-mfa.yaml", name: "MFA authentication"}],
+            urls: [{url: "/openapi.yaml", name: "WatchTower API"}, {url: "/openapi-mfa.yaml", name: "MFA authentication"}, {url: "/openapi-rdap.yaml", name: "Domain registration"}],
             dom_id: '#swagger-ui',
             deepLinking: true,
             presets: [
@@ -60,6 +62,7 @@ const swaggerHTML = `<!DOCTYPE html>
 func SetupSwaggerRoute(r *gin.RouterGroup) {
 	r.StaticFile("/openapi.yaml", "./api/openapi.yaml")
 	r.StaticFile("/openapi-mfa.yaml", "./api/mfa.openapi.yaml")
+	r.StaticFile("/openapi-rdap.yaml", "./api/rdap.openapi.yaml")
 	r.GET("/swagger", func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(swaggerHTML))
 	})
@@ -138,6 +141,8 @@ func main() {
 		handler.RegisterMFARoutes(r, appObj.MFA)
 	}
 
+	registerRDAP(r, cfg.RDAP, appObj)
+
 	go appObj.Start(ctx)
 
 	port := ":8080"
@@ -169,4 +174,27 @@ func closeRecorder(recorder *observability.Recorder) {
 	if err := recorder.Close(); err != nil {
 		log.Print(err)
 	}
+}
+
+func configureRDAP(cfg configs.RDAPConfig) (handler.DomainLookup, error) {
+	if !cfg.Enabled {
+		return nil, nil
+	}
+	timeout := cfg.TimeoutMS
+	if timeout == 0 {
+		timeout = 5000
+	}
+	baseURL := cfg.BaseURL
+	if baseURL == "" {
+		baseURL = "https://rdap.verisign.com/com/v1"
+	}
+	return rdap.New(baseURL, time.Duration(timeout)*time.Millisecond)
+}
+
+func registerRDAP(router gin.IRouter, cfg configs.RDAPConfig, application *app.App) {
+	client, err := configureRDAP(cfg)
+	if err != nil {
+		log.Fatal("invalid RDAP configuration")
+	}
+	handler.RegisterRDAPRoutes(router, application.AuthSvc, application.MonitoringSvc, client)
 }

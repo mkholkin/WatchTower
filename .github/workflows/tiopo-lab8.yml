@@ -1,0 +1,68 @@
+name: TIOPO - external RDAP integration
+on:
+  push:
+    branches: [TIOPO-8]
+  pull_request:
+    paths:
+      - internal/**
+      - cmd/api/**
+      - configs/**
+      - api/rdap.openapi.yaml
+      - api/contracts/rdap/**
+      - tools/lab8/**
+      - tools/lab4/**
+      - tests/lab4/**
+      - tests/lab8/**
+      - go.mod
+      - go.sum
+      - Makefile
+      - .github/workflows/static-analysis.yml
+      - .github/workflows/tiopo-lab8.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tiopo-lab8-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  static:
+    uses: ./.github/workflows/static-analysis.yml
+  rdap:
+    needs: static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check external client, contract, mock and runner failure paths
+        run: make lab8-check
+      - name: Mock E2E, fixed Lab 4 load with mock, real Verisign E2E
+        run: make lab8
+      - name: Publish RDAP E2E, Allure, raw load measurements and mock evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiopo-lab8-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/lab8/runs/**/allure-results
+            build/lab8/runs/**/allure-report
+            build/lab8/runs/**/e2e.json
+            build/lab8/runs/**/registration.json
+            build/lab8/runs/**/requests.jsonl
+            build/lab8/runs/**/resources.jsonl
+            build/lab8/runs/**/k6-summary.json
+            build/lab8/runs/**/summary.json
+            build/lab8/runs/**/results.md
+            build/lab8/runs/**/plots
+            build/lab8/runs/**/manifest.json
+            build/lab8/runs/**/experiment.json
+            build/lab8/runs/**/rdap-mock-stats.json
+            build/lab8/runs/**/source-sha256.json
+            build/lab8/runs/**/*.log
+          retention-days: 14
+          if-no-files-found: warn
