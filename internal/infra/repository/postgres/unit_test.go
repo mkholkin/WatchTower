@@ -210,9 +210,6 @@ func assertPGRead(t *testing.T, f *pgFixture, got any) {
 		require.True(t, v.IsActive)
 		require.Equal(t, int32(30), v.ProbeIntervalSec)
 		require.Equal(t, "signature", v.ConfigHash)
-	case []target.Target:
-		require.Len(t, v, 1)
-		assertPGRead(t, f, &v[0])
 	case *monitor.Monitor:
 		require.Equal(t, f.mon.ID, v.ID)
 		require.Equal(t, "API", v.Label)
@@ -232,13 +229,6 @@ func assertPGRead(t *testing.T, f *pgFixture, got any) {
 		require.True(t, v.IsActive)
 		require.Equal(t, f.mon.CreatedAt, v.CreatedAt)
 		require.Equal(t, monitor.HTTPExpectations{StatusCodes: []int{200}, MaxLatencyMs: 1000}, v.Expectations)
-	case []*monitor.Monitor:
-		require.Len(t, v, 1)
-		assertPGRead(t, f, v[0])
-	case map[uuid.UUID][]*monitor.Monitor:
-		require.Len(t, v, 1)
-		require.Contains(t, v, f.tgt.ID)
-		assertPGRead(t, f, v[f.tgt.ID])
 	case *alert.Contact:
 		require.Equal(t, f.contact.ID, v.ID)
 		require.Equal(t, "Operations", v.Name)
@@ -247,9 +237,6 @@ func assertPGRead(t *testing.T, f *pgFixture, got any) {
 		require.Equal(t, alert.ContactTypeTelegram, v.Type)
 		require.Equal(t, alert.TelegramContactConfig{ChatID: 42, BotToken: "test-token"}, v.Config)
 		require.True(t, v.IsActive)
-	case []alert.Contact:
-		require.Len(t, v, 1)
-		assertPGRead(t, f, &v[0])
 	case *maintenance.MaintenanceWindow:
 		require.Equal(t, f.window.ID, v.ID)
 		require.Equal(t, "Maintenance", v.Title)
@@ -258,6 +245,27 @@ func assertPGRead(t *testing.T, f *pgFixture, got any) {
 		require.Equal(t, "fixture-hash", v.User.PasswordHash)
 		require.Equal(t, maintenance.WindowTypeManual, v.Type)
 		require.Equal(t, maintenance.ManualMaintenanceWindowConfig{Active: true}, v.Config)
+	default:
+		assertPGReadCollection(t, f, got)
+	}
+}
+
+func assertPGReadCollection(t *testing.T, f *pgFixture, got any) {
+	t.Helper()
+	switch v := got.(type) {
+	case []target.Target:
+		require.Len(t, v, 1)
+		assertPGRead(t, f, &v[0])
+	case []*monitor.Monitor:
+		require.Len(t, v, 1)
+		assertPGRead(t, f, v[0])
+	case map[uuid.UUID][]*monitor.Monitor:
+		require.Len(t, v, 1)
+		require.Contains(t, v, f.tgt.ID)
+		assertPGRead(t, f, v[f.tgt.ID])
+	case []alert.Contact:
+		require.Len(t, v, 1)
+		assertPGRead(t, f, &v[0])
 	case []maintenance.MaintenanceWindow:
 		require.Len(t, v, 1)
 		assertPGRead(t, f, &v[0])

@@ -200,31 +200,16 @@ func runCase(lib library, scenario string, size int, cfg config) (caseResult, er
 func runTrial(trial int, cfg config) (trialResult, error) {
 	start := time.Now()
 	r := trialResult{Trial: trial, Config: cfg, GoVersion: runtime.Version(), GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, GOMAXPROCS: runtime.GOMAXPROCS(0), StartedAt: start.UTC(), Dependencies: map[string]string{}}
-	if trial < 1 || cfg.Warmup < 1 || cfg.Batches < 1 || cfg.BatchSize < 1 || cfg.LatencySamples < 1 || cfg.Teardown < 1 {
-		return r, fmt.Errorf("trial and phase counts must be positive")
+	if err := validateTrial(trial, cfg); err != nil {
+		return r, err
 	}
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, d := range info.Deps {
 			r.Dependencies[d.Path] = d.Version
 		}
 	}
-	// 1 million calls amortize timer cost; the control keeps loop/dispatch/error checks.
-	if _, err := measure(10000, control); err != nil {
+	if err := calibrateTrial(&r); err != nil {
 		return r, err
-	}
-	p, err := measure(1000000, control)
-	if err != nil {
-		return r, err
-	}
-	r.OverheadNSPerOp = float64(p.ElapsedNS) / float64(p.Operations)
-	clock, err := measure(100000, clockControl)
-	if err != nil {
-		return r, err
-	}
-	r.TimerPairNSPerOp = float64(clock.ElapsedNS) / float64(clock.Operations)
-	for i := 0; i < 256; i++ {
-		p, _ := measure(1, control)
-		r.TimerProbeNS = append(r.TimerProbeNS, p.ElapsedNS)
 	}
 	type task struct {
 		lib      library
@@ -250,6 +235,37 @@ func runTrial(trial int, cfg config) (trialResult, error) {
 	}
 	r.DurationNS = time.Since(start).Nanoseconds()
 	return r, nil
+}
+
+func validateTrial(trial int, cfg config) error {
+	if trial < 1 || cfg.Warmup < 1 || cfg.Batches < 1 || cfg.BatchSize < 1 || cfg.LatencySamples < 1 || cfg.Teardown < 1 {
+		return fmt.Errorf("trial and phase counts must be positive")
+	}
+
+	return nil
+}
+
+func calibrateTrial(r *trialResult) error {
+	// 1 million calls amortize timer cost; the control keeps loop/dispatch/error checks.
+	if _, err := measure(10000, control); err != nil {
+		return err
+	}
+	p, err := measure(1000000, control)
+	if err != nil {
+		return err
+	}
+	r.OverheadNSPerOp = float64(p.ElapsedNS) / float64(p.Operations)
+	clock, err := measure(100000, clockControl)
+	if err != nil {
+		return err
+	}
+	r.TimerPairNSPerOp = float64(clock.ElapsedNS) / float64(clock.Operations)
+	for i := 0; i < 256; i++ {
+		p, _ := measure(1, control)
+		r.TimerProbeNS = append(r.TimerProbeNS, p.ElapsedNS)
+	}
+
+	return nil
 }
 
 func main() {

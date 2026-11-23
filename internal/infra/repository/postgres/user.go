@@ -2,8 +2,8 @@ package postgres
 
 import (
 	"context"
-	"log/slog"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"log/slog"
 
 	"WatchTower/internal/domain/entity/user"
 	"WatchTower/internal/domain/repo"

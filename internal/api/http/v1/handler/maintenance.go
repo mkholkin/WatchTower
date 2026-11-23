@@ -11,112 +11,112 @@ import (
 
 var getMaintenanceWindowsListResponseFactory = v1.ResponseFactory[apigen.GetMaintenanceWindowsListResponseObject]{
 	401: func(er apigen.ErrorResponse) apigen.GetMaintenanceWindowsListResponseObject {
-		return apigen.GetMaintenanceWindowsList401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.GetMaintenanceWindowsList401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.GetMaintenanceWindowsListResponseObject {
-		return apigen.GetMaintenanceWindowsList500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.GetMaintenanceWindowsList500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var createMaintenanceWindowResponseFactory = v1.ResponseFactory[apigen.CreateMaintenanceWindowResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.CreateMaintenanceWindowResponseObject {
-		return apigen.CreateMaintenanceWindow400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.CreateMaintenanceWindow400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.CreateMaintenanceWindowResponseObject {
-		return apigen.CreateMaintenanceWindow401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.CreateMaintenanceWindow401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.CreateMaintenanceWindowResponseObject {
-		return apigen.CreateMaintenanceWindow500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.CreateMaintenanceWindow500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var deleteMaintenanceWindowResponseFactory = v1.ResponseFactory[apigen.DeleteMaintenanceWindowResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.DeleteMaintenanceWindowResponseObject {
-		return apigen.DeleteMaintenanceWindow400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.DeleteMaintenanceWindow400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.DeleteMaintenanceWindowResponseObject {
-		return apigen.DeleteMaintenanceWindow401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.DeleteMaintenanceWindow401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.DeleteMaintenanceWindowResponseObject {
-		return apigen.DeleteMaintenanceWindow403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.DeleteMaintenanceWindow403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.DeleteMaintenanceWindowResponseObject {
-		return apigen.DeleteMaintenanceWindow404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.DeleteMaintenanceWindow404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.DeleteMaintenanceWindowResponseObject {
-		return apigen.DeleteMaintenanceWindow500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.DeleteMaintenanceWindow500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var getMaintenanceWindowDetailsResponseFactory = v1.ResponseFactory[apigen.GetMaintenanceWindowDetailsResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.GetMaintenanceWindowDetailsResponseObject {
-		return apigen.GetMaintenanceWindowDetails400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.GetMaintenanceWindowDetails400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.GetMaintenanceWindowDetailsResponseObject {
-		return apigen.GetMaintenanceWindowDetails401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.GetMaintenanceWindowDetails401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.GetMaintenanceWindowDetailsResponseObject {
-		return apigen.GetMaintenanceWindowDetails403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.GetMaintenanceWindowDetails403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.GetMaintenanceWindowDetailsResponseObject {
-		return apigen.GetMaintenanceWindowDetails404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.GetMaintenanceWindowDetails404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.GetMaintenanceWindowDetailsResponseObject {
-		return apigen.GetMaintenanceWindowDetails500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.GetMaintenanceWindowDetails500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var addMonitorToMaintenanceWindowResponseFactory = v1.ResponseFactory[apigen.AddMonitorToMaintenanceWindowResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.AddMonitorToMaintenanceWindowResponseObject {
-		return apigen.AddMonitorToMaintenanceWindow400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.AddMonitorToMaintenanceWindow400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.AddMonitorToMaintenanceWindowResponseObject {
-		return apigen.AddMonitorToMaintenanceWindow401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.AddMonitorToMaintenanceWindow401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.AddMonitorToMaintenanceWindowResponseObject {
-		return apigen.AddMonitorToMaintenanceWindow403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.AddMonitorToMaintenanceWindow403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.AddMonitorToMaintenanceWindowResponseObject {
-		return apigen.AddMonitorToMaintenanceWindow404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.AddMonitorToMaintenanceWindow404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.AddMonitorToMaintenanceWindowResponseObject {
-		return apigen.AddMonitorToMaintenanceWindow500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.AddMonitorToMaintenanceWindow500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var removeMonitorFromMaintenanceWindowResponseFactory = v1.ResponseFactory[apigen.RemoveMonitorFromMaintenanceWindowResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.RemoveMonitorFromMaintenanceWindowResponseObject {
-		return apigen.RemoveMonitorFromMaintenanceWindow400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.RemoveMonitorFromMaintenanceWindow400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.RemoveMonitorFromMaintenanceWindowResponseObject {
-		return apigen.RemoveMonitorFromMaintenanceWindow401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.RemoveMonitorFromMaintenanceWindow401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.RemoveMonitorFromMaintenanceWindowResponseObject {
-		return apigen.RemoveMonitorFromMaintenanceWindow403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.RemoveMonitorFromMaintenanceWindow403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.RemoveMonitorFromMaintenanceWindowResponseObject {
-		return apigen.RemoveMonitorFromMaintenanceWindow404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.RemoveMonitorFromMaintenanceWindow404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.RemoveMonitorFromMaintenanceWindowResponseObject {
-		return apigen.RemoveMonitorFromMaintenanceWindow500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.RemoveMonitorFromMaintenanceWindow500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var updateMaintenanceWindowResponseFactory = v1.ResponseFactory[apigen.UpdateMaintenanceWindowResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.UpdateMaintenanceWindowResponseObject {
-		return apigen.UpdateMaintenanceWindow400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.UpdateMaintenanceWindow400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.UpdateMaintenanceWindowResponseObject {
-		return apigen.UpdateMaintenanceWindow401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.UpdateMaintenanceWindow401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.UpdateMaintenanceWindowResponseObject {
-		return apigen.UpdateMaintenanceWindow403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.UpdateMaintenanceWindow403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.UpdateMaintenanceWindowResponseObject {
-		return apigen.UpdateMaintenanceWindow404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.UpdateMaintenanceWindow404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.UpdateMaintenanceWindowResponseObject {
-		return apigen.UpdateMaintenanceWindow500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.UpdateMaintenanceWindow500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 

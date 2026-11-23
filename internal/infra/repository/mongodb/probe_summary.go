@@ -180,6 +180,10 @@ func (r *probeSummaryRepositoryMG) decodeCursor(ctx context.Context, cursor *mon
 		resultMap[rd.ID] = rd
 	}
 
+	return r.mapSummaryDocs(docs, resultMap)
+}
+
+func (r *probeSummaryRepositoryMG) mapSummaryDocs(docs []probeSummaryDoc, resultMap map[string]probeResultDoc) ([]*probe.Summary, error) {
 	result := make([]*probe.Summary, 0, len(docs))
 	for _, d := range docs {
 		mid, err := uuid.Parse(d.MonitorID)

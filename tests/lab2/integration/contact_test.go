@@ -3,6 +3,9 @@
 package integration
 
 import (
+	alert "WatchTower/internal/domain/entity/alert_contact"
+	"WatchTower/internal/domain/entity/monitor"
+	"context"
 	"errors"
 	"testing"
 
@@ -22,34 +25,43 @@ func TestContactLinkPersistsAndEnforcesOwner(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		a.Step("Контакт связывается с монитором и читается из БД", func(*allure.Context) {
-			if err := f.monitoring.LinkAlertContact(alice, m.ID, contact.ID); err != nil {
-				t.Fatal(err)
-			}
-			got, err := f.monitoring.GetMonitor(alice, m.ID)
-			if err != nil || len(got.AlertContacts) != 1 || got.AlertContacts[0].ID != contact.ID {
-				t.Fatalf("linked contacts = %#v, %v", got, err)
-			}
-		})
-		a.Step("Чужой пользователь не читает контакт и не удаляет связь", func(*allure.Context) {
-			if _, err := f.contacts.GetAlertContact(bob, contact.ID); !errors.Is(err, service.ErrPermissionDenied) {
-				t.Fatalf("foreign contact read: %v", err)
-			}
-			if err := f.monitoring.UnlinkAlertContact(bob, m.ID, contact.ID); !errors.Is(err, service.ErrPermissionDenied) {
-				t.Fatalf("foreign unlink: %v", err)
-			}
-		})
-		a.Step("Владелец разрывает связь, запись контакта остается", func(*allure.Context) {
-			if err := f.monitoring.UnlinkAlertContact(alice, m.ID, contact.ID); err != nil {
-				t.Fatal(err)
-			}
-			got, err := f.monitoring.GetMonitor(alice, m.ID)
-			if err != nil || len(got.AlertContacts) != 0 {
-				t.Fatalf("contacts after unlink = %#v, %v", got, err)
-			}
-			if _, err := f.contacts.GetAlertContact(alice, contact.ID); err != nil {
-				t.Fatal(err)
-			}
-		})
+		a.Step("Контакт связывается с монитором и читается из БД", func(*allure.Context) { contactLinkPersists(t, f, alice, bob, m, contact) })
+		a.Step("Чужой пользователь не читает контакт и не удаляет связь", func(*allure.Context) { contactLinkRejectsForeignUser(t, f, alice, bob, m, contact) })
+		a.Step("Владелец разрывает связь, запись контакта остается", func(*allure.Context) { contactUnlinkKeepsRecord(t, f, alice, bob, m, contact) })
 	})
+}
+
+func contactLinkPersists(t *testing.T, f *fixture, alice, bob context.Context, m *monitor.Monitor, contact *alert.Contact) {
+	t.Helper()
+	if err := f.monitoring.LinkAlertContact(alice, m.ID, contact.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.monitoring.GetMonitor(alice, m.ID)
+	if err != nil || len(got.AlertContacts) != 1 || got.AlertContacts[0].ID != contact.ID {
+		t.Fatalf("linked contacts = %#v, %v", got, err)
+	}
+}
+
+func contactLinkRejectsForeignUser(t *testing.T, f *fixture, alice, bob context.Context, m *monitor.Monitor, contact *alert.Contact) {
+	t.Helper()
+	if _, err := f.contacts.GetAlertContact(bob, contact.ID); !errors.Is(err, service.ErrPermissionDenied) {
+		t.Fatalf("foreign contact read: %v", err)
+	}
+	if err := f.monitoring.UnlinkAlertContact(bob, m.ID, contact.ID); !errors.Is(err, service.ErrPermissionDenied) {
+		t.Fatalf("foreign unlink: %v", err)
+	}
+}
+
+func contactUnlinkKeepsRecord(t *testing.T, f *fixture, alice, bob context.Context, m *monitor.Monitor, contact *alert.Contact) {
+	t.Helper()
+	if err := f.monitoring.UnlinkAlertContact(alice, m.ID, contact.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.monitoring.GetMonitor(alice, m.ID)
+	if err != nil || len(got.AlertContacts) != 0 {
+		t.Fatalf("contacts after unlink = %#v, %v", got, err)
+	}
+	if _, err := f.contacts.GetAlertContact(alice, contact.ID); err != nil {
+		t.Fatal(err)
+	}
 }

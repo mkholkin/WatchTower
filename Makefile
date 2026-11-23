@@ -179,3 +179,15 @@ lab6-grafana-down:
 
 lab6-grafana-check:
 	python3 tools/lab6/grafana_stack.py check --measure-seconds 60
+
+# Lab 7: one static gate for the working tree, staged commits and CI.
+.PHONY: lint install-hooks lab7-check
+lint:
+	python3 tools/lab7/check.py
+
+install-hooks:
+	git config --local core.hooksPath .githooks
+
+lab7-check:
+	GOMODCACHE="$(CURDIR)/.cache/lab7/modules" GOCACHE="$(CURDIR)/.cache/go-build" go test -C tools/lab7/metrics ./...
+	python3 -m unittest discover -s tools/lab7 -p 'test_*.py'

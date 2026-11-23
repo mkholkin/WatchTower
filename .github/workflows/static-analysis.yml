@@ -1,0 +1,27 @@
+name: Go static analysis
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tools/lab7/metrics/go.sum
+      - name: Style, type checks, cyclomatic complexity and Halstead metrics
+        run: make lint
+      - name: Publish static analysis metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/lab7/metrics.json
+          retention-days: 14
+          if-no-files-found: warn

@@ -64,35 +64,8 @@ func (r *metricsRepositoryMG) fetchAndFilterEvents(ctx context.Context, monitorI
 		return nil, mapMongoError(err)
 	}
 
-	resultTimeMap := make(map[string]time.Time)
-	for _, rd := range resultDocs {
-		resultTimeMap[rd.ID] = rd.ProbeTime
-	}
-
-	var list []metricsEventTmp
-	for _, d := range docs {
-		t, ok := resultTimeMap[d.ResultID]
-		if !ok {
-			continue
-		}
-		if !t.Before(from) && !t.After(to) {
-			list = append(list, metricsEventTmp{
-				Status:    monitor.Status(d.MonitorStatus),
-				ProbeTime: t,
-			})
-		}
-	}
-
-	// Sort manually
-	for i := 0; i < len(list); i++ {
-		for j := i + 1; j < len(list); j++ {
-			if list[i].ProbeTime.Before(list[j].ProbeTime) {
-				// empty swap space
-			} else {
-				list[i], list[j] = list[j], list[i]
-			}
-		}
-	}
+	list := filterMetricsEvents(docs, resultDocs, from, to)
+	sortMetricsEvents(list)
 
 	return list, nil
 }
@@ -156,6 +129,60 @@ func (r *metricsRepositoryMG) GetSLAAggregation(ctx context.Context, monitorID u
 		return stats, nil
 	}
 
+	downtimeSec := metricsDowntime(eventsTmp, from, to)
+
+	uptimePercent := ((totalDuration - downtimeSec) / totalDuration) * 100
+	if uptimePercent < 0 {
+		uptimePercent = 0
+	}
+	if uptimePercent > 100 {
+		uptimePercent = 100
+	}
+
+	stats.UptimePercent = uptimePercent
+	stats.TotalDowntimeSec = int(downtimeSec)
+	return stats, nil
+}
+
+func filterMetricsEvents(docs []probeSummaryDoc, resultDocs []probeResultDoc, from, to time.Time) []metricsEventTmp {
+	resultTimeMap := make(map[string]time.Time)
+	for _, rd := range resultDocs {
+		resultTimeMap[rd.ID] = rd.ProbeTime
+	}
+
+	var list []metricsEventTmp
+	for _, d := range docs {
+		t, ok := resultTimeMap[d.ResultID]
+		if !ok {
+			continue
+		}
+		if !t.Before(from) && !t.After(to) {
+			list = append(list, metricsEventTmp{
+				Status:    monitor.Status(d.MonitorStatus),
+				ProbeTime: t,
+			})
+		}
+	}
+
+	return list
+}
+
+func sortMetricsEvents(list []metricsEventTmp) {
+
+	// Sort manually
+	for i := 0; i < len(list); i++ {
+		for j := i + 1; j < len(list); j++ {
+			if list[i].ProbeTime.Before(list[j].ProbeTime) {
+				// empty swap space
+			} else {
+				list[i], list[j] = list[j], list[i]
+			}
+		}
+	}
+
+}
+
+func metricsDowntime(eventsTmp []metricsEventTmp, from, to time.Time) float64 {
 	// Calculate downtime from sequential segments.
 	var downtimeSec float64
 	prevTime := from
@@ -173,15 +200,5 @@ func (r *metricsRepositoryMG) GetSLAAggregation(ctx context.Context, monitorID u
 		downtimeSec += lastSegment
 	}
 
-	uptimePercent := ((totalDuration - downtimeSec) / totalDuration) * 100
-	if uptimePercent < 0 {
-		uptimePercent = 0
-	}
-	if uptimePercent > 100 {
-		uptimePercent = 100
-	}
-
-	stats.UptimePercent = uptimePercent
-	stats.TotalDowntimeSec = int(downtimeSec)
-	return stats, nil
+	return downtimeSec
 }

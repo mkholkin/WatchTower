@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"WatchTower/internal/service/monitoring_management/dto"
 	"WatchTower/tests/lab2/testsupport"
 	allure "github.com/allure-framework/allure-go/commons/gotest"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMonitorsShareTargetAndReconcileActiveInterval(t *testing.T) {
@@ -18,82 +20,81 @@ func TestMonitorsShareTargetAndReconcileActiveInterval(t *testing.T) {
 		alice := f.user(t, "alice")
 		bob := f.user(t, "bob")
 		endpoint := "http://probe:8081/health"
-		var firstID, secondID string
-		a.Step("Два монитора разделяют цель и минимальный интервал", func(*allure.Context) {
-			first := f.createMonitor(t, alice, "primary", endpoint, 30)
-			second := f.createMonitor(t, alice, "secondary", endpoint, 10)
-			firstID, secondID = first.ID.String(), second.ID.String()
-			if first.Target.ID != second.Target.ID {
-				t.Fatal("same endpoint/config produced different targets")
-			}
-			target, err := f.targets.GetByID(alice, first.Target.ID)
-			if err != nil || !target.IsActive || target.ProbeIntervalSec != 10 {
-				t.Fatalf("shared target = %#v, %v", target, err)
-			}
-		})
-		a.Step("Обновление и отключение пересчитывают состояние цели", func(*allure.Context) {
-			first, err := f.monitoring.GetAllMonitors(alice)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(first) != 2 {
-				t.Fatalf("expected two monitors, got %d", len(first))
-			}
-			var firstMonitor, secondMonitor = first[0], first[1]
-			if firstMonitor.ID.String() != firstID {
-				firstMonitor, secondMonitor = secondMonitor, firstMonitor
-			}
-			label := "primary-renamed"
-			if err := f.monitoring.UpdateMonitor(alice, dto.UpdateMonitorDTO{ID: firstMonitor.ID, Label: &label}); err != nil {
-				t.Fatal(err)
-			}
-			updated, err := f.monitoring.GetMonitor(alice, firstMonitor.ID)
-			if err != nil || updated.Label != label {
-				t.Fatalf("updated monitor = %#v, %v", updated, err)
-			}
-			if err := f.monitoring.DisableMonitor(alice, secondMonitor.ID); err != nil {
-				t.Fatal(err)
-			}
-			target, err := f.targets.GetByID(alice, firstMonitor.Target.ID)
-			if err != nil || !target.IsActive || target.ProbeIntervalSec != 30 {
-				t.Fatalf("after disabling fast monitor = %#v, %v", target, err)
-			}
-			if err := f.monitoring.DisableMonitor(alice, firstMonitor.ID); err != nil {
-				t.Fatal(err)
-			}
-			target, err = f.targets.GetByID(alice, firstMonitor.Target.ID)
-			if err != nil || target.IsActive {
-				t.Fatalf("after disabling all = %#v, %v", target, err)
-			}
-		})
-		a.Step("Повторное включение и удаление сохраняют связи", func(*allure.Context) {
-			mons, err := f.monitoring.GetAllMonitors(alice)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, m := range mons {
-				if m.ID.String() == secondID {
-					if err := f.monitoring.EnableMonitor(alice, m.ID); err != nil {
-						t.Fatal(err)
-					}
-				}
-			}
-			for _, m := range mons {
-				if err := f.monitoring.DeleteMonitor(alice, m.ID); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if _, err := f.monitoring.GetMonitor(alice, mons[0].ID); !errors.Is(err, repo.ErrNotFound) {
-				t.Fatalf("deleted monitor lookup: %v", err)
-			}
-			target, err := f.targets.GetByID(alice, mons[0].Target.ID)
-			if err != nil || target.IsActive {
-				t.Fatalf("unreferenced target = %#v, %v", target, err)
-			}
-			other, err := f.monitoring.GetAllMonitors(bob)
-			if err != nil || len(other) != 0 {
-				t.Fatalf("bob monitors = %d, %v", len(other), err)
-			}
-		})
+		scenario := &monitorLifecycleScenario{t: t, f: f, alice: alice, bob: bob, endpoint: endpoint}
+		a.Step("Два монитора разделяют цель и минимальный интервал", scenario.shareTarget)
+		a.Step("Обновление и отключение пересчитывают состояние цели", scenario.updateAndDisable)
+		a.Step("Повторное включение и удаление сохраняют связи", scenario.reenableAndDelete)
 	})
+}
+
+type monitorLifecycleScenario struct {
+	t                           *testing.T
+	f                           *fixture
+	alice, bob                  context.Context
+	endpoint, firstID, secondID string
+}
+
+func (s *monitorLifecycleScenario) shareTarget(*allure.Context) {
+	s.t.Helper()
+	first := s.f.createMonitor(s.t, s.alice, "primary", s.endpoint, 30)
+	second := s.f.createMonitor(s.t, s.alice, "secondary", s.endpoint, 10)
+	s.firstID, s.secondID = first.ID.String(), second.ID.String()
+	require.Equal(s.t, second.Target.ID, first.Target.ID, "%v", "same endpoint/config produced different targets")
+	target, err := s.f.targets.GetByID(s.alice, first.Target.ID)
+	require.NoError(s.t, err, "shared target = %#v, %v", target, err)
+	require.True(s.t, target.IsActive, "shared target = %#v, %v", target, err)
+	require.EqualValues(s.t, 10, target.ProbeIntervalSec, "shared target = %#v, %v", target, err)
+}
+
+func (s *monitorLifecycleScenario) updateAndDisable(*allure.Context) {
+	s.t.Helper()
+	first, err := s.f.monitoring.GetAllMonitors(s.alice)
+	require.NoError(s.t, err, "%v", err)
+	require.Len(s.t, first, 2, "expected two monitors, got %d", len(first))
+	var firstMonitor, secondMonitor = first[0], first[1]
+	if firstMonitor.ID.String() != s.firstID {
+		firstMonitor, secondMonitor = secondMonitor, firstMonitor
+	}
+	label := "primary-renamed"
+	if err := s.f.monitoring.UpdateMonitor(s.alice, dto.UpdateMonitorDTO{ID: firstMonitor.ID, Label: &label}); err != nil {
+		s.t.Fatal(err)
+	}
+	updated, err := s.f.monitoring.GetMonitor(s.alice, firstMonitor.ID)
+	require.NoError(s.t, err, "updated monitor = %#v, %v", updated, err)
+	require.Equal(s.t, label, updated.Label, "updated monitor = %#v, %v", updated, err)
+	err = s.f.monitoring.DisableMonitor(s.alice, secondMonitor.ID)
+	require.NoError(s.t, err, "%v", err)
+	target, err := s.f.targets.GetByID(s.alice, firstMonitor.Target.ID)
+	require.NoError(s.t, err, "after disabling fast monitor = %#v, %v", target, err)
+	require.True(s.t, target.IsActive, "after disabling fast monitor = %#v, %v", target, err)
+	require.EqualValues(s.t, 30, target.ProbeIntervalSec, "after disabling fast monitor = %#v, %v", target, err)
+	err = s.f.monitoring.DisableMonitor(s.alice, firstMonitor.ID)
+	require.NoError(s.t, err, "%v", err)
+	target, err = s.f.targets.GetByID(s.alice, firstMonitor.Target.ID)
+	require.NoError(s.t, err, "after disabling all = %#v, %v", target, err)
+	require.False(s.t, target.IsActive, "after disabling all = %#v, %v", target, err)
+}
+
+func (s *monitorLifecycleScenario) reenableAndDelete(*allure.Context) {
+	s.t.Helper()
+	mons, err := s.f.monitoring.GetAllMonitors(s.alice)
+	require.NoError(s.t, err, "%v", err)
+	for _, m := range mons {
+		if m.ID.String() == s.secondID {
+			err := s.f.monitoring.EnableMonitor(s.alice, m.ID)
+			require.NoError(s.t, err, "%v", err)
+		}
+	}
+	for _, m := range mons {
+		err := s.f.monitoring.DeleteMonitor(s.alice, m.ID)
+		require.NoError(s.t, err, "%v", err)
+	}
+	_, err = s.f.monitoring.GetMonitor(s.alice, mons[0].ID)
+	require.True(s.t, errors.Is(err, repo.ErrNotFound), "deleted monitor lookup: %v", err)
+	target, err := s.f.targets.GetByID(s.alice, mons[0].Target.ID)
+	require.NoError(s.t, err, "unreferenced target = %#v, %v", target, err)
+	require.False(s.t, target.IsActive, "unreferenced target = %#v, %v", target, err)
+	other, err := s.f.monitoring.GetAllMonitors(s.bob)
+	require.NoError(s.t, err, "bob monitors = %d, %v", len(other), err)
+	require.Len(s.t, other, 0, "bob monitors = %d, %v", len(other), err)
 }

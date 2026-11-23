@@ -13,16 +13,16 @@ import (
 )
 
 type monitorTypeMapper struct {
-	toDBStatusRegistry                mapper.Mapper[monitor.Status, sqlcgen.StatusType, monitor.Status]
-	toDomainStatusRegistry            mapper.Mapper[sqlcgen.StatusType, monitor.Status, sqlcgen.StatusType]
-	toDBExpectationsRegistry          mapper.Mapper[monitor.Expectations, []byte, target.Protocol]
-	toDomainExpectationsRegistry      mapper.Mapper[[]byte, monitor.Expectations, target.Protocol]
-	toDomainTargetProtocolRegistry    mapper.Mapper[sqlcgen.ProtocolType, target.Protocol, sqlcgen.ProtocolType]
-	toDomainTargetConfigRegistry      mapper.Mapper[[]byte, target.NetworkConfig, target.Protocol]
-	toDomainContactTypeRegistry       mapper.Mapper[sqlcgen.ContactType, alert.ContactType, sqlcgen.ContactType]
-	toDomainContactConfigRegistry     mapper.Mapper[[]byte, alert.ContactConfig, alert.ContactType]
-	toDomainWindowTypeRegistry        mapper.Mapper[sqlcgen.MaintenanceType, maintenance.WindowType, sqlcgen.MaintenanceType]
-	toDomainWindowConfigTypeRegistry  mapper.Mapper[[]byte, maintenance.MaintenanceWindowConfig, maintenance.WindowType]
+	toDBStatusRegistry               mapper.Mapper[monitor.Status, sqlcgen.StatusType, monitor.Status]
+	toDomainStatusRegistry           mapper.Mapper[sqlcgen.StatusType, monitor.Status, sqlcgen.StatusType]
+	toDBExpectationsRegistry         mapper.Mapper[monitor.Expectations, []byte, target.Protocol]
+	toDomainExpectationsRegistry     mapper.Mapper[[]byte, monitor.Expectations, target.Protocol]
+	toDomainTargetProtocolRegistry   mapper.Mapper[sqlcgen.ProtocolType, target.Protocol, sqlcgen.ProtocolType]
+	toDomainTargetConfigRegistry     mapper.Mapper[[]byte, target.NetworkConfig, target.Protocol]
+	toDomainContactTypeRegistry      mapper.Mapper[sqlcgen.ContactType, alert.ContactType, sqlcgen.ContactType]
+	toDomainContactConfigRegistry    mapper.Mapper[[]byte, alert.ContactConfig, alert.ContactType]
+	toDomainWindowTypeRegistry       mapper.Mapper[sqlcgen.MaintenanceType, maintenance.WindowType, sqlcgen.MaintenanceType]
+	toDomainWindowConfigTypeRegistry mapper.Mapper[[]byte, maintenance.MaintenanceWindowConfig, maintenance.WindowType]
 }
 
 func newMonitorTypeMapper() *monitorTypeMapper {
@@ -55,68 +55,14 @@ func newMonitorTypeMapper() *monitorTypeMapper {
 	})
 
 	toDBExpectationsMap := mapper.New[monitor.Expectations, []byte, target.Protocol]()
-	toDBExpectationsMap.Register(target.ProtocolHTTP, func(v monitor.Expectations) ([]byte, error) {
-		httpExp, ok := v.(monitor.HTTPExpectations)
-		if !ok {
-			if httpExpPtr, ok := v.(*monitor.HTTPExpectations); ok && httpExpPtr != nil {
-				httpExp = *httpExpPtr
-			} else {
-				return nil, fmt.Errorf("unexpected expectations type for HTTP: %T", v)
-			}
-		}
-		return json.Marshal(httpExp)
-	})
-	toDBExpectationsMap.Register(target.ProtocolTCP, func(v monitor.Expectations) ([]byte, error) {
-		tcpExp, ok := v.(monitor.TCPExpectations)
-		if !ok {
-			if tcpExpPtr, ok := v.(*monitor.TCPExpectations); ok && tcpExpPtr != nil {
-				tcpExp = *tcpExpPtr
-			} else {
-				return nil, fmt.Errorf("unexpected expectations type for TCP: %T", v)
-			}
-		}
-		return json.Marshal(tcpExp)
-	})
-	toDBExpectationsMap.Register(target.ProtocolICMP, func(v monitor.Expectations) ([]byte, error) {
-		icmpExp, ok := v.(monitor.ICMPExpectations)
-		if !ok {
-			if icmpExpPtr, ok := v.(*monitor.ICMPExpectations); ok && icmpExpPtr != nil {
-				icmpExp = *icmpExpPtr
-			} else {
-				return nil, fmt.Errorf("unexpected expectations type for ICMP: %T", v)
-			}
-		}
-		return json.Marshal(icmpExp)
-	})
+	toDBExpectationsMap.Register(target.ProtocolHTTP, marshalHTTPExpectations)
+	toDBExpectationsMap.Register(target.ProtocolTCP, marshalTCPExpectations)
+	toDBExpectationsMap.Register(target.ProtocolICMP, marshalICMPExpectations)
 
 	toDomainExpectationsMap := mapper.New[[]byte, monitor.Expectations, target.Protocol]()
-	toDomainExpectationsMap.Register(target.ProtocolHTTP, func(payload []byte) (monitor.Expectations, error) {
-		var exp monitor.HTTPExpectations
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &exp); err != nil {
-				return nil, err
-			}
-		}
-		return exp, nil
-	})
-	toDomainExpectationsMap.Register(target.ProtocolTCP, func(payload []byte) (monitor.Expectations, error) {
-		var exp monitor.TCPExpectations
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &exp); err != nil {
-				return nil, err
-			}
-		}
-		return exp, nil
-	})
-	toDomainExpectationsMap.Register(target.ProtocolICMP, func(payload []byte) (monitor.Expectations, error) {
-		var exp monitor.ICMPExpectations
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &exp); err != nil {
-				return nil, err
-			}
-		}
-		return exp, nil
-	})
+	toDomainExpectationsMap.Register(target.ProtocolHTTP, unmarshalHTTPExpectations)
+	toDomainExpectationsMap.Register(target.ProtocolTCP, unmarshalTCPExpectations)
+	toDomainExpectationsMap.Register(target.ProtocolICMP, unmarshalICMPExpectations)
 
 	toDomainTargetProtocolMap := mapper.New[sqlcgen.ProtocolType, target.Protocol, sqlcgen.ProtocolType]()
 	toDomainTargetProtocolMap.Register(sqlcgen.ProtocolTypeHTTP, func(_ sqlcgen.ProtocolType) (target.Protocol, error) {
@@ -130,33 +76,9 @@ func newMonitorTypeMapper() *monitorTypeMapper {
 	})
 
 	toDomainTargetConfigMap := mapper.New[[]byte, target.NetworkConfig, target.Protocol]()
-	toDomainTargetConfigMap.Register(target.ProtocolHTTP, func(payload []byte) (target.NetworkConfig, error) {
-		var cfg target.HTTPConfig
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &cfg); err != nil {
-				return nil, err
-			}
-		}
-		return cfg, nil
-	})
-	toDomainTargetConfigMap.Register(target.ProtocolTCP, func(payload []byte) (target.NetworkConfig, error) {
-		var cfg target.TCPConfig
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &cfg); err != nil {
-				return nil, err
-			}
-		}
-		return cfg, nil
-	})
-	toDomainTargetConfigMap.Register(target.ProtocolICMP, func(payload []byte) (target.NetworkConfig, error) {
-		var cfg target.ICMPConfig
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &cfg); err != nil {
-				return nil, err
-			}
-		}
-		return cfg, nil
-	})
+	toDomainTargetConfigMap.Register(target.ProtocolHTTP, unmarshalMonitorHTTPConfig)
+	toDomainTargetConfigMap.Register(target.ProtocolTCP, unmarshalMonitorTCPConfig)
+	toDomainTargetConfigMap.Register(target.ProtocolICMP, unmarshalMonitorICMPConfig)
 
 	toDomainContactTypeMap := mapper.New[sqlcgen.ContactType, alert.ContactType, sqlcgen.ContactType]()
 	toDomainContactTypeMap.Register(sqlcgen.ContactTypeTELEGRAM, func(_ sqlcgen.ContactType) (alert.ContactType, error) {
@@ -164,15 +86,7 @@ func newMonitorTypeMapper() *monitorTypeMapper {
 	})
 
 	toDomainContactConfigMap := mapper.New[[]byte, alert.ContactConfig, alert.ContactType]()
-	toDomainContactConfigMap.Register(alert.ContactTypeTelegram, func(payload []byte) (alert.ContactConfig, error) {
-		var cfg alert.TelegramContactConfig
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &cfg); err != nil {
-				return nil, err
-			}
-		}
-		return cfg, nil
-	})
+	toDomainContactConfigMap.Register(alert.ContactTypeTelegram, unmarshalMonitorTelegramConfig)
 
 	toDomainWindowTypeMap := mapper.New[sqlcgen.MaintenanceType, maintenance.WindowType, sqlcgen.MaintenanceType]()
 	toDomainWindowTypeMap.Register(sqlcgen.MaintenanceTypeONCE, func(_ sqlcgen.MaintenanceType) (maintenance.WindowType, error) {
@@ -183,24 +97,8 @@ func newMonitorTypeMapper() *monitorTypeMapper {
 	})
 
 	toDomainWindowConfigMap := mapper.New[[]byte, maintenance.MaintenanceWindowConfig, maintenance.WindowType]()
-	toDomainWindowConfigMap.Register(maintenance.WindowTypeOneTime, func(payload []byte) (maintenance.MaintenanceWindowConfig, error) {
-		var cfg maintenance.OneTimeMaintenanceWindowConfig
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &cfg); err != nil {
-				return nil, err
-			}
-		}
-		return cfg, nil
-	})
-	toDomainWindowConfigMap.Register(maintenance.WindowTypeManual, func(payload []byte) (maintenance.MaintenanceWindowConfig, error) {
-		var cfg maintenance.ManualMaintenanceWindowConfig
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &cfg); err != nil {
-				return nil, err
-			}
-		}
-		return cfg, nil
-	})
+	toDomainWindowConfigMap.Register(maintenance.WindowTypeOneTime, unmarshalMonitorOneTimeConfig)
+	toDomainWindowConfigMap.Register(maintenance.WindowTypeManual, unmarshalMonitorManualConfig)
 
 	return &monitorTypeMapper{
 		toDBStatusRegistry:               toDBStatusMap,
@@ -214,6 +112,132 @@ func newMonitorTypeMapper() *monitorTypeMapper {
 		toDomainWindowTypeRegistry:       toDomainWindowTypeMap,
 		toDomainWindowConfigTypeRegistry: toDomainWindowConfigMap,
 	}
+}
+
+func marshalHTTPExpectations(v monitor.Expectations) ([]byte, error) {
+	httpExp, ok := v.(monitor.HTTPExpectations)
+	if !ok {
+		if httpExpPtr, ok := v.(*monitor.HTTPExpectations); ok && httpExpPtr != nil {
+			httpExp = *httpExpPtr
+		} else {
+			return nil, fmt.Errorf("unexpected expectations type for HTTP: %T", v)
+		}
+	}
+	return json.Marshal(httpExp)
+}
+
+func marshalTCPExpectations(v monitor.Expectations) ([]byte, error) {
+	tcpExp, ok := v.(monitor.TCPExpectations)
+	if !ok {
+		if tcpExpPtr, ok := v.(*monitor.TCPExpectations); ok && tcpExpPtr != nil {
+			tcpExp = *tcpExpPtr
+		} else {
+			return nil, fmt.Errorf("unexpected expectations type for TCP: %T", v)
+		}
+	}
+	return json.Marshal(tcpExp)
+}
+
+func marshalICMPExpectations(v monitor.Expectations) ([]byte, error) {
+	icmpExp, ok := v.(monitor.ICMPExpectations)
+	if !ok {
+		if icmpExpPtr, ok := v.(*monitor.ICMPExpectations); ok && icmpExpPtr != nil {
+			icmpExp = *icmpExpPtr
+		} else {
+			return nil, fmt.Errorf("unexpected expectations type for ICMP: %T", v)
+		}
+	}
+	return json.Marshal(icmpExp)
+}
+
+func unmarshalHTTPExpectations(payload []byte) (monitor.Expectations, error) {
+	var exp monitor.HTTPExpectations
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &exp); err != nil {
+			return nil, err
+		}
+	}
+	return exp, nil
+}
+
+func unmarshalTCPExpectations(payload []byte) (monitor.Expectations, error) {
+	var exp monitor.TCPExpectations
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &exp); err != nil {
+			return nil, err
+		}
+	}
+	return exp, nil
+}
+
+func unmarshalICMPExpectations(payload []byte) (monitor.Expectations, error) {
+	var exp monitor.ICMPExpectations
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &exp); err != nil {
+			return nil, err
+		}
+	}
+	return exp, nil
+}
+
+func unmarshalMonitorHTTPConfig(payload []byte) (target.NetworkConfig, error) {
+	var cfg target.HTTPConfig
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
+}
+
+func unmarshalMonitorTCPConfig(payload []byte) (target.NetworkConfig, error) {
+	var cfg target.TCPConfig
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
+}
+
+func unmarshalMonitorICMPConfig(payload []byte) (target.NetworkConfig, error) {
+	var cfg target.ICMPConfig
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
+}
+
+func unmarshalMonitorTelegramConfig(payload []byte) (alert.ContactConfig, error) {
+	var cfg alert.TelegramContactConfig
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
+}
+
+func unmarshalMonitorOneTimeConfig(payload []byte) (maintenance.MaintenanceWindowConfig, error) {
+	var cfg maintenance.OneTimeMaintenanceWindowConfig
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
+}
+
+func unmarshalMonitorManualConfig(payload []byte) (maintenance.MaintenanceWindowConfig, error) {
+	var cfg maintenance.ManualMaintenanceWindowConfig
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
 }
 
 func (m monitorTypeMapper) ToDBStatusType(status monitor.Status) (sqlcgen.StatusType, error) {
@@ -297,4 +321,3 @@ func parseJSONArray(raw interface{}, dst interface{}) error {
 
 	return nil
 }
-

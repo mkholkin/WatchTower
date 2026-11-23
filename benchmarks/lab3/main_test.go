@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+
+	api "WatchTower/internal/api/http/v1/gen"
 )
 
 func TestLibrariesProduceEquivalentMonitorChecks(t *testing.T) {
@@ -22,12 +24,7 @@ func TestLibrariesProduceEquivalentMonitorChecks(t *testing.T) {
 				if err := op(); err != nil {
 					t.Fatal(err)
 				}
-				if scenario != "encode" && !reflect.DeepEqual(sinkChecks, data) {
-					t.Fatalf("%s/%s: decoded data differs", lib.name, scenario)
-				}
-				if scenario != "decode" && string(sinkBytes) != string(want) {
-					t.Fatalf("%s/%s: JSON differs", lib.name, scenario)
-				}
+				assertEquivalentResult(t, lib, scenario, data, want)
 			}
 		}
 	}
@@ -48,16 +45,37 @@ func TestTrialSeparatesPhasesAndCountsAllOperations(t *testing.T) {
 			t.Fatal("duplicate case", c.ID)
 		}
 		seen[c.ID] = true
-		if c.Warmup.Operations != 2 || c.Measurement.Operations != 12 || c.Latency.Operations != 5 || c.Teardown.Operations != 2 || c.TotalOperations != 21 {
-			t.Fatalf("wrong accounting: %+v", c)
+		assertCaseAccounting(t, c)
+		assertCaseTimings(t, c)
+	}
+}
+
+func assertCaseAccounting(t *testing.T, c caseResult) {
+	t.Helper()
+	if c.Warmup.Operations != 2 || c.Measurement.Operations != 12 || c.Latency.Operations != 5 || c.Teardown.Operations != 2 || c.TotalOperations != 21 {
+		t.Fatalf("wrong accounting: %+v", c)
+	}
+}
+
+func assertCaseTimings(t *testing.T, c caseResult) {
+	t.Helper()
+	if len(c.Batches) != 3 || len(c.LatenciesNS) != 5 || c.DurationNS <= 0 || c.Measurement.ElapsedNS <= 0 {
+		t.Fatalf("missing timings: %+v", c)
+	}
+
+	for _, b := range c.Batches {
+		if b.NSPerOp <= 0 || b.OffsetNS < 0 {
+			t.Fatal("invalid batch", b)
 		}
-		if len(c.Batches) != 3 || len(c.LatenciesNS) != 5 || c.DurationNS <= 0 || c.Measurement.ElapsedNS <= 0 {
-			t.Fatalf("missing timings: %+v", c)
-		}
-		for _, b := range c.Batches {
-			if b.NSPerOp <= 0 || b.OffsetNS < 0 {
-				t.Fatal("invalid batch", b)
-			}
-		}
+	}
+}
+
+func assertEquivalentResult(t *testing.T, lib library, scenario string, data []api.MonitorCheck, want []byte) {
+	t.Helper()
+	if scenario != "encode" && !reflect.DeepEqual(sinkChecks, data) {
+		t.Fatalf("%s/%s: decoded data differs", lib.name, scenario)
+	}
+	if scenario != "decode" && string(sinkBytes) != string(want) {
+		t.Fatalf("%s/%s: JSON differs", lib.name, scenario)
 	}
 }

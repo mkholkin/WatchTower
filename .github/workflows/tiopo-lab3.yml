@@ -4,6 +4,9 @@ on:
     branches: [TIOPO-3]
   pull_request:
     paths:
+      - .github/workflows/static-analysis.yml
+      - .githooks/**
+      - tools/lab7/**
       - benchmarks/lab3/**
       - tools/lab3/**
       - internal/api/http/v1/gen/**
@@ -18,7 +21,10 @@ concurrency:
   group: tiopo-lab3-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  static:
+    uses: ./.github/workflows/static-analysis.yml
   microbenchmarks:
+    needs: static
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:

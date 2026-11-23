@@ -40,11 +40,7 @@ func (s *AuthSMTPSender) Send(ctx context.Context, to, kind, secret string) erro
 		return errors.New("authentication SMTP unavailable")
 	}
 	defer conn.Close()
-	deadline := time.Now().Add(10 * time.Second)
-	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
-		deadline = ctxDeadline
-	}
-	if err = conn.SetDeadline(deadline); err != nil {
+	if err = setAuthSMTPDeadline(ctx, conn); err != nil {
 		return err
 	}
 	client, err := smtp.NewClient(conn, s.host)
@@ -52,17 +48,33 @@ func (s *AuthSMTPSender) Send(ctx context.Context, to, kind, secret string) erro
 		return errors.New("authentication SMTP handshake failed")
 	}
 	defer client.Close()
+	if err = s.startTLS(client); err != nil {
+		return err
+	}
+	if err = s.deliver(client, to, kind, secret); err != nil {
+		return err
+	}
+	// DATA acceptance is authoritative; QUIT cannot roll back a delivered code.
+	_ = client.Quit()
+	return nil
+}
+
+func (s *AuthSMTPSender) startTLS(client *smtp.Client) error {
 	if supported, _ := client.Extension("STARTTLS"); supported {
-		if err = client.StartTLS(&tls.Config{ServerName: s.host, MinVersion: tls.VersionTLS12}); err != nil {
+		if err := client.StartTLS(&tls.Config{ServerName: s.host, MinVersion: tls.VersionTLS12}); err != nil {
 			return errors.New("authentication SMTP TLS failed")
 		}
 	} else if !s.allowInsecure {
 		return errors.New("authentication SMTP requires TLS")
 	}
-	if err = client.Mail(s.from); err != nil {
+	return nil
+}
+
+func (s *AuthSMTPSender) deliver(client *smtp.Client, to, kind, secret string) error {
+	if err := client.Mail(s.from); err != nil {
 		return errors.New("authentication SMTP sender rejected")
 	}
-	if err = client.Rcpt(to); err != nil {
+	if err := client.Rcpt(to); err != nil {
 		return errors.New("authentication SMTP recipient rejected")
 	}
 	writer, err := client.Data()
@@ -77,7 +89,13 @@ func (s *AuthSMTPSender) Send(ctx context.Context, to, kind, secret string) erro
 	if err = writer.Close(); err != nil {
 		return errors.New("authentication SMTP delivery rejected")
 	}
-	// DATA acceptance is authoritative; a disconnected QUIT must not roll back a delivered code.
-	_ = client.Quit()
 	return nil
+}
+
+func setAuthSMTPDeadline(ctx context.Context, conn net.Conn) error {
+	deadline := time.Now().Add(10 * time.Second)
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		deadline = ctxDeadline
+	}
+	return conn.SetDeadline(deadline)
 }

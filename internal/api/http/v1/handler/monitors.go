@@ -11,148 +11,148 @@ import (
 
 var getMonitorsListResponseFactory = v1.ResponseFactory[apigen.GetMonitorsListResponseObject]{
 	401: func(er apigen.ErrorResponse) apigen.GetMonitorsListResponseObject {
-		return apigen.GetMonitorsList401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.GetMonitorsList401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.GetMonitorsListResponseObject {
-		return apigen.GetMonitorsList500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.GetMonitorsList500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var createMonitorResponseFactory = v1.ResponseFactory[apigen.CreateMonitorResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.CreateMonitorResponseObject {
-		return apigen.CreateMonitor400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.CreateMonitor400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.CreateMonitorResponseObject {
-		return apigen.CreateMonitor401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.CreateMonitor401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.CreateMonitorResponseObject {
-		return apigen.CreateMonitor500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.CreateMonitor500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var deleteMonitorResponseFactory = v1.ResponseFactory[apigen.DeleteMonitorResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.DeleteMonitorResponseObject {
-		return apigen.DeleteMonitor400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.DeleteMonitor400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.DeleteMonitorResponseObject {
-		return apigen.DeleteMonitor401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.DeleteMonitor401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.DeleteMonitorResponseObject {
-		return apigen.DeleteMonitor403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.DeleteMonitor403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.DeleteMonitorResponseObject {
-		return apigen.DeleteMonitor404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.DeleteMonitor404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.DeleteMonitorResponseObject {
-		return apigen.DeleteMonitor500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.DeleteMonitor500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var getMonitorDetailsResponseFactory = v1.ResponseFactory[apigen.GetMonitorDetailsResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.GetMonitorDetailsResponseObject {
-		return apigen.GetMonitorDetails400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.GetMonitorDetails400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.GetMonitorDetailsResponseObject {
-		return apigen.GetMonitorDetails401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.GetMonitorDetails401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.GetMonitorDetailsResponseObject {
-		return apigen.GetMonitorDetails403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.GetMonitorDetails403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.GetMonitorDetailsResponseObject {
-		return apigen.GetMonitorDetails404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.GetMonitorDetails404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.GetMonitorDetailsResponseObject {
-		return apigen.GetMonitorDetails500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.GetMonitorDetails500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var updateMonitorResponseFactory = v1.ResponseFactory[apigen.UpdateMonitorResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.UpdateMonitorResponseObject {
-		return apigen.UpdateMonitor400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.UpdateMonitor400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.UpdateMonitorResponseObject {
-		return apigen.UpdateMonitor401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.UpdateMonitor401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.UpdateMonitorResponseObject {
-		return apigen.UpdateMonitor403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.UpdateMonitor403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.UpdateMonitorResponseObject {
-		return apigen.UpdateMonitor404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.UpdateMonitor404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.UpdateMonitorResponseObject {
-		return apigen.UpdateMonitor500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.UpdateMonitor500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var removeAlertContactFromMonitorResponseFactory = v1.ResponseFactory[apigen.RemoveAlertContactFromMonitorResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.RemoveAlertContactFromMonitorResponseObject {
-		return apigen.RemoveAlertContactFromMonitor400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.RemoveAlertContactFromMonitor400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.RemoveAlertContactFromMonitorResponseObject {
-		return apigen.RemoveAlertContactFromMonitor401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.RemoveAlertContactFromMonitor401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.RemoveAlertContactFromMonitorResponseObject {
-		return apigen.RemoveAlertContactFromMonitor403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.RemoveAlertContactFromMonitor403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.RemoveAlertContactFromMonitorResponseObject {
-		return apigen.RemoveAlertContactFromMonitor404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.RemoveAlertContactFromMonitor404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.RemoveAlertContactFromMonitorResponseObject {
-		return apigen.RemoveAlertContactFromMonitor500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.RemoveAlertContactFromMonitor500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var addAlertContactToMonitorResponseFactory = v1.ResponseFactory[apigen.AddAlertContactToMonitorResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.AddAlertContactToMonitorResponseObject {
-		return apigen.AddAlertContactToMonitor400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.AddAlertContactToMonitor400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.AddAlertContactToMonitorResponseObject {
-		return apigen.AddAlertContactToMonitor401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.AddAlertContactToMonitor401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.AddAlertContactToMonitorResponseObject {
-		return apigen.AddAlertContactToMonitor403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.AddAlertContactToMonitor403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.AddAlertContactToMonitorResponseObject {
-		return apigen.AddAlertContactToMonitor404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.AddAlertContactToMonitor404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.AddAlertContactToMonitorResponseObject {
-		return apigen.AddAlertContactToMonitor500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.AddAlertContactToMonitor500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var disableMonitorResponseFactory = v1.ResponseFactory[apigen.DisableMonitorResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.DisableMonitorResponseObject {
-		return apigen.DisableMonitor400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.DisableMonitor400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.DisableMonitorResponseObject {
-		return apigen.DisableMonitor401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.DisableMonitor401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.DisableMonitorResponseObject {
-		return apigen.DisableMonitor403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.DisableMonitor403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.DisableMonitorResponseObject {
-		return apigen.DisableMonitor404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.DisableMonitor404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.DisableMonitorResponseObject {
-		return apigen.DisableMonitor500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.DisableMonitor500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var enableMonitorResponseFactory = v1.ResponseFactory[apigen.EnableMonitorResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.EnableMonitorResponseObject {
-		return apigen.EnableMonitor400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.EnableMonitor400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.EnableMonitorResponseObject {
-		return apigen.EnableMonitor401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.EnableMonitor401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.EnableMonitorResponseObject {
-		return apigen.EnableMonitor403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.EnableMonitor403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.EnableMonitorResponseObject {
-		return apigen.EnableMonitor404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.EnableMonitor404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.EnableMonitorResponseObject {
-		return apigen.EnableMonitor500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.EnableMonitor500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
@@ -255,20 +255,7 @@ func (a *ApiHandler) CreateMonitor(ctx context.Context, request apigen.CreateMon
 		if err != nil {
 			return v1.ResponseFromFactory(createMonitorResponseFactory, err), nil
 		}
-		headers := make(map[string]string)
-		if apiNetConf.Headers != nil {
-			headers = *apiNetConf.Headers
-		}
-		body := ""
-		if apiNetConf.Body != nil {
-			body = *apiNetConf.Body
-		}
-		networkConfig = dto.HTTPMonitorNetworkConfig{
-			Method:          string(apiNetConf.Method),
-			Headers:         headers,
-			Body:            body,
-			FollowRedirects: apiNetConf.FollowRedirects,
-		}
+		networkConfig = mapHTTPMonitorNetworkConfig(apiNetConf)
 	default:
 		return createMonitorResponseFactory[400](errorResponse("INVALID_DATA", "unsupported monitor protocol")), nil
 	}
@@ -332,61 +319,16 @@ func (a *ApiHandler) UpdateMonitor(ctx context.Context, request apigen.UpdateMon
 
 	hasNetworkConfig := request.Body.NetworkConfig != nil
 	hasExpectations := request.Body.Expectations != nil
-	if hasNetworkConfig || hasExpectations {
-		if !(hasNetworkConfig && hasExpectations) {
-			return updateMonitorResponseFactory[400](errorResponse("INVALID_DATA", "network_config and expectations are required together")), nil
-		}
+	if hasNetworkConfig != hasExpectations {
+		return updateMonitorResponseFactory[400](errorResponse("INVALID_DATA", "network_config and expectations are required together")), nil
 	}
-
 	var networkConfig *dto.MonitorNetworkConfig
 	var expectations *dto.MonitorExpectations
-	if hasNetworkConfig && hasExpectations {
-		expDisc, err := request.Body.Expectations.Discriminator()
-		if err != nil {
-			return v1.ResponseFromFactory(updateMonitorResponseFactory, err), nil
-		}
-		cfgDisc, err := request.Body.NetworkConfig.Discriminator()
-		if err != nil {
-			return v1.ResponseFromFactory(updateMonitorResponseFactory, err), nil
-		}
-		if expDisc != cfgDisc {
-			return updateMonitorResponseFactory[400](errorResponse("INVALID_DATA", "expectations and network config types are mismatching")), nil
-		}
-
-		tgtProtocol := cfgDisc
-
-		switch tgtProtocol {
-		case string(apigen.HTTP):
-			apiNetConf, err := request.Body.NetworkConfig.AsHTTPConfig()
-			if err != nil {
-				return v1.ResponseFromFactory(updateMonitorResponseFactory, err), nil
-			}
-			headers := make(map[string]string)
-			if apiNetConf.Headers != nil {
-				headers = *apiNetConf.Headers
-			}
-			body := ""
-			if apiNetConf.Body != nil {
-				body = *apiNetConf.Body
-			}
-
-			networkConfig = new(dto.MonitorNetworkConfig(dto.HTTPMonitorNetworkConfig{
-				Method:          string(apiNetConf.Method),
-				Headers:         headers,
-				Body:            body,
-				FollowRedirects: apiNetConf.FollowRedirects,
-			}))
-
-			apiExp, err := request.Body.Expectations.AsHTTPExpectations()
-			if err != nil {
-				return v1.ResponseFromFactory(updateMonitorResponseFactory, err), nil
-			}
-			expectations = new(dto.MonitorExpectations(dto.HTTPMonitorExpectations{
-				StatusCodes:  apiExp.ExpectedStatusCodes,
-				MaxLatencyMs: apiExp.ExpectedResponseTimeMs,
-			}))
-		default:
-			return updateMonitorResponseFactory[400](errorResponse("INVALID_DATA", "unsupported monitor protocol")), nil
+	if hasNetworkConfig {
+		var response apigen.UpdateMonitorResponseObject
+		networkConfig, expectations, response = decodeMonitorUpdateConfig(request)
+		if response != nil {
+			return response, nil
 		}
 	}
 
@@ -457,4 +399,56 @@ func (a *ApiHandler) EnableMonitor(ctx context.Context, request apigen.EnableMon
 	}
 
 	return apigen.EnableMonitor200JSONResponse{}, nil
+}
+
+func mapHTTPMonitorNetworkConfig(config apigen.HTTPConfig) dto.MonitorNetworkConfig {
+	headers := make(map[string]string)
+	if config.Headers != nil {
+		headers = *config.Headers
+	}
+	body := ""
+	if config.Body != nil {
+		body = *config.Body
+	}
+	return dto.HTTPMonitorNetworkConfig{Method: string(config.Method), Headers: headers, Body: body, FollowRedirects: config.FollowRedirects}
+}
+
+func decodeMonitorUpdateConfig(request apigen.UpdateMonitorRequestObject) (*dto.MonitorNetworkConfig, *dto.MonitorExpectations, apigen.UpdateMonitorResponseObject) {
+	var networkConfig *dto.MonitorNetworkConfig
+	var expectations *dto.MonitorExpectations
+	expDisc, err := request.Body.Expectations.Discriminator()
+	if err != nil {
+		return nil, nil, v1.ResponseFromFactory(updateMonitorResponseFactory, err)
+	}
+	cfgDisc, err := request.Body.NetworkConfig.Discriminator()
+	if err != nil {
+		return nil, nil, v1.ResponseFromFactory(updateMonitorResponseFactory, err)
+	}
+	if expDisc != cfgDisc {
+		return nil, nil, updateMonitorResponseFactory[400](errorResponse("INVALID_DATA", "expectations and network config types are mismatching"))
+	}
+
+	tgtProtocol := cfgDisc
+
+	switch tgtProtocol {
+	case string(apigen.HTTP):
+		apiNetConf, err := request.Body.NetworkConfig.AsHTTPConfig()
+		if err != nil {
+			return nil, nil, v1.ResponseFromFactory(updateMonitorResponseFactory, err)
+		}
+		config := mapHTTPMonitorNetworkConfig(apiNetConf)
+		networkConfig = &config
+
+		apiExp, err := request.Body.Expectations.AsHTTPExpectations()
+		if err != nil {
+			return nil, nil, v1.ResponseFromFactory(updateMonitorResponseFactory, err)
+		}
+		expectations = new(dto.MonitorExpectations(dto.HTTPMonitorExpectations{
+			StatusCodes:  apiExp.ExpectedStatusCodes,
+			MaxLatencyMs: apiExp.ExpectedResponseTimeMs,
+		}))
+	default:
+		return nil, nil, updateMonitorResponseFactory[400](errorResponse("INVALID_DATA", "unsupported monitor protocol"))
+	}
+	return networkConfig, expectations, nil
 }

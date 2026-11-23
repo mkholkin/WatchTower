@@ -83,23 +83,8 @@ func (r *probeSummaryRepositoryCache) GetMonitorLatestSummaries(
 		return summaries, nil
 	}
 
-	key := queueKey(monitorID)
-	cached, err := r.client.LRange(ctx, key, 0, int64(limit-1)).Result()
-	if err == nil && len(cached) > 0 {
-		summaries, decodeErr := decodeSummaries(cached)
-		if decodeErr == nil {
-			if ttlErr := r.touchQueueTTL(ctx, key); ttlErr != nil {
-				r.log.Warn("failed to extend queue ttl on read", "monitor_id", monitorID, "error", ttlErr)
-			}
-			return summaries, nil
-		}
-		r.log.Warn("invalid cached probe summaries, using fallback", "monitor_id", monitorID, "error", decodeErr)
-		if deleteErr := r.client.Del(ctx, key).Err(); deleteErr != nil {
-			r.log.Warn("failed to invalidate probe summary cache", "monitor_id", monitorID, "error", deleteErr)
-		}
-	}
-	if err != nil {
-		r.log.Warn("failed to read probe summaries from redis, using fallback", "monitor_id", monitorID, "error", err)
+	if summaries, ok := r.readCachedSummaries(ctx, monitorID, limit); ok {
+		return summaries, nil
 	}
 
 	summaries, err := r.fallback.GetMonitorLatestSummaries(ctx, monitorID, limit)
@@ -111,7 +96,7 @@ func (r *probeSummaryRepositoryCache) GetMonitorLatestSummaries(
 		r.log.Warn("failed to cache probe summaries in redis", "monitor_id", monitorID, "error", cacheErr)
 	} else {
 		// TTL is controlled by read traffic only.
-		if ttlErr := r.touchQueueTTL(ctx, key); ttlErr != nil {
+		if ttlErr := r.touchQueueTTL(ctx, queueKey(monitorID)); ttlErr != nil {
 			r.log.Warn("failed to set queue ttl after cache warmup", "monitor_id", monitorID, "error", ttlErr)
 		}
 	}
@@ -267,4 +252,27 @@ func decodeSummaries(raw []string) ([]*probe.Summary, error) {
 
 func queueKey(monitorID uuid.UUID) string {
 	return fmt.Sprintf("probe_summary:monitor:%s", monitorID.String())
+}
+
+func (r *probeSummaryRepositoryCache) readCachedSummaries(ctx context.Context, monitorID uuid.UUID, limit int) ([]*probe.Summary, bool) {
+	key := queueKey(monitorID)
+	cached, err := r.client.LRange(ctx, key, 0, int64(limit-1)).Result()
+	if err == nil && len(cached) > 0 {
+		summaries, decodeErr := decodeSummaries(cached)
+		if decodeErr == nil {
+			if ttlErr := r.touchQueueTTL(ctx, key); ttlErr != nil {
+				r.log.Warn("failed to extend queue ttl on read", "monitor_id", monitorID, "error", ttlErr)
+			}
+			return summaries, true
+		}
+		r.log.Warn("invalid cached probe summaries, using fallback", "monitor_id", monitorID, "error", decodeErr)
+		if deleteErr := r.client.Del(ctx, key).Err(); deleteErr != nil {
+			r.log.Warn("failed to invalidate probe summary cache", "monitor_id", monitorID, "error", deleteErr)
+		}
+	}
+	if err != nil {
+		r.log.Warn("failed to read probe summaries from redis, using fallback", "monitor_id", monitorID, "error", err)
+	}
+
+	return nil, false
 }

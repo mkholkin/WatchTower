@@ -31,13 +31,13 @@ func (r *targetRepositoryMG) Create(ctx context.Context, tgt *target.Target) err
 		return err
 	}
 	_, err = r.coll.InsertOne(ctx, bson.M{
-		"_id":               tgt.ID.String(),
-		"endpoint":          tgt.Endpoint,
-		"protocol":          string(tgt.Config.Protocol()),
-		"network_config":    string(cfgJSON),
-		"is_active":         tgt.IsActive,
+		"_id":                tgt.ID.String(),
+		"endpoint":           tgt.Endpoint,
+		"protocol":           string(tgt.Config.Protocol()),
+		"network_config":     string(cfgJSON),
+		"is_active":          tgt.IsActive,
 		"probe_interval_sec": tgt.ProbeIntervalSec,
-		"config_hash":       tgt.ConfigHash,
+		"config_hash":        tgt.ConfigHash,
 	})
 	return mapMongoError(err)
 }
@@ -52,12 +52,12 @@ func (r *targetRepositoryMG) Update(ctx context.Context, tgt *target.Target) err
 		return err
 	}
 	res, err := r.coll.UpdateOne(ctx, bson.M{"_id": tgt.ID.String()}, bson.M{"$set": bson.M{
-		"endpoint":          tgt.Endpoint,
-		"protocol":          string(tgt.Config.Protocol()),
-		"network_config":    string(cfgJSON),
-		"is_active":         tgt.IsActive,
+		"endpoint":           tgt.Endpoint,
+		"protocol":           string(tgt.Config.Protocol()),
+		"network_config":     string(cfgJSON),
+		"is_active":          tgt.IsActive,
 		"probe_interval_sec": tgt.ProbeIntervalSec,
-		"config_hash":       tgt.ConfigHash,
+		"config_hash":        tgt.ConfigHash,
 	}})
 	if err != nil {
 		return mapMongoError(err)

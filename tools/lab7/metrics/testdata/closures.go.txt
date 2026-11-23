@@ -1,0 +1,7 @@
+package fixture
+func outer(x int) {
+ _ = func() {
+  if x > 0 { x++ }
+  _ = func() { if x > 1 { x++ } }
+ }
+}

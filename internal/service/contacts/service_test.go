@@ -28,43 +28,49 @@ func contactTestService(t *testing.T) (*contactService, *testmocks.MockAlertCont
 }
 
 func TestContactServiceCreateTelegramAlertContact(t *testing.T) {
-	t.Run("persists authorized owner and Telegram details", func(t *testing.T) {
-		testutil.Case(t, "contacts", "CreateTelegramAlertContact", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
-			svc, repository, provider := contactTestService(t)
-			provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
-			repository.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, got *alert.Contact) error {
-				cfg, ok := got.Config.(alert.TelegramContactConfig)
-				if got.User.Login != "alice" || got.Name != "Operations" || !got.IsActive || !ok || cfg.ChatID != 42 || cfg.BotToken != "token" {
-					t.Fatalf("persisted contact = %#v, config=%#v", got, got.Config)
-				}
-				return nil
-			})
+	t.Run("persists authorized owner and Telegram details", contactCreationPersistsOwner)
+	t.Run("rejects invalid contact before persistence", contactCreationRejectsInvalid)
+	t.Run("returns persistence failure", contactCreationReturnsPersistenceFailure)
+}
 
-			got, err := svc.CreateTelegramAlertContact(context.Background(), contactdto.CreateTelegramAlertContactDTO{UserLogin: "attacker", Name: "Operations", ChatID: 42, BotToken: "token"})
-			if err != nil || got == nil || got.User.Login != "alice" {
-				t.Fatalf("CreateTelegramAlertContact() = (%#v, %v)", got, err)
+func contactCreationPersistsOwner(t *testing.T) {
+	testutil.Case(t, "contacts", "CreateTelegramAlertContact", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
+		svc, repository, provider := contactTestService(t)
+		provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
+		repository.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, got *alert.Contact) error {
+			cfg, ok := got.Config.(alert.TelegramContactConfig)
+			if got.User.Login != "alice" || got.Name != "Operations" || !got.IsActive || !ok || cfg.ChatID != 42 || cfg.BotToken != "token" {
+				t.Fatalf("persisted contact = %#v, config=%#v", got, got.Config)
 			}
+			return nil
 		})
+
+		got, err := svc.CreateTelegramAlertContact(context.Background(), contactdto.CreateTelegramAlertContactDTO{UserLogin: "attacker", Name: "Operations", ChatID: 42, BotToken: "token"})
+		if err != nil || got == nil || got.User.Login != "alice" {
+			t.Fatalf("CreateTelegramAlertContact() = (%#v, %v)", got, err)
+		}
 	})
-	t.Run("rejects invalid contact before persistence", func(t *testing.T) {
-		testutil.Case(t, "contacts", "CreateTelegramAlertContact", "boundary", "london", func(t *testing.T, _ *allure.Context) {
-			svc, _, provider := contactTestService(t)
-			provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
-			if got, err := svc.CreateTelegramAlertContact(context.Background(), contactdto.CreateTelegramAlertContactDTO{ChatID: 42, BotToken: "token"}); err == nil || got != nil {
-				t.Fatalf("CreateTelegramAlertContact() = (%#v, %v)", got, err)
-			}
-		})
+}
+
+func contactCreationRejectsInvalid(t *testing.T) {
+	testutil.Case(t, "contacts", "CreateTelegramAlertContact", "boundary", "london", func(t *testing.T, _ *allure.Context) {
+		svc, _, provider := contactTestService(t)
+		provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
+		if got, err := svc.CreateTelegramAlertContact(context.Background(), contactdto.CreateTelegramAlertContactDTO{ChatID: 42, BotToken: "token"}); err == nil || got != nil {
+			t.Fatalf("CreateTelegramAlertContact() = (%#v, %v)", got, err)
+		}
 	})
-	t.Run("returns persistence failure", func(t *testing.T) {
-		testutil.Case(t, "contacts", "CreateTelegramAlertContact", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
-			svc, repository, provider := contactTestService(t)
-			provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
-			repository.EXPECT().Create(gomock.Any(), gomock.Any()).Return(repo.ErrDB)
-			_, err := svc.CreateTelegramAlertContact(context.Background(), contactdto.CreateTelegramAlertContactDTO{Name: "Operations", ChatID: 42, BotToken: "token"})
-			if !errors.Is(err, repo.ErrDB) {
-				t.Fatalf("CreateTelegramAlertContact() error = %v", err)
-			}
-		})
+}
+
+func contactCreationReturnsPersistenceFailure(t *testing.T) {
+	testutil.Case(t, "contacts", "CreateTelegramAlertContact", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
+		svc, repository, provider := contactTestService(t)
+		provider.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
+		repository.EXPECT().Create(gomock.Any(), gomock.Any()).Return(repo.ErrDB)
+		_, err := svc.CreateTelegramAlertContact(context.Background(), contactdto.CreateTelegramAlertContactDTO{Name: "Operations", ChatID: 42, BotToken: "token"})
+		if !errors.Is(err, repo.ErrDB) {
+			t.Fatalf("CreateTelegramAlertContact() error = %v", err)
+		}
 	})
 }
 

@@ -233,28 +233,8 @@ func newMaintenanceWindowTypeMapper(log *slog.Logger) *maintenanceWindowTypeMapp
 	})
 
 	toDBConfigMap := mapper.New[maintenance.MaintenanceWindowConfig, []byte, maintenance.WindowType]()
-	toDBConfigMap.Register(maintenance.WindowTypeOneTime, func(c maintenance.MaintenanceWindowConfig) ([]byte, error) {
-		onceCfg, ok := c.(maintenance.OneTimeMaintenanceWindowConfig)
-		if !ok {
-			if onceCfgPtr, ok := c.(*maintenance.OneTimeMaintenanceWindowConfig); ok && onceCfgPtr != nil {
-				onceCfg = *onceCfgPtr
-			} else {
-				return nil, fmt.Errorf("unexpected config type for one-time maintenance window: %T", c)
-			}
-		}
-		return json.Marshal(onceCfg)
-	})
-	toDBConfigMap.Register(maintenance.WindowTypeManual, func(c maintenance.MaintenanceWindowConfig) ([]byte, error) {
-		manualCfg, ok := c.(maintenance.ManualMaintenanceWindowConfig)
-		if !ok {
-			if manualCfgPtr, ok := c.(*maintenance.ManualMaintenanceWindowConfig); ok && manualCfgPtr != nil {
-				manualCfg = *manualCfgPtr
-			} else {
-				return nil, fmt.Errorf("unexpected config type for manual maintenance window: %T", c)
-			}
-		}
-		return json.Marshal(manualCfg)
-	})
+	toDBConfigMap.Register(maintenance.WindowTypeOneTime, marshalMaintenanceOneTimeConfig)
+	toDBConfigMap.Register(maintenance.WindowTypeManual, marshalMaintenanceManualConfig)
 
 	toDomainTypeMap := mapper.New[sqlcgen.MaintenanceType, maintenance.WindowType, sqlcgen.MaintenanceType]()
 	toDomainTypeMap.Register(sqlcgen.MaintenanceTypeONCE, func(_ sqlcgen.MaintenanceType) (maintenance.WindowType, error) {
@@ -265,24 +245,8 @@ func newMaintenanceWindowTypeMapper(log *slog.Logger) *maintenanceWindowTypeMapp
 	})
 
 	toDomainConfigMap := mapper.New[[]byte, maintenance.MaintenanceWindowConfig, maintenance.WindowType]()
-	toDomainConfigMap.Register(maintenance.WindowTypeOneTime, func(payload []byte) (maintenance.MaintenanceWindowConfig, error) {
-		var cfg maintenance.OneTimeMaintenanceWindowConfig
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &cfg); err != nil {
-				return nil, err
-			}
-		}
-		return cfg, nil
-	})
-	toDomainConfigMap.Register(maintenance.WindowTypeManual, func(payload []byte) (maintenance.MaintenanceWindowConfig, error) {
-		var cfg maintenance.ManualMaintenanceWindowConfig
-		if len(payload) > 0 {
-			if err := json.Unmarshal(payload, &cfg); err != nil {
-				return nil, err
-			}
-		}
-		return cfg, nil
-	})
+	toDomainConfigMap.Register(maintenance.WindowTypeOneTime, unmarshalMaintenanceOneTimeConfig)
+	toDomainConfigMap.Register(maintenance.WindowTypeManual, unmarshalMaintenanceManualConfig)
 
 	return &maintenanceWindowTypeMapper{
 		log:                    log,
@@ -291,6 +255,50 @@ func newMaintenanceWindowTypeMapper(log *slog.Logger) *maintenanceWindowTypeMapp
 		toDomainTypeRegistry:   toDomainTypeMap,
 		toDomainConfigRegistry: toDomainConfigMap,
 	}
+}
+
+func marshalMaintenanceOneTimeConfig(c maintenance.MaintenanceWindowConfig) ([]byte, error) {
+	onceCfg, ok := c.(maintenance.OneTimeMaintenanceWindowConfig)
+	if !ok {
+		if onceCfgPtr, ok := c.(*maintenance.OneTimeMaintenanceWindowConfig); ok && onceCfgPtr != nil {
+			onceCfg = *onceCfgPtr
+		} else {
+			return nil, fmt.Errorf("unexpected config type for one-time maintenance window: %T", c)
+		}
+	}
+	return json.Marshal(onceCfg)
+}
+
+func marshalMaintenanceManualConfig(c maintenance.MaintenanceWindowConfig) ([]byte, error) {
+	manualCfg, ok := c.(maintenance.ManualMaintenanceWindowConfig)
+	if !ok {
+		if manualCfgPtr, ok := c.(*maintenance.ManualMaintenanceWindowConfig); ok && manualCfgPtr != nil {
+			manualCfg = *manualCfgPtr
+		} else {
+			return nil, fmt.Errorf("unexpected config type for manual maintenance window: %T", c)
+		}
+	}
+	return json.Marshal(manualCfg)
+}
+
+func unmarshalMaintenanceOneTimeConfig(payload []byte) (maintenance.MaintenanceWindowConfig, error) {
+	var cfg maintenance.OneTimeMaintenanceWindowConfig
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
+}
+
+func unmarshalMaintenanceManualConfig(payload []byte) (maintenance.MaintenanceWindowConfig, error) {
+	var cfg maintenance.ManualMaintenanceWindowConfig
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
 }
 
 func (m maintenanceWindowTypeMapper) ToDBMaintenanceWindowType(t maintenance.WindowType) (sqlcgen.MaintenanceType, error) {

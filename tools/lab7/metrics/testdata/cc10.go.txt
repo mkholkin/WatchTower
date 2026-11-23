@@ -1,0 +1,12 @@
+package fixture
+func boundary(x int) {
+if x == 0 { x++ }
+if x == 1 { x++ }
+if x == 2 { x++ }
+if x == 3 { x++ }
+if x == 4 { x++ }
+if x == 5 { x++ }
+if x == 6 { x++ }
+if x == 7 { x++ }
+if x == 8 { x++ }
+}

@@ -19,13 +19,13 @@ import (
 )
 
 type monitorRepositoryMG struct {
-	db              *mongo.Database
-	monitorsColl    *mongo.Collection
-	targetsColl     *mongo.Collection
-	contactsColl    *mongo.Collection
-	mwColl          *mongo.Collection
-	usersColl       *mongo.Collection
-	log             *slog.Logger
+	db           *mongo.Database
+	monitorsColl *mongo.Collection
+	targetsColl  *mongo.Collection
+	contactsColl *mongo.Collection
+	mwColl       *mongo.Collection
+	usersColl    *mongo.Collection
+	log          *slog.Logger
 }
 
 func NewMonitorRepository(db *mongo.Database, logger *slog.Logger) repo.MonitorRepository {
@@ -56,18 +56,18 @@ func (r *monitorRepositoryMG) Create(ctx context.Context, mon *monitor.Monitor) 
 	}
 
 	_, err = r.monitorsColl.InsertOne(ctx, bson.M{
-		"_id":                  mon.ID.String(),
-		"label":                mon.Label,
-		"target_id":            mon.Target.ID.String(),
-		"user_login":           mon.User.Login,
-		"is_active":            mon.IsActive,
-		"probe_interval_sec":   mon.ProbeIntervalSec,
-		"expectations":         string(expJSON),
-		"expectations_protocol": string(mon.Expectations.Protocol()),
-		"current_status":       string(mon.CurrentStatus),
-		"last_evaluated_at":    mon.LastEvaluatedAt,
-		"created_at":           mon.CreatedAt,
-		"alert_contact_ids":    contactIDs,
+		"_id":                    mon.ID.String(),
+		"label":                  mon.Label,
+		"target_id":              mon.Target.ID.String(),
+		"user_login":             mon.User.Login,
+		"is_active":              mon.IsActive,
+		"probe_interval_sec":     mon.ProbeIntervalSec,
+		"expectations":           string(expJSON),
+		"expectations_protocol":  string(mon.Expectations.Protocol()),
+		"current_status":         string(mon.CurrentStatus),
+		"last_evaluated_at":      mon.LastEvaluatedAt,
+		"created_at":             mon.CreatedAt,
+		"alert_contact_ids":      contactIDs,
 		"maintenance_window_ids": mwIDs,
 	})
 	return mapMongoError(err)
@@ -93,16 +93,16 @@ func (r *monitorRepositoryMG) Update(ctx context.Context, mon *monitor.Monitor) 
 	}
 
 	res, err := r.monitorsColl.UpdateOne(ctx, bson.M{"_id": mon.ID.String()}, bson.M{"$set": bson.M{
-		"label":                mon.Label,
-		"target_id":            mon.Target.ID.String(),
-		"user_login":           mon.User.Login,
-		"is_active":            mon.IsActive,
-		"probe_interval_sec":   mon.ProbeIntervalSec,
-		"expectations":         string(expJSON),
-		"expectations_protocol": string(mon.Expectations.Protocol()),
-		"current_status":       string(mon.CurrentStatus),
-		"last_evaluated_at":    mon.LastEvaluatedAt,
-		"alert_contact_ids":    contactIDs,
+		"label":                  mon.Label,
+		"target_id":              mon.Target.ID.String(),
+		"user_login":             mon.User.Login,
+		"is_active":              mon.IsActive,
+		"probe_interval_sec":     mon.ProbeIntervalSec,
+		"expectations":           string(expJSON),
+		"expectations_protocol":  string(mon.Expectations.Protocol()),
+		"current_status":         string(mon.CurrentStatus),
+		"last_evaluated_at":      mon.LastEvaluatedAt,
+		"alert_contact_ids":      contactIDs,
 		"maintenance_window_ids": mwIDs,
 	}})
 	if err != nil {
@@ -247,19 +247,19 @@ func (r *monitorRepositoryMG) Disable(ctx context.Context, monitorID uuid.UUID) 
 // --- document types ---
 
 type monitorDoc struct {
-	ID                  string    `bson:"_id"`
-	Label               string    `bson:"label"`
-	TargetID            string    `bson:"target_id"`
-	UserLogin           string    `bson:"user_login"`
-	IsActive            bool      `bson:"is_active"`
-	ProbeIntervalSec    int32     `bson:"probe_interval_sec"`
-	Expectations        string    `bson:"expectations"`
-	ExpectationsProtocol string   `bson:"expectations_protocol"`
-	CurrentStatus       string    `bson:"current_status"`
-	LastEvaluatedAt     time.Time `bson:"last_evaluated_at"`
-	CreatedAt           time.Time `bson:"created_at"`
-	AlertContactIDs     []string  `bson:"alert_contact_ids"`
-	MaintenanceWindowIDs []string `bson:"maintenance_window_ids"`
+	ID                   string    `bson:"_id"`
+	Label                string    `bson:"label"`
+	TargetID             string    `bson:"target_id"`
+	UserLogin            string    `bson:"user_login"`
+	IsActive             bool      `bson:"is_active"`
+	ProbeIntervalSec     int32     `bson:"probe_interval_sec"`
+	Expectations         string    `bson:"expectations"`
+	ExpectationsProtocol string    `bson:"expectations_protocol"`
+	CurrentStatus        string    `bson:"current_status"`
+	LastEvaluatedAt      time.Time `bson:"last_evaluated_at"`
+	CreatedAt            time.Time `bson:"created_at"`
+	AlertContactIDs      []string  `bson:"alert_contact_ids"`
+	MaintenanceWindowIDs []string  `bson:"maintenance_window_ids"`
 }
 
 // --- resolution helpers ---
@@ -338,6 +338,10 @@ func (r *monitorRepositoryMG) populateMonitors(ctx context.Context, docs []monit
 		return nil, err
 	}
 
+	return r.mapMonitorDocs(docs, targetMap, contactMap, mwMap)
+}
+
+func (r *monitorRepositoryMG) mapMonitorDocs(docs []monitorDoc, targetMap map[string]*target.Target, contactMap map[string]*alert.Contact, mwMap map[string][]maintenance.MaintenanceWindow) ([]*monitor.Monitor, error) {
 	result := make([]*monitor.Monitor, 0, len(docs))
 	for _, d := range docs {
 		id, err := uuid.Parse(d.ID)

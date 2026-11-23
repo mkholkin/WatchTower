@@ -110,19 +110,8 @@ func main() {
 		log.Fatalf("failed to load config %q: %v", configPath, err)
 	}
 
-	var recorder *observability.Recorder
-	if path := os.Getenv("WT_TRACE_FILE"); path != "" {
-		recorder, err = observability.New(path)
-		if err != nil {
-			log.Fatal("cannot open trace output")
-		}
-		observability.SetCurrent(recorder)
-		defer func() {
-			if err := recorder.Close(); err != nil {
-				log.Print(err)
-			}
-		}()
-	}
+	recorder := configureRecorder()
+	defer closeRecorder(recorder)
 	logger, closer, err := configs.NewLoggerFromConfig(cfg.Logging)
 	if err != nil {
 		log.Fatal("cannot initialize request logger")
@@ -157,5 +146,27 @@ func main() {
 
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func configureRecorder() *observability.Recorder {
+	path := os.Getenv("WT_TRACE_FILE")
+	if path == "" {
+		return nil
+	}
+	recorder, err := observability.New(path)
+	if err != nil {
+		log.Fatal("cannot open trace output")
+	}
+	observability.SetCurrent(recorder)
+	return recorder
+}
+
+func closeRecorder(recorder *observability.Recorder) {
+	if recorder == nil {
+		return
+	}
+	if err := recorder.Close(); err != nil {
+		log.Print(err)
 	}
 }

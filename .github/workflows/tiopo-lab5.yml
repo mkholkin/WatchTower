@@ -4,6 +4,9 @@ on:
     branches: [TIOPO-5]
   pull_request:
     paths:
+      - .github/workflows/static-analysis.yml
+      - .githooks/**
+      - tools/lab7/**
       - tests/lab5/**
       - tools/lab5/**
       - internal/**
@@ -24,7 +27,10 @@ concurrency:
   group: tiopo-lab5-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  static:
+    uses: ./.github/workflows/static-analysis.yml
   bdd:
+    needs: static
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:

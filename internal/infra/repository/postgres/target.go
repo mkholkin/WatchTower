@@ -205,39 +205,9 @@ func newTargetTypeMapper(log *slog.Logger) *targetTypeMapper {
 	})
 
 	toDBConfigMap := mapper.New[target.NetworkConfig, []byte, target.Protocol]()
-	toDBConfigMap.Register(target.ProtocolHTTP, func(c target.NetworkConfig) ([]byte, error) {
-		httpCfg, ok := c.(target.HTTPConfig)
-		if !ok {
-			if httpCfgPtr, ok := c.(*target.HTTPConfig); ok && httpCfgPtr != nil {
-				httpCfg = *httpCfgPtr
-			} else {
-				return nil, fmt.Errorf("unexpected config type for HTTP: %T", c)
-			}
-		}
-		return json.Marshal(httpCfg)
-	})
-	toDBConfigMap.Register(target.ProtocolTCP, func(c target.NetworkConfig) ([]byte, error) {
-		tcpCfg, ok := c.(target.TCPConfig)
-		if !ok {
-			if tcpCfgPtr, ok := c.(*target.TCPConfig); ok && tcpCfgPtr != nil {
-				tcpCfg = *tcpCfgPtr
-			} else {
-				return nil, fmt.Errorf("unexpected config type for TCP: %T", c)
-			}
-		}
-		return json.Marshal(tcpCfg)
-	})
-	toDBConfigMap.Register(target.ProtocolICMP, func(c target.NetworkConfig) ([]byte, error) {
-		icmpCfg, ok := c.(target.ICMPConfig)
-		if !ok {
-			if icmpCfgPtr, ok := c.(*target.ICMPConfig); ok && icmpCfgPtr != nil {
-				icmpCfg = *icmpCfgPtr
-			} else {
-				return nil, fmt.Errorf("unexpected config type for ICMP: %T", c)
-			}
-		}
-		return json.Marshal(icmpCfg)
-	})
+	toDBConfigMap.Register(target.ProtocolHTTP, marshalTargetHTTPConfig)
+	toDBConfigMap.Register(target.ProtocolTCP, marshalTargetTCPConfig)
+	toDBConfigMap.Register(target.ProtocolICMP, marshalTargetICMPConfig)
 
 	toDomainProtocolMap := mapper.New[sqlcgen.ProtocolType, target.Protocol, sqlcgen.ProtocolType]()
 	toDomainProtocolMap.Register(sqlcgen.ProtocolTypeHTTP, func(_ sqlcgen.ProtocolType) (target.Protocol, error) {
@@ -251,27 +221,9 @@ func newTargetTypeMapper(log *slog.Logger) *targetTypeMapper {
 	})
 
 	toDomainConfigMap := mapper.New[[]byte, target.NetworkConfig, target.Protocol]()
-	toDomainConfigMap.Register(target.ProtocolHTTP, func(payload []byte) (target.NetworkConfig, error) {
-		var cfg target.HTTPConfig
-		if err := json.Unmarshal(payload, &cfg); err != nil {
-			return nil, err
-		}
-		return cfg, nil
-	})
-	toDomainConfigMap.Register(target.ProtocolTCP, func(payload []byte) (target.NetworkConfig, error) {
-		var cfg target.TCPConfig
-		if err := json.Unmarshal(payload, &cfg); err != nil {
-			return nil, err
-		}
-		return cfg, nil
-	})
-	toDomainConfigMap.Register(target.ProtocolICMP, func(payload []byte) (target.NetworkConfig, error) {
-		var cfg target.ICMPConfig
-		if err := json.Unmarshal(payload, &cfg); err != nil {
-			return nil, err
-		}
-		return cfg, nil
-	})
+	toDomainConfigMap.Register(target.ProtocolHTTP, unmarshalTargetHTTPConfig)
+	toDomainConfigMap.Register(target.ProtocolTCP, unmarshalTargetTCPConfig)
+	toDomainConfigMap.Register(target.ProtocolICMP, unmarshalTargetICMPConfig)
 
 	return &targetTypeMapper{
 		log:                    log,
@@ -280,6 +232,66 @@ func newTargetTypeMapper(log *slog.Logger) *targetTypeMapper {
 		toDomainProtocolReg:    toDomainProtocolMap,
 		toDomainConfigRegistry: toDomainConfigMap,
 	}
+}
+
+func marshalTargetHTTPConfig(c target.NetworkConfig) ([]byte, error) {
+	httpCfg, ok := c.(target.HTTPConfig)
+	if !ok {
+		if httpCfgPtr, ok := c.(*target.HTTPConfig); ok && httpCfgPtr != nil {
+			httpCfg = *httpCfgPtr
+		} else {
+			return nil, fmt.Errorf("unexpected config type for HTTP: %T", c)
+		}
+	}
+	return json.Marshal(httpCfg)
+}
+
+func marshalTargetTCPConfig(c target.NetworkConfig) ([]byte, error) {
+	tcpCfg, ok := c.(target.TCPConfig)
+	if !ok {
+		if tcpCfgPtr, ok := c.(*target.TCPConfig); ok && tcpCfgPtr != nil {
+			tcpCfg = *tcpCfgPtr
+		} else {
+			return nil, fmt.Errorf("unexpected config type for TCP: %T", c)
+		}
+	}
+	return json.Marshal(tcpCfg)
+}
+
+func marshalTargetICMPConfig(c target.NetworkConfig) ([]byte, error) {
+	icmpCfg, ok := c.(target.ICMPConfig)
+	if !ok {
+		if icmpCfgPtr, ok := c.(*target.ICMPConfig); ok && icmpCfgPtr != nil {
+			icmpCfg = *icmpCfgPtr
+		} else {
+			return nil, fmt.Errorf("unexpected config type for ICMP: %T", c)
+		}
+	}
+	return json.Marshal(icmpCfg)
+}
+
+func unmarshalTargetHTTPConfig(payload []byte) (target.NetworkConfig, error) {
+	var cfg target.HTTPConfig
+	if err := json.Unmarshal(payload, &cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func unmarshalTargetTCPConfig(payload []byte) (target.NetworkConfig, error) {
+	var cfg target.TCPConfig
+	if err := json.Unmarshal(payload, &cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func unmarshalTargetICMPConfig(payload []byte) (target.NetworkConfig, error) {
+	var cfg target.ICMPConfig
+	if err := json.Unmarshal(payload, &cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 func (m targetTypeMapper) ToDBProtocolType(p target.Protocol) (sqlcgen.ProtocolType, error) {

@@ -25,7 +25,7 @@ func NewUserRepository(db *mongo.Database, logger *slog.Logger) repo.UserReposit
 
 func (r *userRepositoryMG) Create(ctx context.Context, usr *user.User) error {
 	_, err := r.coll.InsertOne(ctx, bson.M{
-		"_id":          usr.Login,
+		"_id":           usr.Login,
 		"password_hash": usr.PasswordHash,
 	})
 	return mapMongoError(err)

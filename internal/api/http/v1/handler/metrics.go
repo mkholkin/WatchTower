@@ -7,59 +7,61 @@ import (
 	"time"
 
 	"WatchTower/internal/domain/entity/probe"
+
+	"github.com/google/uuid"
 )
 
 var getMonitorsMonitorIdChecksResponseFactory = v1.ResponseFactory[apigen.GetMonitorsMonitorIdChecksResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.GetMonitorsMonitorIdChecksResponseObject {
-		return apigen.GetMonitorsMonitorIdChecks400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.GetMonitorsMonitorIdChecks400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.GetMonitorsMonitorIdChecksResponseObject {
-		return apigen.GetMonitorsMonitorIdChecks401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.GetMonitorsMonitorIdChecks401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.GetMonitorsMonitorIdChecksResponseObject {
-		return apigen.GetMonitorsMonitorIdChecks403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.GetMonitorsMonitorIdChecks403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.GetMonitorsMonitorIdChecksResponseObject {
-		return apigen.GetMonitorsMonitorIdChecks404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.GetMonitorsMonitorIdChecks404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.GetMonitorsMonitorIdChecksResponseObject {
-		return apigen.GetMonitorsMonitorIdChecks500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.GetMonitorsMonitorIdChecks500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var getMonitorsMonitorIdSlaResponseFactory = v1.ResponseFactory[apigen.GetMonitorsMonitorIdSlaResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.GetMonitorsMonitorIdSlaResponseObject {
-		return apigen.GetMonitorsMonitorIdSla400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.GetMonitorsMonitorIdSla400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.GetMonitorsMonitorIdSlaResponseObject {
-		return apigen.GetMonitorsMonitorIdSla401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.GetMonitorsMonitorIdSla401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.GetMonitorsMonitorIdSlaResponseObject {
-		return apigen.GetMonitorsMonitorIdSla403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.GetMonitorsMonitorIdSla403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.GetMonitorsMonitorIdSlaResponseObject {
-		return apigen.GetMonitorsMonitorIdSla404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.GetMonitorsMonitorIdSla404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.GetMonitorsMonitorIdSlaResponseObject {
-		return apigen.GetMonitorsMonitorIdSla500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.GetMonitorsMonitorIdSla500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var GetMonitorStatusHistoryResponseFactory = v1.ResponseFactory[apigen.GetMonitorStatusHistoryResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.GetMonitorStatusHistoryResponseObject {
-		return apigen.GetMonitorStatusHistory400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.GetMonitorStatusHistory400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.GetMonitorStatusHistoryResponseObject {
-		return apigen.GetMonitorStatusHistory401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.GetMonitorStatusHistory401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.GetMonitorStatusHistoryResponseObject {
-		return apigen.GetMonitorStatusHistory403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.GetMonitorStatusHistory403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.GetMonitorStatusHistoryResponseObject {
-		return apigen.GetMonitorStatusHistory404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.GetMonitorStatusHistory404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.GetMonitorStatusHistoryResponseObject {
-		return apigen.GetMonitorStatusHistory500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.GetMonitorStatusHistory500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
@@ -70,16 +72,8 @@ func (a *ApiHandler) GetMonitorsMonitorIdChecks(ctx context.Context, request api
 		to    = request.Params.To
 	)
 
-	if limit != nil && (from != nil || to != nil) {
-		return getMonitorsMonitorIdChecksResponseFactory[400](
-			errorResponse("INVALID_DATA", "limit cannot be used with from/to"),
-		), nil
-	}
-
-	if (from != nil && to == nil) || (from == nil && to != nil) {
-		return getMonitorsMonitorIdChecksResponseFactory[400](
-			errorResponse("INVALID_DATA", "from and to must be provided together"),
-		), nil
+	if message := monitorChecksParameterError(limit, from, to); message != "" {
+		return getMonitorsMonitorIdChecksResponseFactory[400](errorResponse("INVALID_DATA", message)), nil
 	}
 
 	var summaries []*probe.Summary
@@ -99,6 +93,10 @@ func (a *ApiHandler) GetMonitorsMonitorIdChecks(ctx context.Context, request api
 		return v1.ResponseFromFactory(getMonitorsMonitorIdChecksResponseFactory, err), nil
 	}
 
+	return mapMonitorChecks(request.MonitorId, summaries), nil
+}
+
+func mapMonitorChecks(monitorID uuid.UUID, summaries []*probe.Summary) apigen.GetMonitorsMonitorIdChecks200JSONResponse {
 	response := apigen.GetMonitorsMonitorIdChecks200JSONResponse{}
 	for _, s := range summaries {
 		if s == nil {
@@ -119,7 +117,7 @@ func (a *ApiHandler) GetMonitorsMonitorIdChecks(ctx context.Context, request api
 		}
 
 		response = append(response, apigen.MonitorCheck{
-			MonitorId:      request.MonitorId,
+			MonitorId:      monitorID,
 			CheckTime:      s.ProbeTime,
 			Status:         apigen.MonitorStatus(s.MonitorStatus),
 			LatencyMs:      int(s.LatencyMs),
@@ -129,7 +127,7 @@ func (a *ApiHandler) GetMonitorsMonitorIdChecks(ctx context.Context, request api
 		})
 	}
 
-	return response, nil
+	return response
 }
 
 func (a *ApiHandler) GetMonitorsMonitorIdSla(ctx context.Context, request apigen.GetMonitorsMonitorIdSlaRequestObject) (apigen.GetMonitorsMonitorIdSlaResponseObject, error) {
@@ -192,4 +190,14 @@ func (a *ApiHandler) GetMonitorStatusHistory(ctx context.Context, request apigen
 	}
 
 	return response, nil
+}
+
+func monitorChecksParameterError(limit *int, from, to *time.Time) string {
+	if limit != nil && (from != nil || to != nil) {
+		return "limit cannot be used with from/to"
+	}
+	if (from != nil && to == nil) || (from == nil && to != nil) {
+		return "from and to must be provided together"
+	}
+	return ""
 }

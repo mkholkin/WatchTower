@@ -150,19 +150,7 @@ func InitApp(ctx context.Context, cfg *configs.Config) (*App, error) {
 		return nil, err
 	}
 
-	if err := app.initMonitoringService(ctx, cfg, userProvider); err != nil {
-		return nil, err
-	}
-
-	if err := app.initMaintenanceService(ctx, cfg, userProvider); err != nil {
-		return nil, err
-	}
-
-	if err := app.initContactService(ctx, cfg, userProvider); err != nil {
-		return nil, err
-	}
-
-	if err := app.initMetricsQueryService(ctx, cfg, userProvider); err != nil {
+	if err := app.initUserServices(ctx, cfg, userProvider); err != nil {
 		return nil, err
 	}
 
@@ -518,4 +506,24 @@ func (a *App) Shutdown() {
 	for _, client := range a.mongoClients {
 		_ = client.Disconnect(context.Background())
 	}
+}
+
+func (a *App) initUserServices(ctx context.Context, cfg *configs.Config, userProvider provider.UserProvider) error {
+	if err := a.initMonitoringService(ctx, cfg, userProvider); err != nil {
+		return err
+	}
+
+	if err := a.initMaintenanceService(ctx, cfg, userProvider); err != nil {
+		return err
+	}
+
+	if err := a.initContactService(ctx, cfg, userProvider); err != nil {
+		return err
+	}
+
+	if err := a.initMetricsQueryService(ctx, cfg, userProvider); err != nil {
+		return err
+	}
+
+	return nil
 }

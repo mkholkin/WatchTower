@@ -1,0 +1,1187 @@
+{
+  "commit": "77fcda3",
+  "summary": {
+    "files": 174,
+    "functions": 1631,
+    "skipped_generated": [
+      "internal/api/http/v1/gen/openapi.gen.go",
+      "internal/infra/repository/postgres/sqlcgen/alert_contact.sql.go",
+      "internal/infra/repository/postgres/sqlcgen/db.go",
+      "internal/infra/repository/postgres/sqlcgen/maintenance_window.sql.go",
+      "internal/infra/repository/postgres/sqlcgen/metrics.sql.go",
+      "internal/infra/repository/postgres/sqlcgen/models.go",
+      "internal/infra/repository/postgres/sqlcgen/monitor.sql.go",
+      "internal/infra/repository/postgres/sqlcgen/probe_result.sql.go",
+      "internal/infra/repository/postgres/sqlcgen/probe_summary.sql.go",
+      "internal/infra/repository/postgres/sqlcgen/target.sql.go",
+      "internal/infra/repository/postgres/sqlcgen/user.sql.go",
+      "internal/service/testmocks/alert_contact_repo_mock.go",
+      "internal/service/testmocks/healthcheck_prober_mock.go",
+      "internal/service/testmocks/maintenance_repo_mock.go",
+      "internal/service/testmocks/monitor_repo_mock.go",
+      "internal/service/testmocks/probe_evaluator_mock.go",
+      "internal/service/testmocks/probe_result_repo_mock.go",
+      "internal/service/testmocks/probe_summary_repo_mock.go",
+      "internal/service/testmocks/subscriber_mock.go",
+      "internal/service/testmocks/target_repo_mock.go",
+      "internal/service/testmocks/user_provider_mock.go",
+      "internal/service/testmocks/user_repo_mock.go"
+    ],
+    "max_cyclomatic": 70,
+    "violations": 64
+  },
+  "violations": [
+    {
+      "id": "runTrial@benchmarks/lab3/main.go:200:1",
+      "name": "runTrial",
+      "file": "benchmarks/lab3/main.go",
+      "line": 200,
+      "cyclomatic": 18,
+      "halstead": {
+        "n1": 64,
+        "n2": 38,
+        "N1": 204,
+        "N2": 126,
+        "vocabulary": 102,
+        "length": 330,
+        "volume": 2201.9003628505934,
+        "difficulty": 106.10526315789474,
+        "effort": 233633.2174477261
+      }
+    },
+    {
+      "id": "TestLibrariesProduceEquivalentMonitorChecks@benchmarks/lab3/main_test.go:9:1",
+      "name": "TestLibrariesProduceEquivalentMonitorChecks",
+      "file": "benchmarks/lab3/main_test.go",
+      "line": 9,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 29,
+        "n2": 16,
+        "N1": 79,
+        "N2": 47,
+        "vocabulary": 45,
+        "length": 126,
+        "volume": 691.973490137539,
+        "difficulty": 42.59375,
+        "effort": 29473.7458455458
+      }
+    },
+    {
+      "id": "TestTrialSeparatesPhasesAndCountsAllOperations@benchmarks/lab3/main_test.go:36:1",
+      "name": "TestTrialSeparatesPhasesAndCountsAllOperations",
+      "file": "benchmarks/lab3/main_test.go",
+      "line": 36,
+      "cyclomatic": 17,
+      "halstead": {
+        "n1": 42,
+        "n2": 21,
+        "N1": 116,
+        "N2": 64,
+        "vocabulary": 63,
+        "length": 180,
+        "volume": 1075.910386229985,
+        "difficulty": 64,
+        "effort": 68858.26471871905
+      }
+    },
+    {
+      "id": "main@cmd/api/main.go:97:1",
+      "name": "main",
+      "file": "cmd/api/main.go",
+      "line": 97,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 54,
+        "n2": 28,
+        "N1": 161,
+        "N2": 75,
+        "vocabulary": 82,
+        "length": 236,
+        "volume": 1500.3822730898678,
+        "difficulty": 72.32142857142857,
+        "effort": 108509.7893931065
+      }
+    },
+    {
+      "id": "TestSetupRouterCorrelatesDatabaseSpanThroughGinContext@cmd/api/main_test.go:19:1",
+      "name": "TestSetupRouterCorrelatesDatabaseSpanThroughGinContext",
+      "file": "cmd/api/main_test.go",
+      "line": 19,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 64,
+        "n2": 24,
+        "N1": 181,
+        "N2": 83,
+        "vocabulary": 88,
+        "length": 264,
+        "volume": 1705.2899473202465,
+        "difficulty": 110.66666666666667,
+        "effort": 188718.75417010728
+      }
+    },
+    {
+      "id": "main@cmd/cli/main.go:50:1",
+      "name": "main",
+      "file": "cmd/cli/main.go",
+      "line": 50,
+      "cyclomatic": 17,
+      "halstead": {
+        "n1": 108,
+        "n2": 69,
+        "N1": 467,
+        "N2": 231,
+        "vocabulary": 177,
+        "length": 698,
+        "volume": 5212.388673957932,
+        "difficulty": 180.7826086956522,
+        "effort": 942309.2220137862
+      }
+    },
+    {
+      "id": "runMenu@cmd/cli/main.go:256:1",
+      "name": "runMenu",
+      "file": "cmd/cli/main.go",
+      "line": 256,
+      "cyclomatic": 19,
+      "halstead": {
+        "n1": 35,
+        "n2": 38,
+        "N1": 145,
+        "N2": 93,
+        "vocabulary": 73,
+        "length": 238,
+        "volume": 1473.1782450134442,
+        "difficulty": 42.828947368421055,
+        "effort": 63094.6735199837
+      }
+    },
+    {
+      "id": "runMonitoringMenu@cmd/cli/main.go:341:1",
+      "name": "runMonitoringMenu",
+      "file": "cmd/cli/main.go",
+      "line": 341,
+      "cyclomatic": 14,
+      "halstead": {
+        "n1": 26,
+        "n2": 33,
+        "N1": 99,
+        "N2": 71,
+        "vocabulary": 59,
+        "length": 170,
+        "volume": 1000.0493183915131,
+        "difficulty": 27.96969696969697,
+        "effort": 27971.076390162623
+      }
+    },
+    {
+      "id": "runMaintenanceMenu@cmd/cli/main.go:400:1",
+      "name": "runMaintenanceMenu",
+      "file": "cmd/cli/main.go",
+      "line": 400,
+      "cyclomatic": 13,
+      "halstead": {
+        "n1": 26,
+        "n2": 31,
+        "N1": 94,
+        "N2": 65,
+        "vocabulary": 57,
+        "length": 159,
+        "volume": 927.4295122521938,
+        "difficulty": 27.258064516129032,
+        "effort": 25279.93347913238
+      }
+    },
+    {
+      "id": "runContactsMenu@cmd/cli/main.go:456:1",
+      "name": "runContactsMenu",
+      "file": "cmd/cli/main.go",
+      "line": 456,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 24,
+        "n2": 27,
+        "N1": 81,
+        "N2": 56,
+        "vocabulary": 51,
+        "length": 137,
+        "volume": 777.1222718500949,
+        "difficulty": 24.88888888888889,
+        "effort": 19341.70987715792
+      }
+    },
+    {
+      "id": "handleUpdateMonitor@cmd/cli/main.go:711:1",
+      "name": "handleUpdateMonitor",
+      "file": "cmd/cli/main.go",
+      "line": 711,
+      "cyclomatic": 22,
+      "halstead": {
+        "n1": 51,
+        "n2": 43,
+        "N1": 221,
+        "N2": 133,
+        "vocabulary": 94,
+        "length": 354,
+        "volume": 2320.3244534938835,
+        "difficulty": 78.87209302325581,
+        "effort": 183008.84614010478
+      }
+    },
+    {
+      "id": "handleUpdateMaintenanceWindow@cmd/cli/main.go:1075:1",
+      "name": "handleUpdateMaintenanceWindow",
+      "file": "cmd/cli/main.go",
+      "line": 1075,
+      "cyclomatic": 20,
+      "halstead": {
+        "n1": 47,
+        "n2": 42,
+        "N1": 214,
+        "N2": 120,
+        "vocabulary": 89,
+        "length": 334,
+        "volume": 2162.8949659427767,
+        "difficulty": 67.14285714285714,
+        "effort": 145222.9477133007
+      }
+    },
+    {
+      "id": "handleUpdateContact@cmd/cli/main.go:1497:1",
+      "name": "handleUpdateContact",
+      "file": "cmd/cli/main.go",
+      "line": 1497,
+      "cyclomatic": 15,
+      "halstead": {
+        "n1": 42,
+        "n2": 34,
+        "N1": 155,
+        "N2": 95,
+        "vocabulary": 76,
+        "length": 250,
+        "volume": 1561.9818783608962,
+        "difficulty": 58.6764705882353,
+        "effort": 91651.58374499965
+      }
+    },
+    {
+      "id": "GetMonitorsMonitorIdChecks@internal/api/http/v1/handler/metrics.go:66:1",
+      "name": "GetMonitorsMonitorIdChecks",
+      "file": "internal/api/http/v1/handler/metrics.go",
+      "line": 66,
+      "cyclomatic": 17,
+      "halstead": {
+        "n1": 54,
+        "n2": 25,
+        "N1": 173,
+        "N2": 88,
+        "vocabulary": 79,
+        "length": 261,
+        "volume": 1645.2867752742238,
+        "difficulty": 95.04,
+        "effort": 156368.05512206224
+      }
+    },
+    {
+      "id": "RegisterMFARoutes@internal/api/http/v1/handler/mfa.go:57:1",
+      "name": "RegisterMFARoutes",
+      "file": "internal/api/http/v1/handler/mfa.go",
+      "line": 57,
+      "cyclomatic": 19,
+      "halstead": {
+        "n1": 45,
+        "n2": 46,
+        "N1": 249,
+        "N2": 159,
+        "vocabulary": 91,
+        "length": 408,
+        "volume": 2655.180213201068,
+        "difficulty": 77.77173913043478,
+        "effort": 206497.98288536567
+      }
+    },
+    {
+      "id": "CreateMonitor@internal/api/http/v1/handler/monitors.go:232:1",
+      "name": "CreateMonitor",
+      "file": "internal/api/http/v1/handler/monitors.go",
+      "line": 232,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 58,
+        "n2": 23,
+        "N1": 222,
+        "N2": 88,
+        "vocabulary": 81,
+        "length": 310,
+        "volume": 1965.3535008942335,
+        "difficulty": 110.95652173913044,
+        "effort": 218068.78844704715
+      }
+    },
+    {
+      "id": "UpdateMonitor@internal/api/http/v1/handler/monitors.go:328:1",
+      "name": "UpdateMonitor",
+      "file": "internal/api/http/v1/handler/monitors.go",
+      "line": 328,
+      "cyclomatic": 19,
+      "halstead": {
+        "n1": 61,
+        "n2": 28,
+        "N1": 268,
+        "N2": 110,
+        "vocabulary": 89,
+        "length": 378,
+        "volume": 2447.8272369052984,
+        "difficulty": 119.82142857142857,
+        "effort": 293302.15642204555
+      }
+    },
+    {
+      "id": "InitApp@internal/app/app.go:114:1",
+      "name": "InitApp",
+      "file": "internal/app/app.go",
+      "line": 114,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 53,
+        "n2": 15,
+        "N1": 183,
+        "N2": 89,
+        "vocabulary": 68,
+        "length": 272,
+        "volume": 1655.7898928200923,
+        "difficulty": 157.23333333333332,
+        "effort": 260345.36414774583
+      }
+    },
+    {
+      "id": "Send@internal/infra/notification/smtp_auth.go:34:1",
+      "name": "Send",
+      "file": "internal/infra/notification/smtp_auth.go",
+      "line": 34,
+      "cyclomatic": 15,
+      "halstead": {
+        "n1": 58,
+        "n2": 36,
+        "N1": 205,
+        "N2": 90,
+        "vocabulary": 94,
+        "length": 295,
+        "volume": 1933.603711244903,
+        "difficulty": 72.5,
+        "effort": 140186.26906525547
+      }
+    },
+    {
+      "id": "TestAuthSMTPDeliveryAndTLSRequirement@internal/infra/notification/smtp_auth_test.go:14:1",
+      "name": "TestAuthSMTPDeliveryAndTLSRequirement",
+      "file": "internal/infra/notification/smtp_auth_test.go",
+      "line": 14,
+      "cyclomatic": 18,
+      "halstead": {
+        "n1": 62,
+        "n2": 44,
+        "N1": 223,
+        "N2": 108,
+        "vocabulary": 106,
+        "length": 331,
+        "volume": 2226.9416704604187,
+        "difficulty": 76.0909090909091,
+        "effort": 169450.01619776094
+      }
+    },
+    {
+      "id": "func literal@internal/infra/notification/smtp_auth_test.go:16:87",
+      "name": "func literal",
+      "file": "internal/infra/notification/smtp_auth_test.go",
+      "line": 16,
+      "cyclomatic": 17,
+      "halstead": {
+        "n1": 56,
+        "n2": 42,
+        "N1": 198,
+        "N2": 101,
+        "vocabulary": 98,
+        "length": 299,
+        "volume": 1977.7982433904474,
+        "difficulty": 67.33333333333333,
+        "effort": 133171.7483882901
+      }
+    },
+    {
+      "id": "fetchAndFilterEvents@internal/infra/repository/mongodb/metrics.go:35:1",
+      "name": "fetchAndFilterEvents",
+      "file": "internal/infra/repository/mongodb/metrics.go",
+      "line": 35,
+      "cyclomatic": 15,
+      "halstead": {
+        "n1": 54,
+        "n2": 29,
+        "N1": 193,
+        "N2": 106,
+        "vocabulary": 83,
+        "length": 299,
+        "volume": 1906.1367899727304,
+        "difficulty": 98.6896551724138,
+        "effort": 188115.9825138605
+      }
+    },
+    {
+      "id": "GetSLAAggregation@internal/infra/repository/mongodb/metrics.go:134:1",
+      "name": "GetSLAAggregation",
+      "file": "internal/infra/repository/mongodb/metrics.go",
+      "line": 134,
+      "cyclomatic": 13,
+      "halstead": {
+        "n1": 47,
+        "n2": 22,
+        "N1": 126,
+        "N2": 83,
+        "vocabulary": 69,
+        "length": 209,
+        "volume": 1276.6816114666374,
+        "difficulty": 88.6590909090909,
+        "effort": 113189.43105298528
+      }
+    },
+    {
+      "id": "populateMonitors@internal/infra/repository/mongodb/monitor.go:304:1",
+      "name": "populateMonitors",
+      "file": "internal/infra/repository/mongodb/monitor.go",
+      "line": 304,
+      "cyclomatic": 14,
+      "halstead": {
+        "n1": 61,
+        "n2": 28,
+        "N1": 216,
+        "N2": 109,
+        "vocabulary": 89,
+        "length": 325,
+        "volume": 2104.613365064079,
+        "difficulty": 118.73214285714286,
+        "effort": 249885.2547198404
+      }
+    },
+    {
+      "id": "decodeCursor@internal/infra/repository/mongodb/probe_summary.go:152:1",
+      "name": "decodeCursor",
+      "file": "internal/infra/repository/mongodb/probe_summary.go",
+      "line": 152,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 53,
+        "n2": 26,
+        "N1": 177,
+        "N2": 86,
+        "vocabulary": 79,
+        "length": 263,
+        "volume": 1657.894336770578,
+        "difficulty": 87.65384615384616,
+        "effort": 145320.81513462108
+      }
+    },
+    {
+      "id": "newMaintenanceWindowTypeMapper@internal/infra/repository/postgres/maintenance_window.go:226:1",
+      "name": "newMaintenanceWindowTypeMapper",
+      "file": "internal/infra/repository/postgres/maintenance_window.go",
+      "line": 226,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 45,
+        "n2": 20,
+        "N1": 266,
+        "N2": 77,
+        "vocabulary": 65,
+        "length": 343,
+        "volume": 2065.67215986876,
+        "difficulty": 86.625,
+        "effort": 178938.85084863132
+      }
+    },
+    {
+      "id": "mapMonitorRowToDomain@internal/infra/repository/postgres/monitor.go:309:1",
+      "name": "mapMonitorRowToDomain",
+      "file": "internal/infra/repository/postgres/monitor.go",
+      "line": 309,
+      "cyclomatic": 14,
+      "halstead": {
+        "n1": 64,
+        "n2": 26,
+        "N1": 268,
+        "N2": 125,
+        "vocabulary": 90,
+        "length": 393,
+        "volume": 2551.2982668575623,
+        "difficulty": 153.84615384615384,
+        "effort": 392507.4256703942
+      }
+    },
+    {
+      "id": "newMonitorTypeMapper@internal/infra/repository/postgres/monitor_mapper.go:28:1",
+      "name": "newMonitorTypeMapper",
+      "file": "internal/infra/repository/postgres/monitor_mapper.go",
+      "line": 28,
+      "cyclomatic": 28,
+      "halstead": {
+        "n1": 83,
+        "n2": 29,
+        "N1": 749,
+        "N2": 206,
+        "vocabulary": 112,
+        "length": 955,
+        "volume": 6501.023950565012,
+        "difficulty": 294.7931034482759,
+        "effort": 1916457.0259786306
+      }
+    },
+    {
+      "id": "newTargetTypeMapper@internal/infra/repository/postgres/target.go:195:1",
+      "name": "newTargetTypeMapper",
+      "file": "internal/infra/repository/postgres/target.go",
+      "line": 195,
+      "cyclomatic": 13,
+      "halstead": {
+        "n1": 46,
+        "n2": 22,
+        "N1": 355,
+        "N2": 103,
+        "vocabulary": 68,
+        "length": 458,
+        "volume": 2788.0579812926553,
+        "difficulty": 107.68181818181819,
+        "effort": 300223.1526219228
+      }
+    },
+    {
+      "id": "assertPGRead@internal/infra/repository/postgres/unit_test.go:200:1",
+      "name": "assertPGRead",
+      "file": "internal/infra/repository/postgres/unit_test.go",
+      "line": 200,
+      "cyclomatic": 15,
+      "halstead": {
+        "n1": 108,
+        "n2": 27,
+        "N1": 529,
+        "N2": 264,
+        "vocabulary": 135,
+        "length": 793,
+        "volume": 5611.914768461309,
+        "difficulty": 528,
+        "effort": 2963090.997747571
+      }
+    },
+    {
+      "id": "GetMonitorLatestSummaries@internal/infra/repository/redis/probe_summary_repository.go:69:1",
+      "name": "GetMonitorLatestSummaries",
+      "file": "internal/infra/repository/redis/probe_summary_repository.go",
+      "line": 69,
+      "cyclomatic": 13,
+      "halstead": {
+        "n1": 37,
+        "n2": 23,
+        "N1": 134,
+        "N2": 103,
+        "vocabulary": 60,
+        "length": 237,
+        "volume": 1399.933071159219,
+        "difficulty": 82.84782608695652,
+        "effort": 115981.4116127779
+      }
+    },
+    {
+      "id": "TestCache_GetMonitorLatestSummaries@internal/infra/repository/redis/probe_summary_repository_test.go:54:1",
+      "name": "TestCache_GetMonitorLatestSummaries",
+      "file": "internal/infra/repository/redis/probe_summary_repository_test.go",
+      "line": 54,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 65,
+        "n2": 33,
+        "N1": 294,
+        "N2": 149,
+        "vocabulary": 98,
+        "length": 443,
+        "volume": 2930.3164609430373,
+        "difficulty": 146.74242424242425,
+        "effort": 430001.7412762624
+      }
+    },
+    {
+      "id": "func literal@internal/infra/repository/redis/probe_summary_repository_test.go:57:15",
+      "name": "func literal",
+      "file": "internal/infra/repository/redis/probe_summary_repository_test.go",
+      "line": 57,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 60,
+        "n2": 31,
+        "N1": 275,
+        "N2": 133,
+        "vocabulary": 91,
+        "length": 408,
+        "volume": 2655.180213201068,
+        "difficulty": 128.70967741935485,
+        "effort": 341747.3887313633
+      }
+    },
+    {
+      "id": "func literal@internal/infra/repository/redis/probe_summary_repository_test.go:58:115",
+      "name": "func literal",
+      "file": "internal/infra/repository/redis/probe_summary_repository_test.go",
+      "line": 58,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 58,
+        "n2": 27,
+        "N1": 266,
+        "N2": 127,
+        "vocabulary": 85,
+        "length": 393,
+        "volume": 2518.890637902117,
+        "difficulty": 136.40740740740742,
+        "effort": 343595.3414590184
+      }
+    },
+    {
+      "id": "TestRequestAndDatabaseTraceAreCorrelatedAndRedacted@internal/observability/trace_test.go:18:1",
+      "name": "TestRequestAndDatabaseTraceAreCorrelatedAndRedacted",
+      "file": "internal/observability/trace_test.go",
+      "line": 18,
+      "cyclomatic": 16,
+      "halstead": {
+        "n1": 68,
+        "n2": 34,
+        "N1": 202,
+        "N2": 94,
+        "vocabulary": 102,
+        "length": 296,
+        "volume": 1975.0379012235626,
+        "difficulty": 94,
+        "effort": 185653.56271501488
+      }
+    },
+    {
+      "id": "evaluate@internal/service/analyze/service.go:216:1",
+      "name": "evaluate",
+      "file": "internal/service/analyze/service.go",
+      "line": 216,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 53,
+        "n2": 33,
+        "N1": 169,
+        "N2": 113,
+        "vocabulary": 86,
+        "length": 282,
+        "volume": 1812.2066608259915,
+        "difficulty": 90.74242424242425,
+        "effort": 164444.02563161915
+      }
+    },
+    {
+      "id": "TestProbeAnalyzationServiceRun@internal/service/analyze/service_test.go:39:1",
+      "name": "TestProbeAnalyzationServiceRun",
+      "file": "internal/service/analyze/service_test.go",
+      "line": 39,
+      "cyclomatic": 18,
+      "halstead": {
+        "n1": 89,
+        "n2": 43,
+        "N1": 534,
+        "N2": 186,
+        "vocabulary": 132,
+        "length": 720,
+        "volume": 5071.963765938086,
+        "difficulty": 192.48837209302326,
+        "effort": 976294.0486202218
+      }
+    },
+    {
+      "id": "func literal@internal/service/analyze/service_test.go:76:76",
+      "name": "func literal",
+      "file": "internal/service/analyze/service_test.go",
+      "line": 76,
+      "cyclomatic": 16,
+      "halstead": {
+        "n1": 83,
+        "n2": 33,
+        "N1": 322,
+        "N2": 107,
+        "vocabulary": 116,
+        "length": 429,
+        "volume": 2942.073846909728,
+        "difficulty": 134.56060606060606,
+        "effort": 395887.23991523177
+      }
+    },
+    {
+      "id": "func literal@internal/service/analyze/service_test.go:77:92",
+      "name": "func literal",
+      "file": "internal/service/analyze/service_test.go",
+      "line": 77,
+      "cyclomatic": 16,
+      "halstead": {
+        "n1": 82,
+        "n2": 29,
+        "N1": 313,
+        "N2": 101,
+        "vocabulary": 111,
+        "length": 414,
+        "volume": 2812.8881686689438,
+        "difficulty": 142.79310344827587,
+        "effort": 401661.0312571758
+      }
+    },
+    {
+      "id": "TestContactServiceCreateTelegramAlertContact@internal/service/contacts/service_test.go:30:1",
+      "name": "TestContactServiceCreateTelegramAlertContact",
+      "file": "internal/service/contacts/service_test.go",
+      "line": 30,
+      "cyclomatic": 13,
+      "halstead": {
+        "n1": 52,
+        "n2": 25,
+        "N1": 262,
+        "N2": 106,
+        "vocabulary": 77,
+        "length": 368,
+        "volume": 2306.177446975724,
+        "difficulty": 110.24,
+        "effort": 254233.00175460379
+      }
+    },
+    {
+      "id": "TestSchedulerRun@internal/service/healthcheck/scheduler_test.go:29:1",
+      "name": "TestSchedulerRun",
+      "file": "internal/service/healthcheck/scheduler_test.go",
+      "line": 29,
+      "cyclomatic": 16,
+      "halstead": {
+        "n1": 81,
+        "n2": 60,
+        "N1": 901,
+        "N2": 361,
+        "vocabulary": 141,
+        "length": 1262,
+        "volume": 9010.113806727277,
+        "difficulty": 243.675,
+        "effort": 2195539.4818542693
+      }
+    },
+    {
+      "id": "TestPostgresAuthentication@internal/service/mfa/postgres_test.go:54:1",
+      "name": "TestPostgresAuthentication",
+      "file": "internal/service/mfa/postgres_test.go",
+      "line": 54,
+      "cyclomatic": 70,
+      "halstead": {
+        "n1": 105,
+        "n2": 143,
+        "N1": 1047,
+        "N2": 882,
+        "vocabulary": 248,
+        "length": 1929,
+        "volume": 15343.644682736282,
+        "difficulty": 323.8111888111888,
+        "effort": 4968443.825413311
+      }
+    },
+    {
+      "id": "func literal@internal/service/mfa/postgres_test.go:130:75",
+      "name": "func literal",
+      "file": "internal/service/mfa/postgres_test.go",
+      "line": 130,
+      "cyclomatic": 16,
+      "halstead": {
+        "n1": 51,
+        "n2": 42,
+        "N1": 158,
+        "N2": 120,
+        "vocabulary": 93,
+        "length": 278,
+        "volume": 1817.8861494880325,
+        "difficulty": 72.85714285714286,
+        "effort": 132445.99089127095
+      }
+    },
+    {
+      "id": "Enroll@internal/service/mfa/service.go:98:1",
+      "name": "Enroll",
+      "file": "internal/service/mfa/service.go",
+      "line": 98,
+      "cyclomatic": 13,
+      "halstead": {
+        "n1": 40,
+        "n2": 21,
+        "N1": 93,
+        "N2": 56,
+        "vocabulary": 61,
+        "length": 149,
+        "volume": 883.6798632968702,
+        "difficulty": 53.333333333333336,
+        "effort": 47129.59270916641
+      }
+    },
+    {
+      "id": "maintainTargetConsistency@internal/service/monitoring_management/service.go:547:1",
+      "name": "maintainTargetConsistency",
+      "file": "internal/service/monitoring_management/service.go",
+      "line": 547,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 37,
+        "n2": 12,
+        "N1": 92,
+        "N2": 51,
+        "vocabulary": 49,
+        "length": 143,
+        "volume": 802.9035077084748,
+        "difficulty": 78.625,
+        "effort": 63128.28829357883
+      }
+    },
+    {
+      "id": "TestMonitoringCreateMonitor@internal/service/monitoring_management/service_test.go:281:1",
+      "name": "TestMonitoringCreateMonitor",
+      "file": "internal/service/monitoring_management/service_test.go",
+      "line": 281,
+      "cyclomatic": 17,
+      "halstead": {
+        "n1": 84,
+        "n2": 34,
+        "N1": 543,
+        "N2": 170,
+        "vocabulary": 118,
+        "length": 713,
+        "volume": 4907.324494194993,
+        "difficulty": 210,
+        "effort": 1030538.1437809486
+      }
+    },
+    {
+      "id": "TestNotificationServiceRun@internal/service/notification/service_test.go:78:1",
+      "name": "TestNotificationServiceRun",
+      "file": "internal/service/notification/service_test.go",
+      "line": 78,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 97,
+        "n2": 45,
+        "N1": 401,
+        "N2": 154,
+        "vocabulary": 142,
+        "length": 555,
+        "volume": 3968.1096513250986,
+        "difficulty": 165.9777777777778,
+        "effort": 658618.0219054925
+      }
+    },
+    {
+      "id": "request@tests/lab2/e2e/monitor_http_test.go:27:1",
+      "name": "request",
+      "file": "tests/lab2/e2e/monitor_http_test.go",
+      "line": 27,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 46,
+        "n2": 28,
+        "N1": 130,
+        "N2": 90,
+        "vocabulary": 74,
+        "length": 220,
+        "volume": 1366.079740438369,
+        "difficulty": 73.92857142857143,
+        "effort": 100992.32366812229
+      }
+    },
+    {
+      "id": "TestHTTPMonitorFromRegistrationToBackgroundCheck@tests/lab2/e2e/monitor_http_test.go:95:1",
+      "name": "TestHTTPMonitorFromRegistrationToBackgroundCheck",
+      "file": "tests/lab2/e2e/monitor_http_test.go",
+      "line": 95,
+      "cyclomatic": 30,
+      "halstead": {
+        "n1": 78,
+        "n2": 120,
+        "N1": 419,
+        "N2": 328,
+        "vocabulary": 198,
+        "length": 747,
+        "volume": 5699.1293951994685,
+        "difficulty": 106.6,
+        "effort": 607527.1935282634
+      }
+    },
+    {
+      "id": "func literal@tests/lab2/e2e/monitor_http_test.go:96:55",
+      "name": "func literal",
+      "file": "tests/lab2/e2e/monitor_http_test.go",
+      "line": 96,
+      "cyclomatic": 30,
+      "halstead": {
+        "n1": 76,
+        "n2": 118,
+        "N1": 409,
+        "N2": 324,
+        "vocabulary": 194,
+        "length": 733,
+        "volume": 5570.736113323164,
+        "difficulty": 104.33898305084746,
+        "effort": 581244.9409087695
+      }
+    },
+    {
+      "id": "func literal@tests/lab2/e2e/monitor_http_test.go:139:114",
+      "name": "func literal",
+      "file": "tests/lab2/e2e/monitor_http_test.go",
+      "line": 139,
+      "cyclomatic": 13,
+      "halstead": {
+        "n1": 40,
+        "n2": 31,
+        "N1": 123,
+        "N2": 72,
+        "vocabulary": 71,
+        "length": 195,
+        "volume": 1199.200688303413,
+        "difficulty": 46.45161290322581,
+        "effort": 55704.80616635209
+      }
+    },
+    {
+      "id": "TestAuthPersistsCredentialsAndRejectsImpersonation@tests/lab2/integration/auth_test.go:15:1",
+      "name": "TestAuthPersistsCredentialsAndRejectsImpersonation",
+      "file": "tests/lab2/integration/auth_test.go",
+      "line": 15,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 38,
+        "n2": 25,
+        "N1": 146,
+        "N2": 86,
+        "vocabulary": 63,
+        "length": 232,
+        "volume": 1386.7289422519807,
+        "difficulty": 65.36,
+        "effort": 90636.60366558946
+      }
+    },
+    {
+      "id": "func literal@tests/lab2/integration/auth_test.go:16:57",
+      "name": "func literal",
+      "file": "tests/lab2/integration/auth_test.go",
+      "line": 16,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 35,
+        "n2": 23,
+        "N1": 136,
+        "N2": 82,
+        "vocabulary": 58,
+        "length": 218,
+        "volume": 1277.0398569378106,
+        "difficulty": 62.391304347826086,
+        "effort": 79676.18237851122
+      }
+    },
+    {
+      "id": "TestContactLinkPersistsAndEnforcesOwner@tests/lab2/integration/contact_test.go:15:1",
+      "name": "TestContactLinkPersistsAndEnforcesOwner",
+      "file": "tests/lab2/integration/contact_test.go",
+      "line": 15,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 44,
+        "n2": 29,
+        "N1": 179,
+        "N2": 108,
+        "vocabulary": 73,
+        "length": 287,
+        "volume": 1776.4796483985651,
+        "difficulty": 81.93103448275862,
+        "effort": 145548.81533086175
+      }
+    },
+    {
+      "id": "func literal@tests/lab2/integration/contact_test.go:16:63",
+      "name": "func literal",
+      "file": "tests/lab2/integration/contact_test.go",
+      "line": 16,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 41,
+        "n2": 27,
+        "N1": 169,
+        "N2": 104,
+        "vocabulary": 68,
+        "length": 273,
+        "volume": 1661.8773556613426,
+        "difficulty": 78.96296296296296,
+        "effort": 131226.7600840734
+      }
+    },
+    {
+      "id": "TestMaintenanceWindowAssociationAndOwner@tests/lab2/integration/maintenance_test.go:15:1",
+      "name": "TestMaintenanceWindowAssociationAndOwner",
+      "file": "tests/lab2/integration/maintenance_test.go",
+      "line": 15,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 42,
+        "n2": 28,
+        "N1": 177,
+        "N2": 107,
+        "vocabulary": 70,
+        "length": 284,
+        "volume": 1740.7163768123705,
+        "difficulty": 80.25,
+        "effort": 139692.48923919274
+      }
+    },
+    {
+      "id": "func literal@tests/lab2/integration/maintenance_test.go:16:67",
+      "name": "func literal",
+      "file": "tests/lab2/integration/maintenance_test.go",
+      "line": 16,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 39,
+        "n2": 26,
+        "N1": 167,
+        "N2": 103,
+        "vocabulary": 65,
+        "length": 270,
+        "volume": 1626.0393095176826,
+        "difficulty": 77.25,
+        "effort": 125611.53666024098
+      }
+    },
+    {
+      "id": "TestMonitorsShareTargetAndReconcileActiveInterval@tests/lab2/integration/monitor_lifecycle_test.go:15:1",
+      "name": "TestMonitorsShareTargetAndReconcileActiveInterval",
+      "file": "tests/lab2/integration/monitor_lifecycle_test.go",
+      "line": 15,
+      "cyclomatic": 29,
+      "halstead": {
+        "n1": 53,
+        "n2": 46,
+        "N1": 304,
+        "N2": 209,
+        "vocabulary": 99,
+        "length": 513,
+        "volume": 3400.85994610084,
+        "difficulty": 120.40217391304348,
+        "effort": 409470.930684337
+      }
+    },
+    {
+      "id": "func literal@tests/lab2/integration/monitor_lifecycle_test.go:16:65",
+      "name": "func literal",
+      "file": "tests/lab2/integration/monitor_lifecycle_test.go",
+      "line": 16,
+      "cyclomatic": 29,
+      "halstead": {
+        "n1": 50,
+        "n2": 44,
+        "N1": 294,
+        "N2": 205,
+        "vocabulary": 94,
+        "length": 499,
+        "volume": 3270.739836987141,
+        "difficulty": 116.47727272727273,
+        "effort": 380966.8560127068
+      }
+    },
+    {
+      "id": "func literal@tests/lab2/integration/monitor_lifecycle_test.go:34:113",
+      "name": "func literal",
+      "file": "tests/lab2/integration/monitor_lifecycle_test.go",
+      "line": 34,
+      "cyclomatic": 14,
+      "halstead": {
+        "n1": 33,
+        "n2": 21,
+        "N1": 122,
+        "N2": 85,
+        "vocabulary": 54,
+        "length": 207,
+        "volume": 1191.2617129478379,
+        "difficulty": 66.78571428571429,
+        "effort": 79559.2644004449
+      }
+    },
+    {
+      "id": "func literal@tests/lab2/integration/monitor_lifecycle_test.go:69:101",
+      "name": "func literal",
+      "file": "tests/lab2/integration/monitor_lifecycle_test.go",
+      "line": 69,
+      "cyclomatic": 12,
+      "halstead": {
+        "n1": 33,
+        "n2": 15,
+        "N1": 99,
+        "N2": 62,
+        "vocabulary": 48,
+        "length": 161,
+        "volume": 899.1789626161061,
+        "difficulty": 68.2,
+        "effort": 61324.00525041844
+      }
+    },
+    {
+      "id": "TestProbeResultFeedsHistoryAndRedisMetrics@tests/lab2/integration/probe_metrics_test.go:16:1",
+      "name": "TestProbeResultFeedsHistoryAndRedisMetrics",
+      "file": "tests/lab2/integration/probe_metrics_test.go",
+      "line": 16,
+      "cyclomatic": 30,
+      "halstead": {
+        "n1": 71,
+        "n2": 44,
+        "N1": 333,
+        "N2": 194,
+        "vocabulary": 115,
+        "length": 527,
+        "volume": 3607.5732568476856,
+        "difficulty": 156.52272727272728,
+        "effort": 564667.2049979548
+      }
+    },
+    {
+      "id": "func literal@tests/lab2/integration/probe_metrics_test.go:17:60",
+      "name": "func literal",
+      "file": "tests/lab2/integration/probe_metrics_test.go",
+      "line": 17,
+      "cyclomatic": 30,
+      "halstead": {
+        "n1": 68,
+        "n2": 42,
+        "N1": 323,
+        "N2": 190,
+        "vocabulary": 110,
+        "length": 513,
+        "volume": 3478.8375330381505,
+        "difficulty": 153.8095238095238,
+        "effort": 535078.3443672964
+      }
+    },
+    {
+      "id": "func literal@tests/lab2/integration/probe_metrics_test.go:53:91",
+      "name": "func literal",
+      "file": "tests/lab2/integration/probe_metrics_test.go",
+      "line": 53,
+      "cyclomatic": 11,
+      "halstead": {
+        "n1": 31,
+        "n2": 19,
+        "N1": 82,
+        "N2": 53,
+        "vocabulary": 50,
+        "length": 135,
+        "volume": 761.9205856195878,
+        "difficulty": 43.23684210526316,
+        "effort": 32943.04005718375
+      }
+    }
+  ]
+}

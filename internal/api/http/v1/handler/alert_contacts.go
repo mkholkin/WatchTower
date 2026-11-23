@@ -11,112 +11,112 @@ import (
 
 var getAlertContactListResponseFactory = v1.ResponseFactory[apigen.GetAlertContactsListResponseObject]{
 	401: func(er apigen.ErrorResponse) apigen.GetAlertContactsListResponseObject {
-		return apigen.GetAlertContactsList401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.GetAlertContactsList401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.GetAlertContactsListResponseObject {
-		return apigen.GetAlertContactsList500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.GetAlertContactsList500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var createAlertContactResponseFactory = v1.ResponseFactory[apigen.CreateAlertContactResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.CreateAlertContactResponseObject {
-		return apigen.CreateAlertContact400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.CreateAlertContact400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.CreateAlertContactResponseObject {
-		return apigen.CreateAlertContact401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.CreateAlertContact401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.CreateAlertContactResponseObject {
-		return apigen.CreateAlertContact500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.CreateAlertContact500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var getAlertContactDetailsResponseFactory = v1.ResponseFactory[apigen.GetAlertContactDetailsResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.GetAlertContactDetailsResponseObject {
-		return apigen.GetAlertContactDetails400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.GetAlertContactDetails400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.GetAlertContactDetailsResponseObject {
-		return apigen.GetAlertContactDetails401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.GetAlertContactDetails401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.GetAlertContactDetailsResponseObject {
-		return apigen.GetAlertContactDetails403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.GetAlertContactDetails403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.GetAlertContactDetailsResponseObject {
-		return apigen.GetAlertContactDetails404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.GetAlertContactDetails404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.GetAlertContactDetailsResponseObject {
-		return apigen.GetAlertContactDetails500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.GetAlertContactDetails500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var deleteAlertContactResponseFactory = v1.ResponseFactory[apigen.DeleteAlertContactResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.DeleteAlertContactResponseObject {
-		return apigen.DeleteAlertContact400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.DeleteAlertContact400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.DeleteAlertContactResponseObject {
-		return apigen.DeleteAlertContact401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.DeleteAlertContact401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.DeleteAlertContactResponseObject {
-		return apigen.DeleteAlertContact403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.DeleteAlertContact403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.DeleteAlertContactResponseObject {
-		return apigen.DeleteAlertContact404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.DeleteAlertContact404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.DeleteAlertContactResponseObject {
-		return apigen.DeleteAlertContact500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.DeleteAlertContact500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var disableAlertContactResponseFactory = v1.ResponseFactory[apigen.DisableAlertContactResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.DisableAlertContactResponseObject {
-		return apigen.DisableAlertContact400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.DisableAlertContact400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.DisableAlertContactResponseObject {
-		return apigen.DisableAlertContact401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.DisableAlertContact401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.DisableAlertContactResponseObject {
-		return apigen.DisableAlertContact403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.DisableAlertContact403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.DisableAlertContactResponseObject {
-		return apigen.DisableAlertContact404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.DisableAlertContact404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.DisableAlertContactResponseObject {
-		return apigen.DisableAlertContact500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.DisableAlertContact500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var enableAlertContactResponseFactory = v1.ResponseFactory[apigen.EnableAlertContactResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.EnableAlertContactResponseObject {
-		return apigen.EnableAlertContact400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.EnableAlertContact400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.EnableAlertContactResponseObject {
-		return apigen.EnableAlertContact401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.EnableAlertContact401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.EnableAlertContactResponseObject {
-		return apigen.EnableAlertContact403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.EnableAlertContact403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.EnableAlertContactResponseObject {
-		return apigen.EnableAlertContact404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.EnableAlertContact404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.EnableAlertContactResponseObject {
-		return apigen.EnableAlertContact500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.EnableAlertContact500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var updateAlertContactResponseFactory = v1.ResponseFactory[apigen.UpdateAlertContactResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.UpdateAlertContactResponseObject {
-		return apigen.UpdateAlertContact400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.UpdateAlertContact400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.UpdateAlertContactResponseObject {
-		return apigen.UpdateAlertContact401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.UpdateAlertContact401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	403: func(er apigen.ErrorResponse) apigen.UpdateAlertContactResponseObject {
-		return apigen.UpdateAlertContact403JSONResponse{apigen.N403JSONResponse(er)}
+		return apigen.UpdateAlertContact403JSONResponse{N403JSONResponse: apigen.N403JSONResponse(er)}
 	},
 	404: func(er apigen.ErrorResponse) apigen.UpdateAlertContactResponseObject {
-		return apigen.UpdateAlertContact404JSONResponse{apigen.N404JSONResponse(er)}
+		return apigen.UpdateAlertContact404JSONResponse{N404JSONResponse: apigen.N404JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.UpdateAlertContactResponseObject {
-		return apigen.UpdateAlertContact500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.UpdateAlertContact500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 

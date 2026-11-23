@@ -62,38 +62,7 @@ func TestCache_GetMonitorLatestSummaries(t *testing.T) {
 				limit := 1
 				a.Step("Arrange", func(*allure.Context) {
 					f = newCacheFixture(t)
-					switch name {
-					case "cache_hit":
-						f.mock.ExpectLRange(f.key, 0, 0).SetVal([]string{f.payload})
-						f.mock.ExpectExpire(f.key, 30*time.Minute).SetVal(true)
-					case "corrupt_cache_repaired", "corrupt_cache_fallback_error":
-						f.mock.ExpectLRange(f.key, 0, 0).SetVal([]string{"{"})
-						f.mock.ExpectDel(f.key).SetVal(1)
-						if name == "corrupt_cache_fallback_error" {
-							f.fallback.EXPECT().GetMonitorLatestSummaries(gomock.Any(), f.id, 1).Return(nil, storageFailure)
-						} else {
-							f.fallback.EXPECT().GetMonitorLatestSummaries(gomock.Any(), f.id, 1).Return([]*probe.Summary{f.summary}, nil)
-							f.expectPush()
-							f.mock.ExpectExpire(f.key, 30*time.Minute).SetVal(true)
-						}
-					case "cache_miss", "redis_error":
-						if name == "cache_miss" {
-							f.mock.ExpectLRange(f.key, 0, 0).SetVal(nil)
-						} else {
-							f.mock.ExpectLRange(f.key, 0, 0).SetErr(storageFailure)
-						}
-						f.fallback.EXPECT().GetMonitorLatestSummaries(gomock.Any(), f.id, 1).Return([]*probe.Summary{f.summary}, nil)
-						f.expectPush()
-						f.mock.ExpectExpire(f.key, 30*time.Minute).SetVal(true)
-					case "database_error":
-						f.mock.ExpectLRange(f.key, 0, 0).SetVal(nil)
-						f.fallback.EXPECT().GetMonitorLatestSummaries(gomock.Any(), f.id, 1).Return(nil, storageFailure)
-					case "zero_limit":
-						limit = 0
-					case "large_limit":
-						limit = 101
-						f.fallback.EXPECT().GetMonitorLatestSummaries(gomock.Any(), f.id, 101).Return([]*probe.Summary{f.summary}, nil)
-					}
+					limit = arrangeLatestSummaries(f, name)
 				})
 				a.Step("Act", func(*allure.Context) { got, err = f.repo.GetMonitorLatestSummaries(context.Background(), f.id, limit) })
 				a.Step("Assert", func(*allure.Context) {
@@ -241,4 +210,41 @@ func TestCache_BulkCreate(t *testing.T) {
 			})
 		})
 	}
+}
+
+func arrangeLatestSummaries(f *cacheFixture, name string) int {
+	limit := 1
+	switch name {
+	case "cache_hit":
+		f.mock.ExpectLRange(f.key, 0, 0).SetVal([]string{f.payload})
+		f.mock.ExpectExpire(f.key, 30*time.Minute).SetVal(true)
+	case "corrupt_cache_repaired", "corrupt_cache_fallback_error":
+		f.mock.ExpectLRange(f.key, 0, 0).SetVal([]string{"{"})
+		f.mock.ExpectDel(f.key).SetVal(1)
+		if name == "corrupt_cache_fallback_error" {
+			f.fallback.EXPECT().GetMonitorLatestSummaries(gomock.Any(), f.id, 1).Return(nil, storageFailure)
+		} else {
+			f.fallback.EXPECT().GetMonitorLatestSummaries(gomock.Any(), f.id, 1).Return([]*probe.Summary{f.summary}, nil)
+			f.expectPush()
+			f.mock.ExpectExpire(f.key, 30*time.Minute).SetVal(true)
+		}
+	case "cache_miss", "redis_error":
+		if name == "cache_miss" {
+			f.mock.ExpectLRange(f.key, 0, 0).SetVal(nil)
+		} else {
+			f.mock.ExpectLRange(f.key, 0, 0).SetErr(storageFailure)
+		}
+		f.fallback.EXPECT().GetMonitorLatestSummaries(gomock.Any(), f.id, 1).Return([]*probe.Summary{f.summary}, nil)
+		f.expectPush()
+		f.mock.ExpectExpire(f.key, 30*time.Minute).SetVal(true)
+	case "database_error":
+		f.mock.ExpectLRange(f.key, 0, 0).SetVal(nil)
+		f.fallback.EXPECT().GetMonitorLatestSummaries(gomock.Any(), f.id, 1).Return(nil, storageFailure)
+	case "zero_limit":
+		return 0
+	case "large_limit":
+		limit = 101
+		f.fallback.EXPECT().GetMonitorLatestSummaries(gomock.Any(), f.id, 101).Return([]*probe.Summary{f.summary}, nil)
+	}
+	return limit
 }

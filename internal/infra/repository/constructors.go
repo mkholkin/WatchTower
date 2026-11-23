@@ -94,56 +94,72 @@ func newRepo[T any](ctx context.Context, cfg configs.ServiceDBConfig, logger *sl
 
 func NewMonitorRepository(ctx context.Context, cfg configs.ServiceDBConfig, logger *slog.Logger) (repo.MonitorRepository, io.Closer, error) {
 	return newRepo(ctx, cfg, logger,
-		func(p *pgxpool.Pool) repo.MonitorRepository   { return postgres.NewMonitorRepository(p, logger) },
+		func(p *pgxpool.Pool) repo.MonitorRepository { return postgres.NewMonitorRepository(p, logger) },
 		func(db *mongo.Database) repo.MonitorRepository { return mongodb.NewMonitorRepository(db, logger) },
 	)
 }
 
 func NewTargetRepository(ctx context.Context, cfg configs.ServiceDBConfig, logger *slog.Logger) (repo.TargetRepository, io.Closer, error) {
 	return newRepo(ctx, cfg, logger,
-		func(p *pgxpool.Pool) repo.TargetRepository   { return postgres.NewTargetRepository(p, logger) },
+		func(p *pgxpool.Pool) repo.TargetRepository { return postgres.NewTargetRepository(p, logger) },
 		func(db *mongo.Database) repo.TargetRepository { return mongodb.NewTargetRepository(db, logger) },
 	)
 }
 
 func NewAlertContactRepository(ctx context.Context, cfg configs.ServiceDBConfig, logger *slog.Logger) (repo.AlertContactRepository, io.Closer, error) {
 	return newRepo(ctx, cfg, logger,
-		func(p *pgxpool.Pool) repo.AlertContactRepository   { return postgres.NewAlertContactRepository(p, logger) },
-		func(db *mongo.Database) repo.AlertContactRepository { return mongodb.NewAlertContactRepository(db, logger) },
+		func(p *pgxpool.Pool) repo.AlertContactRepository {
+			return postgres.NewAlertContactRepository(p, logger)
+		},
+		func(db *mongo.Database) repo.AlertContactRepository {
+			return mongodb.NewAlertContactRepository(db, logger)
+		},
 	)
 }
 
 func NewMaintenanceWindowRepository(ctx context.Context, cfg configs.ServiceDBConfig, logger *slog.Logger) (repo.MaintenanceWindowRepository, io.Closer, error) {
 	return newRepo(ctx, cfg, logger,
-		func(p *pgxpool.Pool) repo.MaintenanceWindowRepository   { return postgres.NewMaintenanceWindowRepository(p, logger) },
-		func(db *mongo.Database) repo.MaintenanceWindowRepository { return mongodb.NewMaintenanceWindowRepository(db, logger) },
+		func(p *pgxpool.Pool) repo.MaintenanceWindowRepository {
+			return postgres.NewMaintenanceWindowRepository(p, logger)
+		},
+		func(db *mongo.Database) repo.MaintenanceWindowRepository {
+			return mongodb.NewMaintenanceWindowRepository(db, logger)
+		},
 	)
 }
 
 func NewProbeResultRepository(ctx context.Context, cfg configs.ServiceDBConfig, logger *slog.Logger) (repo.ProbeResultRepository, io.Closer, error) {
 	return newRepo(ctx, cfg, logger,
-		func(p *pgxpool.Pool) repo.ProbeResultRepository   { return postgres.NewProbeResultRepository(p, logger) },
-		func(db *mongo.Database) repo.ProbeResultRepository { return mongodb.NewProbeResultRepository(db, logger) },
+		func(p *pgxpool.Pool) repo.ProbeResultRepository { return postgres.NewProbeResultRepository(p, logger) },
+		func(db *mongo.Database) repo.ProbeResultRepository {
+			return mongodb.NewProbeResultRepository(db, logger)
+		},
 	)
 }
 
 func NewProbeSummaryRepository(ctx context.Context, cfg configs.ServiceDBConfig, logger *slog.Logger) (repo.ProbeSummaryRepository, io.Closer, error) {
 	return newRepo(ctx, cfg, logger,
-		func(p *pgxpool.Pool) repo.ProbeSummaryRepository   { return postgres.NewProbeSummaryRepository(p, logger) },
-		func(db *mongo.Database) repo.ProbeSummaryRepository { return mongodb.NewProbeSummaryRepository(db, logger) },
+		func(p *pgxpool.Pool) repo.ProbeSummaryRepository {
+			return postgres.NewProbeSummaryRepository(p, logger)
+		},
+		func(db *mongo.Database) repo.ProbeSummaryRepository {
+			return mongodb.NewProbeSummaryRepository(db, logger)
+		},
 	)
 }
 
 func NewUserRepository(ctx context.Context, cfg configs.ServiceDBConfig, logger *slog.Logger) (repo.UserRepository, io.Closer, error) {
 	return newRepo(ctx, cfg, logger,
-		func(p *pgxpool.Pool) repo.UserRepository   { return postgres.NewUserRepository(p, logger) },
+		func(p *pgxpool.Pool) repo.UserRepository { return postgres.NewUserRepository(p, logger) },
 		func(db *mongo.Database) repo.UserRepository { return mongodb.NewUserRepository(db, logger) },
 	)
 }
 
 func NewAnalyticsRepository(ctx context.Context, cfg configs.ServiceDBConfig, logger *slog.Logger) (metrics.AnalyticsRepository, io.Closer, error) {
 	return newRepo(ctx, cfg, logger,
-		func(p *pgxpool.Pool) metrics.AnalyticsRepository   { return postgres.NewMetricsRepository(p, logger) },
-		func(db *mongo.Database) metrics.AnalyticsRepository { return mongodb.NewAnalyticsRepository(db, logger) },
+		func(p *pgxpool.Pool) metrics.AnalyticsRepository { return postgres.NewMetricsRepository(p, logger) },
+		func(db *mongo.Database) metrics.AnalyticsRepository {
+			return mongodb.NewAnalyticsRepository(db, logger)
+		},
 	)
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSetupRouterCorrelatesDatabaseSpanThroughGinContext(t *testing.T) {
@@ -37,29 +38,17 @@ func TestSetupRouterCorrelatesDatabaseSpanThroughGinContext(t *testing.T) {
 	})
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/trace-regression", nil))
-	if response.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusNoContent)
-	}
+	require.Equal(t, http.StatusNoContent, response.Code)
 	file, err := os.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	var child, parent observability.Span
-	if err := decoder.Decode(&child); err != nil {
-		t.Fatal(err)
-	}
-	if err := decoder.Decode(&parent); err != nil {
-		t.Fatal(err)
-	}
-	if child.Name != "postgres SELECT" || parent.Name != "GET /trace-regression" {
-		t.Fatalf("unexpected spans: child=%q parent=%q", child.Name, parent.Name)
-	}
-	if child.TraceID != parent.TraceID || child.ParentID != parent.SpanID {
-		t.Fatalf("database span is disconnected from HTTP span: child=%+v parent=%+v", child, parent)
-	}
-	if response.Header().Get("X-Trace-ID") != parent.TraceID {
-		t.Fatal("response trace ID differs from HTTP span")
-	}
+	require.NoError(t, decoder.Decode(&child))
+	require.NoError(t, decoder.Decode(&parent))
+	require.Equal(t, "postgres SELECT", child.Name)
+	require.Equal(t, "GET /trace-regression", parent.Name)
+	require.Equal(t, parent.TraceID, child.TraceID)
+	require.Equal(t, parent.SpanID, child.ParentID)
+	require.Equal(t, parent.TraceID, response.Header().Get("X-Trace-ID"))
 }

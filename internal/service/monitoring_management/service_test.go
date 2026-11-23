@@ -279,82 +279,90 @@ func TestMonitoringDeleteMonitor(t *testing.T) {
 }
 
 func TestMonitoringCreateMonitor(t *testing.T) {
-	t.Run("persists monitor on an existing target", func(t *testing.T) {
-		testutil.Case(t, "monitoring", "CreateMonitor", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
-			d := newMonitoringService(t, nil)
-			dto := validCreateDTO()
-			existing := testutil.ObjectMother{}.Target()
-			existing.ProbeIntervalSec = dto.ProbeIntervalSec
-			d.users.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
-			d.windows.EXPECT().GetByIDBulk(gomock.Any(), dto.MaintenanceWindowIDs).Return([]maintenance.MaintenanceWindow{}, nil)
-			d.contacts.EXPECT().GetByIDBulk(gomock.Any(), dto.AlertContactIDs).Return([]alert.Contact{}, nil)
-			d.targets.EXPECT().GetByHash(gomock.Any(), target.ComputeHash(dto.Endpoint, target.HTTPConfig{Method: "GET"})).Return(existing, nil)
-			d.monitors.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, got *monitor.Monitor) error {
-				if got.Label != dto.Label || got.User.Login != "alice" || got.Target != existing || !got.IsActive {
-					t.Fatalf("persisted monitor = %#v", got)
-				}
-				return nil
-			})
-			got, err := d.service.CreateMonitor(context.Background(), dto)
-			if err != nil || got == nil {
-				t.Fatalf("CreateMonitor() = (%#v, %v)", got, err)
+	t.Run("persists monitor on an existing target", monitorCreationUsesExistingTarget)
+	t.Run("creates target and publishes creation event", monitorCreationPublishesTarget)
+	t.Run("rejects protocol mismatch", monitorCreationRejectsProtocolMismatch)
+	t.Run("returns target lookup failure", monitorCreationReturnsLookupFailure)
+}
+
+func monitorCreationUsesExistingTarget(t *testing.T) {
+	testutil.Case(t, "monitoring", "CreateMonitor", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
+		d := newMonitoringService(t, nil)
+		dto := validCreateDTO()
+		existing := testutil.ObjectMother{}.Target()
+		existing.ProbeIntervalSec = dto.ProbeIntervalSec
+		d.users.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
+		d.windows.EXPECT().GetByIDBulk(gomock.Any(), dto.MaintenanceWindowIDs).Return([]maintenance.MaintenanceWindow{}, nil)
+		d.contacts.EXPECT().GetByIDBulk(gomock.Any(), dto.AlertContactIDs).Return([]alert.Contact{}, nil)
+		d.targets.EXPECT().GetByHash(gomock.Any(), target.ComputeHash(dto.Endpoint, target.HTTPConfig{Method: "GET"})).Return(existing, nil)
+		d.monitors.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, got *monitor.Monitor) error {
+			if got.Label != dto.Label || got.User.Login != "alice" || got.Target != existing || !got.IsActive {
+				t.Fatalf("persisted monitor = %#v", got)
 			}
+			return nil
 		})
+		got, err := d.service.CreateMonitor(context.Background(), dto)
+		if err != nil || got == nil {
+			t.Fatalf("CreateMonitor() = (%#v, %v)", got, err)
+		}
 	})
-	t.Run("creates target and publishes creation event", func(t *testing.T) {
-		testutil.Case(t, "monitoring", "CreateMonitor", "state-transition", "london", func(t *testing.T, _ *allure.Context) {
-			publisher := &recordingPublisher{}
-			d := newMonitoringService(t, publisher)
-			dto := validCreateDTO()
+}
+
+func monitorCreationPublishesTarget(t *testing.T) {
+	testutil.Case(t, "monitoring", "CreateMonitor", "state-transition", "london", func(t *testing.T, _ *allure.Context) {
+		publisher := &recordingPublisher{}
+		d := newMonitoringService(t, publisher)
+		dto := validCreateDTO()
+		d.users.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
+		d.windows.EXPECT().GetByIDBulk(gomock.Any(), gomock.Any()).Return([]maintenance.MaintenanceWindow{}, nil)
+		d.contacts.EXPECT().GetByIDBulk(gomock.Any(), gomock.Any()).Return([]alert.Contact{}, nil)
+		d.targets.EXPECT().GetByHash(gomock.Any(), gomock.Any()).Return(nil, repo.ErrNotFound)
+		d.targets.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
+		d.monitors.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
+		got, err := d.service.CreateMonitor(context.Background(), dto)
+		if err != nil || got == nil || publisher.topic != healthchecksvc.TopicTargetCreated || len(publisher.messages) != 1 {
+			t.Fatalf("CreateMonitor() = (%#v, %v), topic=%q messages=%d", got, err, publisher.topic, len(publisher.messages))
+		}
+		var event healthchecksvc.TargetEvent
+		if err := json.Unmarshal(publisher.messages[0].Payload, &event); err != nil || event.ID != got.Target.ID {
+			t.Fatalf("published event = %#v, error=%v", event, err)
+		}
+	})
+}
+
+func monitorCreationRejectsProtocolMismatch(t *testing.T) {
+	testutil.Case(t, "monitoring", "CreateMonitor", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
+		d := newMonitoringService(t, nil)
+		dto := validCreateDTO()
+		dto.Expectations = monitordto.TCPMonitorExpectations{}
+		d.users.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
+		if got, err := d.service.CreateMonitor(context.Background(), dto); err == nil || got != nil {
+			t.Fatalf("CreateMonitor() = (%#v, %v)", got, err)
+		}
+	})
+}
+
+func monitorCreationReturnsLookupFailure(t *testing.T) {
+	testutil.Case(t, "monitoring", "CreateMonitor", "equivalence", "london", func(t *testing.T, a *allure.Context) {
+		var d monitoringDeps
+		var dto monitordto.CreateMonitorDTO
+		var got *monitor.Monitor
+		var err error
+		a.Step("Arrange valid monitor input and failing target lookup", func(*allure.Context) {
+			d = newMonitoringService(t, nil)
+			dto = validCreateDTO()
 			d.users.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
 			d.windows.EXPECT().GetByIDBulk(gomock.Any(), gomock.Any()).Return([]maintenance.MaintenanceWindow{}, nil)
 			d.contacts.EXPECT().GetByIDBulk(gomock.Any(), gomock.Any()).Return([]alert.Contact{}, nil)
-			d.targets.EXPECT().GetByHash(gomock.Any(), gomock.Any()).Return(nil, repo.ErrNotFound)
-			d.targets.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
-			d.monitors.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
-			got, err := d.service.CreateMonitor(context.Background(), dto)
-			if err != nil || got == nil || publisher.topic != healthchecksvc.TopicTargetCreated || len(publisher.messages) != 1 {
-				t.Fatalf("CreateMonitor() = (%#v, %v), topic=%q messages=%d", got, err, publisher.topic, len(publisher.messages))
-			}
-			var event healthchecksvc.TargetEvent
-			if err := json.Unmarshal(publisher.messages[0].Payload, &event); err != nil || event.ID != got.Target.ID {
-				t.Fatalf("published event = %#v, error=%v", event, err)
-			}
+			d.targets.EXPECT().GetByHash(gomock.Any(), gomock.Any()).Return(nil, repo.ErrDB)
 		})
-	})
-	t.Run("rejects protocol mismatch", func(t *testing.T) {
-		testutil.Case(t, "monitoring", "CreateMonitor", "equivalence", "london", func(t *testing.T, _ *allure.Context) {
-			d := newMonitoringService(t, nil)
-			dto := validCreateDTO()
-			dto.Expectations = monitordto.TCPMonitorExpectations{}
-			d.users.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
-			if got, err := d.service.CreateMonitor(context.Background(), dto); err == nil || got != nil {
-				t.Fatalf("CreateMonitor() = (%#v, %v)", got, err)
-			}
+		a.Step("Act: create monitor", func(*allure.Context) {
+			got, err = d.service.CreateMonitor(context.Background(), dto)
 		})
-	})
-	t.Run("returns target lookup failure", func(t *testing.T) {
-		testutil.Case(t, "monitoring", "CreateMonitor", "equivalence", "london", func(t *testing.T, a *allure.Context) {
-			var d monitoringDeps
-			var dto monitordto.CreateMonitorDTO
-			var got *monitor.Monitor
-			var err error
-			a.Step("Arrange valid monitor input and failing target lookup", func(*allure.Context) {
-				d = newMonitoringService(t, nil)
-				dto = validCreateDTO()
-				d.users.EXPECT().GetAuthorizedUser(gomock.Any()).Return(&user.User{Login: "alice"}, nil)
-				d.windows.EXPECT().GetByIDBulk(gomock.Any(), gomock.Any()).Return([]maintenance.MaintenanceWindow{}, nil)
-				d.contacts.EXPECT().GetByIDBulk(gomock.Any(), gomock.Any()).Return([]alert.Contact{}, nil)
-				d.targets.EXPECT().GetByHash(gomock.Any(), gomock.Any()).Return(nil, repo.ErrDB)
-			})
-			a.Step("Act: create monitor", func(*allure.Context) {
-				got, err = d.service.CreateMonitor(context.Background(), dto)
-			})
-			a.Step("Assert: target lookup failure is preserved", func(*allure.Context) {
-				if got != nil || !errors.Is(err, repo.ErrDB) {
-					t.Fatalf("CreateMonitor() = (%#v, %v), want target lookup failure", got, err)
-				}
-			})
+		a.Step("Assert: target lookup failure is preserved", func(*allure.Context) {
+			if got != nil || !errors.Is(err, repo.ErrDB) {
+				t.Fatalf("CreateMonitor() = (%#v, %v), want target lookup failure", got, err)
+			}
 		})
 	})
 }

@@ -96,10 +96,10 @@ func New(pool *pgxpool.Pool, sender Sender, cfg Config) (*Service, error) {
 func validPassword(password string) bool { return len(password) > 0 && len(password) <= 72 }
 
 func (s *Service) Enroll(ctx context.Context, login, email, password string) error {
-	address, err := mail.ParseAddress(email)
-	if !validPassword(password) || login == "" || strings.TrimSpace(login) != login || len(login) > 255 || strings.ContainsAny(login, "\r\n") || err != nil || address.Address != email || strings.ContainsAny(email, "\r\n") {
+	if !validEnrollment(login, email, password) {
 		return ErrPolicy
 	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -352,4 +352,12 @@ func (s *Service) ParseToken(token string) (string, error) {
 		return "", authsvc.ErrTokenInvalid
 	}
 	return claims.Subject, nil
+}
+
+func validEnrollment(login, email, password string) bool {
+	address, err := mail.ParseAddress(email)
+	if !validPassword(password) || login == "" || strings.TrimSpace(login) != login || len(login) > 255 || strings.ContainsAny(login, "\r\n") || err != nil || address.Address != email || strings.ContainsAny(email, "\r\n") {
+		return false
+	}
+	return true
 }

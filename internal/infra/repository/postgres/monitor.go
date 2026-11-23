@@ -313,61 +313,13 @@ func mapMonitorRowToDomain(
 	dbUser sqlcgen.User,
 	alertContactsRaw, maintenanceWindowsRaw interface{},
 ) (*monitor.Monitor, error) {
-	var dbContacts []monitorAlertContactJSONRow
-	if err := parseJSONArray(alertContactsRaw, &dbContacts); err != nil {
+	mappedContacts, err := mapMonitorContacts(mpr, alertContactsRaw)
+	if err != nil {
 		return nil, err
 	}
-	var mappedContacts []alert.Contact
-	for _, c := range dbContacts {
-		domainType, err := mpr.ToDomainContactType(c.Type)
-		if err != nil {
-			return nil, err
-		}
-
-		domainConfig, err := mpr.ToDomainContactConfig(domainType, []byte(c.Config))
-		if err != nil {
-			return nil, err
-		}
-
-		mappedContacts = append(mappedContacts, alert.Contact{
-			ID:       c.ID,
-			User:     &user.User{Login: c.UserLogin},
-			Name:     c.Label,
-			Type:     domainType,
-			IsActive: c.IsActive,
-			Config:   domainConfig,
-		})
-	}
-
-	var dbWindows []monitorMaintenanceWindowJSONRow
-	if err := parseJSONArray(maintenanceWindowsRaw, &dbWindows); err != nil {
+	mappedWindows, err := mapMonitorWindows(mpr, maintenanceWindowsRaw)
+	if err != nil {
 		return nil, err
-	}
-	var mappedWindows []maintenance.MaintenanceWindow
-	for _, w := range dbWindows {
-		domainType, err := mpr.ToDomainMaintenanceWindowType(w.Type)
-		if err != nil {
-			return nil, err
-		}
-
-		domainConfig, err := mpr.ToDomainMaintenanceWindowConfig(domainType, []byte(w.Config))
-		if err != nil {
-			return nil, err
-		}
-
-		description := ""
-		if w.Description != nil {
-			description = *w.Description
-		}
-
-		mappedWindows = append(mappedWindows, maintenance.MaintenanceWindow{
-			ID:          w.ID,
-			User:        &user.User{Login: w.UserLogin},
-			Title:       w.Title,
-			Description: description,
-			Type:        domainType,
-			Config:      domainConfig,
-		})
 	}
 
 	domainProtocol, err := mpr.ToDomainTargetProtocol(dbTarget.Protocol)
@@ -416,4 +368,70 @@ func mapMonitorRowToDomain(
 	}
 
 	return mon, nil
+}
+
+func mapMonitorContacts(mpr *monitorTypeMapper, alertContactsRaw interface{}) ([]alert.Contact, error) {
+	var dbContacts []monitorAlertContactJSONRow
+	if err := parseJSONArray(alertContactsRaw, &dbContacts); err != nil {
+		return nil, err
+	}
+	var mappedContacts []alert.Contact
+	for _, c := range dbContacts {
+		domainType, err := mpr.ToDomainContactType(c.Type)
+		if err != nil {
+			return nil, err
+		}
+
+		domainConfig, err := mpr.ToDomainContactConfig(domainType, []byte(c.Config))
+		if err != nil {
+			return nil, err
+		}
+
+		mappedContacts = append(mappedContacts, alert.Contact{
+			ID:       c.ID,
+			User:     &user.User{Login: c.UserLogin},
+			Name:     c.Label,
+			Type:     domainType,
+			IsActive: c.IsActive,
+			Config:   domainConfig,
+		})
+	}
+
+	return mappedContacts, nil
+}
+
+func mapMonitorWindows(mpr *monitorTypeMapper, maintenanceWindowsRaw interface{}) ([]maintenance.MaintenanceWindow, error) {
+
+	var dbWindows []monitorMaintenanceWindowJSONRow
+	if err := parseJSONArray(maintenanceWindowsRaw, &dbWindows); err != nil {
+		return nil, err
+	}
+	var mappedWindows []maintenance.MaintenanceWindow
+	for _, w := range dbWindows {
+		domainType, err := mpr.ToDomainMaintenanceWindowType(w.Type)
+		if err != nil {
+			return nil, err
+		}
+
+		domainConfig, err := mpr.ToDomainMaintenanceWindowConfig(domainType, []byte(w.Config))
+		if err != nil {
+			return nil, err
+		}
+
+		description := ""
+		if w.Description != nil {
+			description = *w.Description
+		}
+
+		mappedWindows = append(mappedWindows, maintenance.MaintenanceWindow{
+			ID:          w.ID,
+			User:        &user.User{Login: w.UserLogin},
+			Title:       w.Title,
+			Description: description,
+			Type:        domainType,
+			Config:      domainConfig,
+		})
+	}
+
+	return mappedWindows, nil
 }

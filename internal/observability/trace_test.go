@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRequestAndDatabaseTraceAreCorrelatedAndRedacted(t *testing.T) {
@@ -32,34 +33,25 @@ func TestRequestAndDatabaseTraceAreCorrelatedAndRedacted(t *testing.T) {
 	})
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest("GET", "/items/private-id?token=private-query", nil))
-	if err := recorder.Close(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, recorder.Close())
 	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(data), "private") || strings.Contains(string(data), "accounts") {
-		t.Fatal("trace leaked input")
-	}
+	require.NoError(t, err)
+	require.NotContains(t, string(data), "private")
+	require.NotContains(t, string(data), "accounts")
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("spans=%d want2", len(lines))
-	}
+	require.Len(t, lines, 2)
 	var child, parent Span
-	if err := json.Unmarshal([]byte(lines[0]), &child); err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal([]byte(lines[1]), &parent); err != nil {
-		t.Fatal(err)
-	}
-	if child.ParentID != parent.SpanID || child.TraceID != parent.TraceID || parent.Name != "GET /items/:id" || child.Name != "postgres SELECT" {
-		t.Fatal("incorrect trace structure")
-	}
-	if parent.DurationNS < child.DurationNS || parent.Status != 200 || response.Header().Get("X-Trace-ID") != parent.TraceID {
-		t.Fatal("incorrect timing/status/correlation")
-	}
+	require.NoError(t, json.Unmarshal([]byte(lines[0]), &child))
+	require.NoError(t, json.Unmarshal([]byte(lines[1]), &parent))
+	require.Equal(t, parent.SpanID, child.ParentID)
+	require.Equal(t, parent.TraceID, child.TraceID)
+	require.Equal(t, "GET /items/:id", parent.Name)
+	require.Equal(t, "postgres SELECT", child.Name)
+	require.GreaterOrEqual(t, parent.DurationNS, child.DurationNS)
+	require.Equal(t, 200, parent.Status)
+	require.Equal(t, parent.TraceID, response.Header().Get("X-Trace-ID"))
 }
+
 func TestDisabledTracingCreatesNoSpans(t *testing.T) {
 	var recorder *Recorder
 	ctx, span := recorder.Start(context.Background(), "disabled")

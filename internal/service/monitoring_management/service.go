@@ -552,12 +552,7 @@ func (s *monitoringManagementService) maintainTargetConsistency(ctx context.Cont
 		return err
 	}
 
-	var minProbeInterval int32
-	for _, mon := range associatedMonitors {
-		if mon.IsActive && (minProbeInterval == 0 || mon.ProbeIntervalSec < minProbeInterval) {
-			minProbeInterval = mon.ProbeIntervalSec
-		}
-	}
+	minProbeInterval := minimumActiveProbeInterval(associatedMonitors)
 
 	if minProbeInterval == 0 {
 		target.IsActive = false
@@ -674,4 +669,15 @@ func (s *monitoringManagementService) UnlinkAlertContact(
 		"alert_contact_id", alertContactID,
 	)
 	return nil
+}
+
+func minimumActiveProbeInterval(associatedMonitors []*monitor.Monitor) int32 {
+	var minProbeInterval int32
+	for _, mon := range associatedMonitors {
+		if mon.IsActive && (minProbeInterval == 0 || mon.ProbeIntervalSec < minProbeInterval) {
+			minProbeInterval = mon.ProbeIntervalSec
+		}
+	}
+
+	return minProbeInterval
 }

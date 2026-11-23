@@ -251,17 +251,7 @@ func (s *ProbeAnalyzationService) evaluate(
 				newStatus = evaluated
 			}
 
-			// Build ProbeSummary.
-			summary := &probe.Summary{
-				MonitorID:      mon.ID,
-				LatencyMs:      r.LatencyMs,
-				ProbeTime:      r.ProbeTime,
-				MonitorStatus:  newStatus,
-				NetworkFailure: r.NetworkFailure,
-			}
-			if r.StatusCode.Valid {
-				summary.StatusCode = r.StatusCode.Int32
-			}
+			summary := buildProbeSummary(r, mon.ID, newStatus)
 			summaries = append(summaries, summary)
 
 			// Detect status transition.
@@ -347,4 +337,19 @@ func (s *ProbeAnalyzationService) commit(
 	}
 
 	return nil
+}
+
+func buildProbeSummary(r *probe.Result, monitorID uuid.UUID, newStatus monitor.Status) *probe.Summary {
+	// Build ProbeSummary.
+	summary := &probe.Summary{
+		MonitorID:      monitorID,
+		LatencyMs:      r.LatencyMs,
+		ProbeTime:      r.ProbeTime,
+		MonitorStatus:  newStatus,
+		NetworkFailure: r.NetworkFailure,
+	}
+	if r.StatusCode.Valid {
+		summary.StatusCode = r.StatusCode.Int32
+	}
+	return summary
 }

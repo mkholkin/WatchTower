@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -75,6 +76,10 @@ func main() {
 		}()
 	}
 
+	runConfiguredCLI(ctx, cfg, logger)
+}
+
+func runConfiguredCLI(ctx context.Context, cfg *configs.Config, logger *slog.Logger) {
 	authPool, err := newPgPool(ctx, cfg.Database.Auth.DSN)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to init auth db pool: %v\n", err)
@@ -118,6 +123,10 @@ func main() {
 	}
 	defer analyzerPool.Close()
 
+	runServices(ctx, cfg, logger, authPool, monitoringPool, maintenancePool, contactsPool, metricsPool, healthcheckerPool, analyzerPool)
+}
+
+func runServices(ctx context.Context, cfg *configs.Config, logger *slog.Logger, authPool, monitoringPool, maintenancePool, contactsPool, metricsPool, healthcheckerPool, analyzerPool *pgxpool.Pool) {
 	userRepo := postgres.NewUserRepository(authPool, logger)
 	jwtTTL := time.Duration(cfg.Auth.JWTTTLHours) * time.Hour
 	authService := authsvc.NewService(userRepo, cfg.Auth.JWTSecret, jwtTTL)
@@ -228,7 +237,7 @@ func main() {
 		analyzerProbeSummaryRepo,
 		evaluator,
 		eventBus,
-		analyzationsvc.ProbeAnalyzationServiceConfig{-1, -1},
+		analyzationsvc.ProbeAnalyzationServiceConfig{FetchLimit: -1, LoadSheddingThreshold: -1},
 		logger,
 	)
 
@@ -265,23 +274,7 @@ func runMenu(
 	currentUser := ""
 
 	for {
-		fmt.Println()
-		fmt.Println("========== WatchTower CLI: Main ==========")
-		if currentUser == "" {
-			fmt.Println("User: guest")
-		} else {
-			fmt.Printf("User: %s\n", currentUser)
-		}
-		fmt.Println("1) Register")
-		fmt.Println("2) Login")
-		if currentUser != "" {
-			fmt.Println("3) Monitoring")
-			fmt.Println("4) Maintenance")
-			fmt.Println("5) Contacts")
-			fmt.Println("6) Metrics")
-			fmt.Println("7) Logout")
-		}
-		fmt.Println("0) Exit")
+		printMainMenu(currentUser)
 
 		choice, err := prompt(scanner, "Select action: ")
 		if err != nil {
@@ -293,48 +286,72 @@ func runMenu(
 			continue
 		}
 
-		switch choice {
-		case "1":
-			handleRegister(ctx, scanner, authService)
-		case "2":
-			currentUser = handleLogin(ctx, scanner, authService, currentUser)
-		case "3":
-			if currentUser == "" {
-				fmt.Println("Please login first")
-				continue
-			}
-			runMonitoringMenu(ctx, scanner, monitoringService, currentUser)
-		case "4":
-			if currentUser == "" {
-				fmt.Println("Please login first")
-				continue
-			}
-			runMaintenanceMenu(ctx, scanner, maintenanceService, currentUser)
-		case "5":
-			if currentUser == "" {
-				fmt.Println("Please login first")
-				continue
-			}
-			runContactsMenu(ctx, scanner, contactService, currentUser)
-		case "6":
-			if currentUser == "" {
-				fmt.Println("Please login first")
-				continue
-			}
-			runMetricsMenu(ctx, scanner, metricsService, currentUser)
-		case "7":
-			if currentUser == "" {
-				fmt.Println("Unknown menu item")
-				continue
-			}
-			currentUser = ""
-			fmt.Println("Logged out")
-		case "0":
-			fmt.Println("Bye")
+		var keepRunning bool
+		currentUser, keepRunning = dispatchMainMenu(ctx, scanner, authService, monitoringService, maintenanceService, contactService, metricsService, currentUser, choice)
+		if !keepRunning {
 			return
-		default:
-			fmt.Println("Unknown menu item")
 		}
+	}
+}
+
+func printMainMenu(currentUser string) {
+	fmt.Println()
+	fmt.Println("========== WatchTower CLI: Main ==========")
+	if currentUser == "" {
+		fmt.Println("User: guest")
+	} else {
+		fmt.Printf("User: %s\n", currentUser)
+	}
+	fmt.Println("1) Register")
+	fmt.Println("2) Login")
+	if currentUser != "" {
+		fmt.Println("3) Monitoring")
+		fmt.Println("4) Maintenance")
+		fmt.Println("5) Contacts")
+		fmt.Println("6) Metrics")
+		fmt.Println("7) Logout")
+	}
+	fmt.Println("0) Exit")
+}
+
+func dispatchMainMenu(ctx context.Context, scanner *bufio.Scanner, authService authsvc.AuthService, monitoringService monitoringsvc.MonitoringManagementService, maintenanceService maintenancesvc.MaintenanceService, contactService contactssvc.ContactService, metricsService metricssvc.MetricQueryService, currentUser, choice string) (string, bool) {
+	switch choice {
+	case "1":
+		handleRegister(ctx, scanner, authService)
+	case "2":
+		currentUser = handleLogin(ctx, scanner, authService, currentUser)
+	case "3", "4", "5", "6":
+		if currentUser == "" {
+			fmt.Println("Please login first")
+			return currentUser, true
+		}
+		runUserMenu(ctx, scanner, monitoringService, maintenanceService, contactService, metricsService, currentUser, choice)
+	case "7":
+		if currentUser == "" {
+			fmt.Println("Unknown menu item")
+			return currentUser, true
+		}
+		currentUser = ""
+		fmt.Println("Logged out")
+	case "0":
+		fmt.Println("Bye")
+		return currentUser, false
+	default:
+		fmt.Println("Unknown menu item")
+	}
+	return currentUser, true
+}
+
+func runUserMenu(ctx context.Context, scanner *bufio.Scanner, monitoringService monitoringsvc.MonitoringManagementService, maintenanceService maintenancesvc.MaintenanceService, contactService contactssvc.ContactService, metricsService metricssvc.MetricQueryService, currentUser, choice string) {
+	switch choice {
+	case "3":
+		runMonitoringMenu(ctx, scanner, monitoringService, currentUser)
+	case "4":
+		runMaintenanceMenu(ctx, scanner, maintenanceService, currentUser)
+	case "5":
+		runContactsMenu(ctx, scanner, contactService, currentUser)
+	case "6":
+		runMetricsMenu(ctx, scanner, metricsService, currentUser)
 	}
 }
 
@@ -372,29 +389,36 @@ func runMonitoringMenu(
 			continue
 		}
 
-		switch choice {
-		case "1":
-			handleCreateMonitor(ctx, scanner, monitoringService, currentUser)
-		case "2":
-			handleUpdateMonitor(ctx, scanner, monitoringService, currentUser)
-		case "3":
-			handleEnableMonitor(ctx, scanner, monitoringService, currentUser)
-		case "4":
-			handleDisableMonitor(ctx, scanner, monitoringService, currentUser)
-		case "5":
-			handleDeleteMonitor(ctx, scanner, monitoringService, currentUser)
-		case "6":
-			handleLinkAlertContact(ctx, scanner, monitoringService, currentUser)
-		case "7":
-			handleUnlinkAlertContact(ctx, scanner, monitoringService, currentUser)
-		case "8":
-			handleListMonitors(ctx, monitoringService, currentUser)
-		case "0":
+		if !dispatchMonitoringMenu(ctx, scanner, monitoringService, currentUser, choice) {
 			return
-		default:
-			fmt.Println("Unknown menu item")
 		}
 	}
+}
+
+func dispatchMonitoringMenu(ctx context.Context, scanner *bufio.Scanner, monitoringService monitoringsvc.MonitoringManagementService, currentUser, choice string) bool {
+	switch choice {
+	case "1":
+		handleCreateMonitor(ctx, scanner, monitoringService, currentUser)
+	case "2":
+		handleUpdateMonitor(ctx, scanner, monitoringService, currentUser)
+	case "3":
+		handleEnableMonitor(ctx, scanner, monitoringService, currentUser)
+	case "4":
+		handleDisableMonitor(ctx, scanner, monitoringService, currentUser)
+	case "5":
+		handleDeleteMonitor(ctx, scanner, monitoringService, currentUser)
+	case "6":
+		handleLinkAlertContact(ctx, scanner, monitoringService, currentUser)
+	case "7":
+		handleUnlinkAlertContact(ctx, scanner, monitoringService, currentUser)
+	case "8":
+		handleListMonitors(ctx, monitoringService, currentUser)
+	case "0":
+		return false
+	default:
+		fmt.Println("Unknown menu item")
+	}
+	return true
 }
 
 func runMaintenanceMenu(
@@ -430,27 +454,34 @@ func runMaintenanceMenu(
 			continue
 		}
 
-		switch choice {
-		case "1":
-			handleCreateOneTimeMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
-		case "2":
-			handleCreateManualMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
-		case "3":
-			handleUpdateMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
-		case "4":
-			handleAddMonitorToMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
-		case "5":
-			handleRemoveMonitorFromMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
-		case "6":
-			handleDeleteMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
-		case "7":
-			handleListMaintenanceWindows(ctx, maintenanceService, currentUser)
-		case "0":
+		if !dispatchMaintenanceMenu(ctx, scanner, maintenanceService, currentUser, choice) {
 			return
-		default:
-			fmt.Println("Unknown menu item")
 		}
 	}
+}
+
+func dispatchMaintenanceMenu(ctx context.Context, scanner *bufio.Scanner, maintenanceService maintenancesvc.MaintenanceService, currentUser, choice string) bool {
+	switch choice {
+	case "1":
+		handleCreateOneTimeMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
+	case "2":
+		handleCreateManualMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
+	case "3":
+		handleUpdateMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
+	case "4":
+		handleAddMonitorToMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
+	case "5":
+		handleRemoveMonitorFromMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
+	case "6":
+		handleDeleteMaintenanceWindow(ctx, scanner, maintenanceService, currentUser)
+	case "7":
+		handleListMaintenanceWindows(ctx, maintenanceService, currentUser)
+	case "0":
+		return false
+	default:
+		fmt.Println("Unknown menu item")
+	}
+	return true
 }
 
 func runContactsMenu(
@@ -481,25 +512,32 @@ func runContactsMenu(
 			continue
 		}
 
-		switch choice {
-		case "1":
-			handleCreateTelegramContact(ctx, scanner, contactService, currentUser)
-		case "2":
-			handleListContacts(ctx, contactService, currentUser)
-		case "3":
-			handleUpdateContact(ctx, scanner, contactService, currentUser)
-		case "4":
-			handleEnableContact(ctx, scanner, contactService, currentUser)
-		case "5":
-			handleDisableContact(ctx, scanner, contactService, currentUser)
-		case "6":
-			handleDeleteContact(ctx, scanner, contactService, currentUser)
-		case "0":
+		if !dispatchContactsMenu(ctx, scanner, contactService, currentUser, choice) {
 			return
-		default:
-			fmt.Println("Unknown menu item")
 		}
 	}
+}
+
+func dispatchContactsMenu(ctx context.Context, scanner *bufio.Scanner, contactService contactssvc.ContactService, currentUser, choice string) bool {
+	switch choice {
+	case "1":
+		handleCreateTelegramContact(ctx, scanner, contactService, currentUser)
+	case "2":
+		handleListContacts(ctx, contactService, currentUser)
+	case "3":
+		handleUpdateContact(ctx, scanner, contactService, currentUser)
+	case "4":
+		handleEnableContact(ctx, scanner, contactService, currentUser)
+	case "5":
+		handleDisableContact(ctx, scanner, contactService, currentUser)
+	case "6":
+		handleDeleteContact(ctx, scanner, contactService, currentUser)
+	case "0":
+		return false
+	default:
+		fmt.Println("Unknown menu item")
+	}
+	return true
 }
 
 func runMetricsMenu(
@@ -725,96 +763,15 @@ func handleUpdateMonitor(
 		return
 	}
 
-	labelRaw, err := prompt(scanner, "New label (empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
-		return
-	}
-	endpointRaw, err := prompt(scanner, "New endpoint (empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
-		return
-	}
-	probeRaw, err := prompt(scanner, "New probe interval sec (empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
-		return
-	}
-	methodRaw, err := prompt(scanner, "New HTTP method (empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
-		return
-	}
-	latencyRaw, err := prompt(scanner, "New max latency ms (empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
-		return
-	}
-	statusCodesRaw, err := prompt(scanner, "New expected status codes (comma separated, empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
+	input, ok := readMonitorInput(scanner)
+	if !ok {
 		return
 	}
 
 	updateDTO := dto.UpdateMonitorDTO{ID: monitorID}
 
-	if labelRaw != "" {
-		label := labelRaw
-		updateDTO.Label = &label
-	}
-
-	if endpointRaw != "" {
-		endpoint := endpointRaw
-		updateDTO.Endpoint = &endpoint
-	}
-
-	if probeRaw != "" {
-		probeInt, err := strconv.ParseInt(probeRaw, 10, 32)
-		if err != nil {
-			fmt.Printf("Invalid probe interval: %v\n", err)
-			return
-		}
-		probeInterval := int32(probeInt)
-		updateDTO.ProbeIntervalSec = &probeInterval
-	}
-
-	needProtocol := false
-	if methodRaw != "" {
-		networkCfg := dto.MonitorNetworkConfig(dto.HTTPMonitorNetworkConfig{Method: methodRaw})
-		updateDTO.NetworkConfig = &networkCfg
-		needProtocol = true
-	}
-
-	if latencyRaw != "" || statusCodesRaw != "" {
-		latency := 0
-		if latencyRaw != "" {
-			latency, err = strconv.Atoi(latencyRaw)
-			if err != nil {
-				fmt.Printf("Invalid max latency: %v\n", err)
-				return
-			}
-		}
-
-		statusCodes := []int{}
-		if statusCodesRaw != "" {
-			statusCodes, ok = parseCSVInts(statusCodesRaw)
-			if !ok {
-				fmt.Println("Invalid status codes list")
-				return
-			}
-		}
-
-		expectations := dto.MonitorExpectations(dto.HTTPMonitorExpectations{
-			MaxLatencyMs: latency,
-			StatusCodes:  statusCodes,
-		})
-		updateDTO.Expectations = &expectations
-		needProtocol = true
-	}
-
-	if needProtocol {
-		protocol := target.ProtocolHTTP
-		updateDTO.Protocol = &protocol
+	if !applyMonitorInput(input, &updateDTO) {
+		return
 	}
 
 	if err := monitoringService.UpdateMonitor(authorizedCtx, updateDTO); err != nil {
@@ -823,6 +780,121 @@ func handleUpdateMonitor(
 	}
 
 	fmt.Println("Monitor updated")
+}
+
+type monitorInput struct {
+	label, endpoint, probe, method, latency, statusCodes string
+}
+
+func readMonitorInput(scanner *bufio.Scanner) (monitorInput, bool) {
+	input := monitorInput{}
+	var err error
+	input.label, err = prompt(scanner, "New label (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+	input.endpoint, err = prompt(scanner, "New endpoint (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+	input.probe, err = prompt(scanner, "New probe interval sec (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+	input.method, err = prompt(scanner, "New HTTP method (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+	input.latency, err = prompt(scanner, "New max latency ms (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+	input.statusCodes, err = prompt(scanner, "New expected status codes (comma separated, empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+
+	return input, true
+}
+
+func applyMonitorInput(input monitorInput, updateDTO *dto.UpdateMonitorDTO) bool {
+	if input.label != "" {
+		label := input.label
+		updateDTO.Label = &label
+	}
+
+	if input.endpoint != "" {
+		endpoint := input.endpoint
+		updateDTO.Endpoint = &endpoint
+	}
+
+	if input.probe != "" {
+		probeInt, err := strconv.ParseInt(input.probe, 10, 32)
+		if err != nil {
+			fmt.Printf("Invalid probe interval: %v\n", err)
+			return false
+		}
+		probeInterval := int32(probeInt)
+		updateDTO.ProbeIntervalSec = &probeInterval
+	}
+
+	needProtocol := false
+	if input.method != "" {
+		networkCfg := dto.MonitorNetworkConfig(dto.HTTPMonitorNetworkConfig{Method: input.method})
+		updateDTO.NetworkConfig = &networkCfg
+		needProtocol = true
+	}
+
+	if !applyMonitorExpectations(input, updateDTO) {
+		return false
+	}
+
+	if needProtocol {
+		protocol := target.ProtocolHTTP
+		updateDTO.Protocol = &protocol
+	}
+
+	return true
+}
+
+func applyMonitorExpectations(input monitorInput, updateDTO *dto.UpdateMonitorDTO) bool {
+	var err error
+	var ok bool
+	if input.latency != "" || input.statusCodes != "" {
+		latency := 0
+		if input.latency != "" {
+			latency, err = strconv.Atoi(input.latency)
+			if err != nil {
+				fmt.Printf("Invalid max latency: %v\n", err)
+				return false
+			}
+		}
+
+		statusCodes := []int{}
+		if input.statusCodes != "" {
+			statusCodes, ok = parseCSVInts(input.statusCodes)
+			if !ok {
+				fmt.Println("Invalid status codes list")
+				return false
+			}
+		}
+
+		expectations := dto.MonitorExpectations(dto.HTTPMonitorExpectations{
+			MaxLatencyMs: latency,
+			StatusCodes:  statusCodes,
+		})
+		updateDTO.Expectations = &expectations
+		protocol := target.ProtocolHTTP
+		updateDTO.Protocol = &protocol
+	}
+
+	return true
 }
 
 func handleEnableMonitor(
@@ -1089,86 +1161,13 @@ func handleUpdateMaintenanceWindow(
 		return
 	}
 
-	titleRaw, err := prompt(scanner, "New title (empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
-		return
-	}
-	descriptionRaw, err := prompt(scanner, "New description (empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
-		return
-	}
-	configTypeRaw, err := prompt(scanner, "Config update type [none|one-time|manual]: ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
+	input, ok := readMaintenanceWindowInput(scanner)
+	if !ok {
 		return
 	}
 
 	updateDTO := maintenancesvc.UpdateMaintenanceWindowDTO{WindowID: windowID}
-	if titleRaw != "" {
-		title := titleRaw
-		updateDTO.Title = &title
-	}
-	if descriptionRaw != "" {
-		description := descriptionRaw
-		updateDTO.Description = &description
-	}
-
-	switch strings.ToLower(strings.TrimSpace(configTypeRaw)) {
-	case "", "none":
-		// Keep config unchanged.
-	case "one-time":
-		startRaw, err := prompt(scanner, "New start time RFC3339 (empty to keep): ")
-		if err != nil {
-			fmt.Printf("Input error: %v\n", err)
-			return
-		}
-		endRaw, err := prompt(scanner, "New end time RFC3339 (empty to keep): ")
-		if err != nil {
-			fmt.Printf("Input error: %v\n", err)
-			return
-		}
-
-		var startPtr *time.Time
-		if startRaw != "" {
-			startTime, err := time.Parse(time.RFC3339, startRaw)
-			if err != nil {
-				fmt.Printf("Invalid start time: %v\n", err)
-				return
-			}
-			startPtr = &startTime
-		}
-
-		var endPtr *time.Time
-		if endRaw != "" {
-			endTime, err := time.Parse(time.RFC3339, endRaw)
-			if err != nil {
-				fmt.Printf("Invalid end time: %v\n", err)
-				return
-			}
-			endPtr = &endTime
-		}
-
-		updateDTO.ConfigUpdate = maintenance.OneTimeConfigUpdate{
-			StartTime: startPtr,
-			EndTime:   endPtr,
-		}
-	case "manual":
-		activeRaw, err := prompt(scanner, "Set active [true|false]: ")
-		if err != nil {
-			fmt.Printf("Input error: %v\n", err)
-			return
-		}
-		active, err := strconv.ParseBool(strings.TrimSpace(activeRaw))
-		if err != nil {
-			fmt.Printf("Invalid bool value: %v\n", err)
-			return
-		}
-
-		updateDTO.ConfigUpdate = maintenance.ManualConfigUpdate{Active: &active}
-	default:
-		fmt.Println("Unknown config update type")
+	if !applyMaintenanceWindowInput(scanner, input, &updateDTO) {
 		return
 	}
 
@@ -1178,6 +1177,107 @@ func handleUpdateMaintenanceWindow(
 	}
 
 	fmt.Println("Maintenance window updated")
+}
+
+type maintenanceWindowInput struct {
+	title, description, configType string
+}
+
+func readMaintenanceWindowInput(scanner *bufio.Scanner) (maintenanceWindowInput, bool) {
+	input := maintenanceWindowInput{}
+	var err error
+	input.title, err = prompt(scanner, "New title (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+	input.description, err = prompt(scanner, "New description (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+	input.configType, err = prompt(scanner, "Config update type [none|one-time|manual]: ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+
+	return input, true
+}
+
+func applyMaintenanceWindowInput(scanner *bufio.Scanner, input maintenanceWindowInput, updateDTO *maintenancesvc.UpdateMaintenanceWindowDTO) bool {
+	if input.title != "" {
+		title := input.title
+		updateDTO.Title = &title
+	}
+	if input.description != "" {
+		description := input.description
+		updateDTO.Description = &description
+	}
+
+	switch strings.ToLower(strings.TrimSpace(input.configType)) {
+	case "", "none":
+		// Keep config unchanged.
+	case "one-time":
+		return applyOneTimeMaintenanceInput(scanner, updateDTO)
+	case "manual":
+		activeRaw, err := prompt(scanner, "Set active [true|false]: ")
+		if err != nil {
+			fmt.Printf("Input error: %v\n", err)
+			return false
+		}
+		active, err := strconv.ParseBool(strings.TrimSpace(activeRaw))
+		if err != nil {
+			fmt.Printf("Invalid bool value: %v\n", err)
+			return false
+		}
+
+		updateDTO.ConfigUpdate = maintenance.ManualConfigUpdate{Active: &active}
+	default:
+		fmt.Println("Unknown config update type")
+		return false
+	}
+
+	return true
+}
+
+func applyOneTimeMaintenanceInput(scanner *bufio.Scanner, updateDTO *maintenancesvc.UpdateMaintenanceWindowDTO) bool {
+	startRaw, err := prompt(scanner, "New start time RFC3339 (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return false
+	}
+	endRaw, err := prompt(scanner, "New end time RFC3339 (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return false
+	}
+
+	var startPtr *time.Time
+	if startRaw != "" {
+		startTime, err := time.Parse(time.RFC3339, startRaw)
+		if err != nil {
+			fmt.Printf("Invalid start time: %v\n", err)
+			return false
+		}
+		startPtr = &startTime
+	}
+
+	var endPtr *time.Time
+	if endRaw != "" {
+		endTime, err := time.Parse(time.RFC3339, endRaw)
+		if err != nil {
+			fmt.Printf("Invalid end time: %v\n", err)
+			return false
+		}
+		endPtr = &endTime
+	}
+
+	updateDTO.ConfigUpdate = maintenance.OneTimeConfigUpdate{
+		StartTime: startPtr,
+		EndTime:   endPtr,
+	}
+	return true
 }
 
 func handleAddMonitorToMaintenanceWindow(
@@ -1511,59 +1611,14 @@ func handleUpdateContact(
 		return
 	}
 
-	nameRaw, err := prompt(scanner, "New name (empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
-		return
-	}
-	isActiveRaw, err := prompt(scanner, "Set active [true|false|empty to keep]: ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
-		return
-	}
-	chatIDRaw, err := prompt(scanner, "New telegram chat id (empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
-		return
-	}
-	botTokenRaw, err := prompt(scanner, "New telegram bot token (empty to keep): ")
-	if err != nil {
-		fmt.Printf("Input error: %v\n", err)
+	input, ok := readContactInput(scanner)
+	if !ok {
 		return
 	}
 
 	upd := contact_dto.UpdateAlertContactDTO{ContactID: contactID}
-	if nameRaw != "" {
-		name := nameRaw
-		upd.Name = &name
-	}
-	if isActiveRaw != "" {
-		isActive, err := strconv.ParseBool(strings.TrimSpace(isActiveRaw))
-		if err != nil {
-			fmt.Printf("Invalid bool value: %v\n", err)
-			return
-		}
-		upd.IsActive = &isActive
-	}
-
-	var cfgUpd alert.TelegramConfigUpdate
-	hasCfgUpdate := false
-	if chatIDRaw != "" {
-		chatID, err := strconv.ParseInt(strings.TrimSpace(chatIDRaw), 10, 64)
-		if err != nil {
-			fmt.Printf("Invalid chat id: %v\n", err)
-			return
-		}
-		cfgUpd.ChatID = &chatID
-		hasCfgUpdate = true
-	}
-	if botTokenRaw != "" {
-		botToken := botTokenRaw
-		cfgUpd.BotToken = &botToken
-		hasCfgUpdate = true
-	}
-	if hasCfgUpdate {
-		upd.ConfigUpdate = cfgUpd
+	if !applyContactInput(input, &upd) {
+		return
 	}
 
 	if err := contactService.UpdateAlertContact(authorizedCtx, upd); err != nil {
@@ -1572,6 +1627,74 @@ func handleUpdateContact(
 	}
 
 	fmt.Println("Contact updated")
+}
+
+type contactInput struct {
+	name, isActive, chatID, botToken string
+}
+
+func readContactInput(scanner *bufio.Scanner) (contactInput, bool) {
+	input := contactInput{}
+	var err error
+	input.name, err = prompt(scanner, "New name (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+	input.isActive, err = prompt(scanner, "Set active [true|false|empty to keep]: ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+	input.chatID, err = prompt(scanner, "New telegram chat id (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+	input.botToken, err = prompt(scanner, "New telegram bot token (empty to keep): ")
+	if err != nil {
+		fmt.Printf("Input error: %v\n", err)
+		return input, false
+	}
+
+	return input, true
+}
+
+func applyContactInput(input contactInput, upd *contact_dto.UpdateAlertContactDTO) bool {
+	if input.name != "" {
+		name := input.name
+		upd.Name = &name
+	}
+	if input.isActive != "" {
+		isActive, err := strconv.ParseBool(strings.TrimSpace(input.isActive))
+		if err != nil {
+			fmt.Printf("Invalid bool value: %v\n", err)
+			return false
+		}
+		upd.IsActive = &isActive
+	}
+
+	var cfgUpd alert.TelegramConfigUpdate
+	hasCfgUpdate := false
+	if input.chatID != "" {
+		chatID, err := strconv.ParseInt(strings.TrimSpace(input.chatID), 10, 64)
+		if err != nil {
+			fmt.Printf("Invalid chat id: %v\n", err)
+			return false
+		}
+		cfgUpd.ChatID = &chatID
+		hasCfgUpdate = true
+	}
+	if input.botToken != "" {
+		botToken := input.botToken
+		cfgUpd.BotToken = &botToken
+		hasCfgUpdate = true
+	}
+	if hasCfgUpdate {
+		upd.ConfigUpdate = cfgUpd
+	}
+
+	return true
 }
 
 func handleEnableContact(

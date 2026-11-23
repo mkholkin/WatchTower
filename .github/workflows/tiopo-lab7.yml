@@ -1,0 +1,35 @@
+name: TIOPO - static analysis and regression tests
+on:
+  push:
+    branches: [TIOPO-7]
+  pull_request:
+    paths:
+      - '**/*.go'
+      - '**/go.mod'
+      - '**/go.sum'
+      - .githooks/**
+      - tools/lab7/**
+      - Makefile
+      - .github/workflows/**
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static:
+    uses: ./.github/workflows/static-analysis.yml
+  tests:
+    needs: static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tools/lab7/metrics/go.sum
+      - name: Analyzer boundaries and actual pre-commit regression tests
+        run: make lab7-check
+      - name: Application regression tests
+        run: go test ./cmd/... ./configs/... ./internal/... ./pkg/... ./benchmarks/... ./tests/... ./tools/...

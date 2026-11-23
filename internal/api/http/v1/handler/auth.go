@@ -10,25 +10,25 @@ import (
 
 var loginUserResponseFactory = v1.ResponseFactory[apigen.LoginUserResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.LoginUserResponseObject {
-		return apigen.LoginUser400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.LoginUser400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	401: func(er apigen.ErrorResponse) apigen.LoginUserResponseObject {
-		return apigen.LoginUser401JSONResponse{apigen.N401JSONResponse(er)}
+		return apigen.LoginUser401JSONResponse{N401JSONResponse: apigen.N401JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.LoginUserResponseObject {
-		return apigen.LoginUser500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.LoginUser500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 
 var registerUserResponseFactory = v1.ResponseFactory[apigen.RegisterUserResponseObject]{
 	400: func(er apigen.ErrorResponse) apigen.RegisterUserResponseObject {
-		return apigen.RegisterUser400JSONResponse{apigen.N400JSONResponse(er)}
+		return apigen.RegisterUser400JSONResponse{N400JSONResponse: apigen.N400JSONResponse(er)}
 	},
 	409: func(er apigen.ErrorResponse) apigen.RegisterUserResponseObject {
-		return apigen.RegisterUser409JSONResponse{apigen.N409JSONResponse(er)}
+		return apigen.RegisterUser409JSONResponse{N409JSONResponse: apigen.N409JSONResponse(er)}
 	},
 	500: func(er apigen.ErrorResponse) apigen.RegisterUserResponseObject {
-		return apigen.RegisterUser500JSONResponse{apigen.N500JSONResponse(er)}
+		return apigen.RegisterUser500JSONResponse{N500JSONResponse: apigen.N500JSONResponse(er)}
 	},
 }
 

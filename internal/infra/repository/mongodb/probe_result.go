@@ -35,12 +35,12 @@ func (r *probeResultRepositoryMG) Create(pr *probe.Result) error {
 	}
 
 	doc := bson.M{
-		"_id":              pr.ID.String(),
-		"target_id":        pr.Target.ID.String(),
-		"probe_time":       pr.ProbeTime,
-		"latency_ms":       pr.LatencyMs,
-		"network_failure":  pr.NetworkFailure,
-		"meta":             pr.Meta,
+		"_id":               pr.ID.String(),
+		"target_id":         pr.Target.ID.String(),
+		"probe_time":        pr.ProbeTime,
+		"latency_ms":        pr.LatencyMs,
+		"network_failure":   pr.NetworkFailure,
+		"meta":              pr.Meta,
 		"processing_status": string(pr.ProcessingStatus),
 	}
 	if pr.ErrorMessage != nil {
@@ -115,13 +115,13 @@ func (r *probeResultRepositoryMG) BulkUpdateStatus(ctx context.Context, ids []uu
 }
 
 type probeResultDoc struct {
-	ID               string  `bson:"_id"`
-	TargetID         string  `bson:"target_id"`
+	ID               string    `bson:"_id"`
+	TargetID         string    `bson:"target_id"`
 	ProbeTime        time.Time `bson:"probe_time"`
-	LatencyMs        int32   `bson:"latency_ms"`
-	StatusCode       *int32  `bson:"status_code"`
-	NetworkFailure   bool    `bson:"network_failure"`
-	ErrorMessage     *string `bson:"error_message"`
-	Meta             []byte  `bson:"meta"`
-	ProcessingStatus string  `bson:"processing_status"`
+	LatencyMs        int32     `bson:"latency_ms"`
+	StatusCode       *int32    `bson:"status_code"`
+	NetworkFailure   bool      `bson:"network_failure"`
+	ErrorMessage     *string   `bson:"error_message"`
+	Meta             []byte    `bson:"meta"`
+	ProcessingStatus string    `bson:"processing_status"`
 }
