@@ -81,7 +81,7 @@ class ReportTests(unittest.TestCase):
             for variant in ('baseline', 'debug'):
                 directory = root/variant
                 directory.mkdir()
-                rows = [row(t, t*1e9, component=c) for c in ('api', 'collector', 'otel-collector', 'tempo') for t in range(5)]
+                rows = [row(t, t*1e9, memory=1_000_000, component=c) for c in ('api', 'collector', 'otel-collector', 'tempo') for t in range(5)]
                 (directory/'resources.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rows))
                 profiles.append(dict(name='ramp', variant=variant, repetition=1, path=variant, exit_code=0))
             (root/'manifest.json').write_text(json.dumps(dict(run_id='smoke', smoke=True, profiles=profiles)))
@@ -93,7 +93,10 @@ class ReportTests(unittest.TestCase):
                 result = write_reports(root)
             self.assertEqual(len(result['profiles']), 2)
             self.assertEqual(result['profiles'][1]['baseline_delta']['collector']['cpu_seconds_delta'], 0)
-            self.assertTrue((root/'results.md').exists())
+            report = (root/'results.md').read_text()
+            self.assertIn('RAM min / median / max MB', report)
+            self.assertIn('| 1.000 / 1.000 / 1.000 |', report)
+            self.assertEqual(result['profiles'][0]['resources']['api']['memory_bytes']['median'], 1_000_000)
             items = [json.loads(p.read_text()) for p in (root/'allure-results').glob('*-result.json')]
             self.assertEqual([i['status'] for i in items], ['skipped', 'skipped'])
 

@@ -17,6 +17,7 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from tools.lab6.tempo import import_traces
+from tools.lab6.aggregate import totals
 from tools.lab6.report import resource_summary
 from tools.lab4.collect import Engine, sample
 
@@ -31,6 +32,7 @@ def prepare(run, target):
     if summary['failed_profiles'] or any(r['integrity_issues'] for r in summary['profiles']):
         raise ValueError('Cannot visualize an invalid experiment as verified measurements')
     series = collections.defaultdict(list)
+    aggregates = []
     minimum, maximum = math.inf, -math.inf
     def add(name, tags, value, stamp):
         if not isinstance(value, (int, float)) or not math.isfinite(value):
@@ -44,8 +46,8 @@ def prepare(run, target):
         if not directory.is_relative_to(run.resolve()):
             raise ValueError('Artifact path escapes run directory')
         with (directory/'resources.jsonl').open() as source:
-            for line in source:
-                row = json.loads(line)
+            rows = [json.loads(line) for line in source]
+            for row in rows:
                 if row.get('error') or not start <= row['time'] <= end:
                     continue
                 tags = dict(common, component=row['component'])
@@ -61,6 +63,19 @@ def prepare(run, target):
                 add('lab6_summary_memory_bytes', dict(tags, stat=stat), value, end-.001)
         add('lab6_summary_rps', dict(window, component='api'), profile['load']['rps']['median'], end-.001)
         add('lab6_summary_unexpected_ratio', dict(window, component='api'), profile['load']['unexpected_ratio'], end-.001)
+        aggregates.append((profile, window, totals(profile, rows)))
+    baselines = {(profile['name'], profile['repetition']): values
+                 for profile, _, values in aggregates if profile['variant'] == 'baseline'}
+    for profile, window, values in aggregates:
+        stamp = profile['measurement_end']-.001
+        for name, value in values.items():
+            add('lab6_summary_'+name, window, value, stamp)
+        baseline = baselines.get((profile['name'], profile['repetition']))
+        if baseline is not None:
+            add('lab6_summary_overhead_cpu_seconds', window,
+                values['total_cpu_seconds']-baseline['total_cpu_seconds'], stamp)
+            add('lab6_summary_overhead_memory_mean_bytes', window,
+                values['total_memory_mean_bytes']-baseline['total_memory_mean_bytes'], stamp)
     if not series:
         raise ValueError('No measured samples found')
     target.mkdir(parents=True, exist_ok=True)
@@ -223,7 +238,7 @@ def main():
     if not result['data']['result'] or int(result['data']['result'][0]['value'][1]) != expected:
         raise RuntimeError('Prometheus summary series do not match the experiment')
     panel_checks = []
-    for uid in ('lab6-observability', 'lab6-detail'):
+    for uid in ('lab6-observability', 'lab6-detail', 'lab6-overhead'):
         dashboard = request('http://localhost:3036/api/dashboards/uid/'+uid)['dashboard']
         for panel in dashboard['panels']:
             panel_checks.extend(check_panel(dashboard, panel))

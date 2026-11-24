@@ -16,6 +16,12 @@
   },
   "links": [
     {
+      "title": "Суммарный overhead",
+      "type": "link",
+      "url": "/d/lab6-overhead",
+      "targetBlank": false
+    },
+    {
       "title": "← К сравнению режимов",
       "type": "link",
       "url": "/d/lab6-observability",
