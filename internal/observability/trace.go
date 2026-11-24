@@ -167,7 +167,7 @@ func logHTTP(c *gin.Context, span trace.Span, logger *slog.Logger, method, route
 type QueryTracer struct{ Recorder *Recorder }
 
 func operation(sql string) string {
-	fields := strings.Fields(sql)
+	fields := strings.Fields(skipLeadingSQLComments(sql))
 	if len(fields) == 0 {
 		return "OTHER"
 	}
@@ -176,6 +176,44 @@ func operation(sql string) string {
 		return op
 	}
 	return "OTHER"
+}
+
+func skipLeadingSQLComments(sql string) string {
+	for {
+		sql = strings.TrimSpace(sql)
+		switch {
+		case strings.HasPrefix(sql, "--"):
+			end := strings.IndexAny(sql, "\r\n")
+			if end < 0 {
+				return ""
+			}
+			sql = sql[end+1:]
+		case strings.HasPrefix(sql, "/*"):
+			sql = skipSQLBlockComment(sql)
+		default:
+			return sql
+		}
+	}
+}
+
+func skipSQLBlockComment(sql string) string {
+	depth := 1
+	for index := 2; index+1 < len(sql); {
+		switch sql[index : index+2] {
+		case "/*":
+			depth++
+			index += 2
+		case "*/":
+			depth--
+			index += 2
+			if depth == 0 {
+				return sql[index:]
+			}
+		default:
+			index++
+		}
+	}
+	return ""
 }
 
 func (t QueryTracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {

@@ -81,6 +81,21 @@ class GrafanaImportTests(unittest.TestCase):
             self.assertEqual(panel['datasource'], {'type': 'tempo', 'uid': 'lab6-tempo'})
             self.assertEqual(panel['targets'][0]['queryType'], 'traceId')
             self.assertEqual(panel['targets'][0]['query'], '${traceId}')
+            table = next(p for p in trace['panels'] if p['type'] == 'table')
+            self.assertEqual(table['datasource'], panel['datasource'])
+            self.assertEqual(table['targets'], panel['targets'])
+            self.assertLess(table['gridPos']['y'], panel['gridPos']['y'])
+            self.assertEqual(table['options']['sortBy'], [{'displayName': 'Длительность, мс', 'desc': True}])
+            transforms = table['transformations']
+            self.assertEqual(transforms[0], {'id': 'filterFieldsByName', 'options': {
+                'include': {'names': ['operationName', 'kind', 'duration']}}})
+            self.assertEqual(transforms[1]['options']['renameByName'], {
+                'operationName': 'Операция', 'kind': 'Тип', 'duration': 'Длительность, мс'})
+            self.assertNotIn('filterByValue', json.dumps(table))
+            description = trace['panels'][0]['options']['content']
+            self.assertIn('server', description)
+            self.assertIn('client', description)
+            self.assertNotIn('/auth/register', description)
             for name in ('lab6.json', 'detail.json'):
                 dashboard = json.loads((dashboards/name).read_text())
                 self.assertTrue(any(link['url'] == '/d/lab6-traces' for link in dashboard['links']))
