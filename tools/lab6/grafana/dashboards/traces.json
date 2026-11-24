@@ -1,0 +1,86 @@
+{
+  "uid": "lab6-traces",
+  "title": "ЛР 6 — трасса HTTP → SQL",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "lab6",
+    "opentelemetry"
+  ],
+  "timezone": "browser",
+  "refresh": "",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "links": [
+    {
+      "title": "← К сравнению режимов",
+      "type": "link",
+      "url": "/d/lab6-observability",
+      "targetBlank": false
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "traceId",
+        "label": "ID трассы",
+        "type": "textbox",
+        "query": "__EXAMPLE_TRACE_ID__",
+        "current": {
+          "text": "__EXAMPLE_TRACE_ID__",
+          "value": "__EXAMPLE_TRACE_ID__",
+          "selected": true
+        },
+        "options": [],
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Как читать трассу",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Ниже показан запрос `POST /auth/register` и вложенные SQL spans. Раскройте HTTP span: строки `postgres INSERT` и `postgres SELECT` показывают время работы с PostgreSQL внутри запроса. Длина полосы — длительность span; положение — время его начала.\n\nЧтобы открыть другую трассу, вставьте её ID в поле **«ID трассы»** и нажмите Enter. Трасса загружается автоматически."
+      }
+    },
+    {
+      "id": 2,
+      "type": "traces",
+      "title": "HTTP-запрос и SQL",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 20
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "lab6-tempo"
+      },
+      "options": {},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "lab6-tempo"
+          },
+          "queryType": "traceId",
+          "query": "${traceId}"
+        }
+      ]
+    }
+  ]
+}
