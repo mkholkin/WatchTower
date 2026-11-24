@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -74,12 +75,43 @@ def prepare(run, target):
     for source in (ROOT/'tools/lab6/grafana/dashboards').glob('*.json'):
         dashboard = json.loads(source.read_text())
         start, end = minimum-15, maximum+15
-        profile_names = {p['name'] for p in summary['profiles']}
+        profile_names = list(dict.fromkeys(p['name'] for p in summary['profiles']))
+        selected_profile = next((v['current']['value'] for v in dashboard['templating']['list']
+                                 if v['name'] == 'profile' and v['current']['value'] in profile_names), profile_names[0])
+        repetitions = list(dict.fromkeys(str(p['repetition']) for p in summary['profiles']
+                                        if p['name'] == selected_profile))
         for variable in dashboard['templating']['list']:
-            if variable['name'] == 'profile' and variable['current']['value'] not in profile_names:
-                variable['current'] = dict(text=summary['profiles'][0]['name'], value=summary['profiles'][0]['name'], selected=True)
-            if variable['name'] == 'run':
-                variable['current'] = dict(text=summary['run_id'], value=summary['run_id'], selected=True)
+            name = variable['name']
+            values = profile_names if name == 'profile' else repetitions if name == 'repetition' else None
+            if name == 'variant':
+                values = list(dict.fromkeys(p['variant'] for p in summary['profiles'] if p['name'] == selected_profile))
+            if name == 'run':
+                values = [summary['run_id']]
+            if values is None:
+                continue
+            captions = {}
+            if variable.get('type') == 'custom':
+                for item in variable.get('query', '').split(','):
+                    caption, separator, value = item.strip().partition(' : ')
+                    captions[value if separator else caption] = caption
+            options = [dict(text=captions.get(value, value), value=value, selected=False) for value in values]
+            current = variable['current']['value']
+            if name == 'profile':
+                current = selected_profile
+            elif current not in values:
+                current = values[0]
+            for option in options:
+                option['selected'] = option['value'] == current
+            variable.update(type='custom', query=', '.join(option['text']+' : '+option['value'] for option in options),
+                            options=options, current=next(dict(option) for option in options if option['selected']),
+                            skipUrlSync=len(values) == 1)
+            for key in ('definition', 'datasource', 'refresh'):
+                variable.pop(key, None)
+        reset = urllib.parse.urlencode({'from': int((minimum-15)*1000), 'to': int((maximum+15)*1000),
+                                        'var-run': summary['run_id'], 'var-profile': selected_profile,
+                                        'var-repetition': repetitions[0], 'var-component': 'api'})
+        dashboard.setdefault('links', []).append(dict(title='Показать данные текущего запуска', type='link',
+                                                      url='/d/lab6-observability?'+reset, targetBlank=False))
         if dashboard['uid'] == 'lab6-detail':
             defaults = {v['name']: v['current']['value'] for v in dashboard['templating']['list']}
             variants = [p['variant'] for p in summary['profiles'] if p['name'] == defaults['profile']]
@@ -91,8 +123,7 @@ def prepare(run, target):
                              and p['variant'] == defaults['variant'] and str(p['repetition']) == defaults['repetition']), None)
             if selected:
                 start, end = selected['measurement_start'], selected['measurement_end']+1
-        dashboard['time'] = {'from': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start)),
-                             'to': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(end))}
+        dashboard['time'] = {'from': str(int(start*1000)), 'to': str(int(end*1000))}
         (target/'dashboards'/source.name).write_text(json.dumps(dashboard, indent=2, ensure_ascii=False)+'\n')
     metadata = dict(run_id=summary['run_id'], original_from=minimum, original_to=maximum,
                     series=len(series), samples=sum(map(len, series.values())))
@@ -121,7 +152,7 @@ def main():
     args = parser.parse_args()
     if args.measure_seconds < 5:
         parser.error('--measure-seconds must be at least 5')
-    run = (args.run_dir or Path((ROOT/'build/lab6/latest.txt').read_text().strip())).resolve()
+    run = (args.run_dir or Path((ROOT/'build/lab6/latest.txt').read_text().strip())).expanduser().resolve()
     target = ROOT/'build/lab6/grafana'/run.name
     env = dict(os.environ, LAB6_GRAFANA_DATA=str(target), LAB6_UID=str(os.getuid()), LAB6_GID=str(os.getgid()))
     compose = ['docker','compose','-p','wt-lab6-grafana','-f',str(ROOT/'tools/lab6/grafana/compose.yaml')]

@@ -124,7 +124,7 @@
     {
       "title": "Трасса HTTP → SQL",
       "type": "link",
-      "url": "/d/lab6-traces",
+      "url": "/d/lab6-traces?var-traceId=__EXAMPLE_TRACE_ID__",
       "targetBlank": false
     }
   ],
