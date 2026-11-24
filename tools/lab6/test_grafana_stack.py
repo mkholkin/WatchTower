@@ -4,8 +4,9 @@ import tempfile
 import re
 from urllib.parse import parse_qs, urlsplit
 import unittest
+from unittest.mock import patch
 
-from tools.lab6.grafana_stack import prepare
+from tools.lab6.grafana_stack import check_panel, prepare
 
 
 class GrafanaImportTests(unittest.TestCase):
@@ -72,6 +73,55 @@ class GrafanaImportTests(unittest.TestCase):
                 self.assertNotIn('${', reset['url'])
                 self.assertTrue(dashboard['time']['from'].isdigit())
                 self.assertTrue(dashboard['time']['to'].isdigit())
+
+    def test_summary_queries_have_fixed_positive_range_and_historical_anchor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.fixture(root)
+            prepare(root, root/'output')
+            summaries = 0
+            for path in (root/'output/dashboards').glob('*.json'):
+                dashboard = json.loads(path.read_text())
+                for panel in dashboard['panels']:
+                    for target in panel.get('targets', []):
+                        expression = target.get('expr', '')
+                        if 'lab6_summary_' in expression:
+                            summaries += 1
+                            self.assertNotIn('$__range', expression)
+                            self.assertIn('[40s] @125.000000', expression)
+                        if 'rate(lab6_cpu_seconds_total' in expression:
+                            self.assertIn('[10s]', expression)
+                            self.assertNotIn('@125', expression)
+            self.assertEqual(summaries, 8)
+
+    def test_panel_check_posts_real_instant_query_with_zero_range(self):
+        dashboard = {'uid': 'test', 'time': {'from': '85000', 'to': '125000'},
+                     'templating': {'list': [{'name': 'profile', 'current': {'value': 'ramp'}}]}}
+        panel = {'title': 'CPU', 'datasource': {'type': 'prometheus', 'uid': 'lab6-prometheus'},
+                 'targets': [{'refId': 'A', 'instant': True, 'range': False,
+                              'expr': 'last_over_time(metric{profile=~"${profile:regex}"}[40s] @125)'}]}
+        valid = {'results': {'A': {'status': 200, 'frames': [{'schema': {'fields': [
+            {'name': 'Time', 'type': 'time'}, {'name': 'Value', 'type': 'number'}]},
+            'data': {'values': [[125000], [2.5]]}}]}}}
+        with patch('tools.lab6.grafana_stack.request', return_value=valid) as post:
+            self.assertEqual(check_panel(dashboard, panel)[0]['numeric_fields'], 1)
+            url, payload = post.call_args.args
+            self.assertEqual(url, 'http://localhost:3036/api/ds/query')
+            self.assertEqual((payload['from'], payload['to']), ('125000', '125000'))
+            self.assertIn('profile=~"ramp"', payload['queries'][0]['expr'])
+            self.assertFalse(payload['queries'][0]['range'])
+        failures = [ {'results': {'A': {'status': 400, 'error': 'duration must be greater than 0'}}},
+                     {'results': {'A': {'frames': []}}},
+                     {'results': {'A': {'frames': [{'schema': {'fields': [{'type': 'time'}]},
+                                                   'data': {'values': [[125000]]}}]}}} ]
+        for response in failures:
+            with self.subTest(response=response), patch('tools.lab6.grafana_stack.request', return_value=response):
+                with self.assertRaises(RuntimeError):
+                    check_panel(dashboard, panel)
+        panel['targets'][0].update(instant=False, range=True)
+        with patch('tools.lab6.grafana_stack.request', return_value=valid) as post:
+            check_panel(dashboard, panel)
+            self.assertEqual(post.call_args.args[1]['from'], '85000')
 
     def test_drilldown_link_uses_experiment_labels_without_array_formatting(self):
         dashboard = json.loads((Path(__file__).parent/'grafana/dashboards/lab6.json').read_text())

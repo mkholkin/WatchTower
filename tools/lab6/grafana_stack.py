@@ -123,6 +123,11 @@ def prepare(run, target):
                              and p['variant'] == defaults['variant'] and str(p['repetition']) == defaults['repetition']), None)
             if selected:
                 start, end = selected['measurement_start'], selected['measurement_end']+1
+        for panel in dashboard['panels']:
+            for query in panel.get('targets', []):
+                if 'expr' in query and 'lab6_summary_' in query['expr']:
+                    duration = math.ceil(maximum-minimum)+30
+                    query['expr'] = query['expr'].replace('[$__range]', f'[{duration}s] @{maximum+15:.6f}')
         dashboard['time'] = {'from': str(int(start*1000)), 'to': str(int(end*1000))}
         (target/'dashboards'/source.name).write_text(json.dumps(dashboard, indent=2, ensure_ascii=False)+'\n')
     metadata = dict(run_id=summary['run_id'], original_from=minimum, original_to=maximum,
@@ -131,9 +136,44 @@ def prepare(run, target):
     return metadata
 
 
-def request(url):
+def request(url, payload=None):
+    if payload is not None:
+        url = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
     with urllib.request.urlopen(url, timeout=10) as response:
         return json.load(response)
+
+
+def check_panel(dashboard, panel, base_url='http://localhost:3036'):
+    defaults = {v['name']: v['current']['value'] for v in dashboard['templating']['list']}
+    checks = []
+    for target in panel.get('targets', []):
+        if 'expr' not in target:
+            continue
+        query = dict(target)
+        query['expr'] = re.sub(r'\$\{([a-z]+):regex\}',
+                               lambda match: json.dumps(re.escape(defaults[match[1]]))[1:-1], query['expr'])
+        query['datasource'] = query.get('datasource') or panel.get('datasource') or {'type': 'prometheus', 'uid': 'lab6-prometheus'}
+        query.update(intervalMs=1000, maxDataPoints=1000)
+        end = dashboard['time']['to']
+        payload = {'from': end if query.get('instant') else dashboard['time']['from'],
+                   'to': end, 'queries': [query]}
+        response = request(base_url+'/api/ds/query', payload)
+        result = response.get('results', {}).get(query['refId'], {})
+        if response.get('error') or result.get('error') or result.get('status', 200) != 200:
+            raise RuntimeError(f'Grafana panel query failed: {panel["title"]}')
+        numeric_fields = 0
+        for frame in result.get('frames', []):
+            values = frame.get('data', {}).get('values', [])
+            for index, field in enumerate(frame.get('schema', {}).get('fields', [])):
+                if field.get('type') == 'number' and index < len(values) and any(
+                        isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+                        for value in values[index]):
+                    numeric_fields += 1
+        if not numeric_fields:
+            raise RuntimeError(f'Grafana panel has no numeric data: {panel["title"]}')
+        checks.append(dict(dashboard=dashboard['uid'], panel=panel['title'], numeric_fields=numeric_fields))
+    return checks
+
 
 
 def ready(url):
@@ -185,17 +225,8 @@ def main():
     panel_checks = []
     for uid in ('lab6-observability', 'lab6-detail'):
         dashboard = request('http://localhost:3036/api/dashboards/uid/'+uid)['dashboard']
-        defaults = {v['name']: v['current']['value'] for v in dashboard['templating']['list']}
         for panel in dashboard['panels']:
-            for expression in panel.get('targets', []):
-                expression = re.sub(r'\$\{([a-z]+):regex\}', lambda match: json.dumps(re.escape(defaults[match[1]]))[1:-1], expression['expr'])
-                expression = expression.replace('$__range', f'{math.ceil(meta["original_to"]-meta["original_from"])+30}s')
-                query = urllib.parse.urlencode(dict(query=expression, start=meta['original_from'],
-                                                    end=meta['original_to']+15, step=10))
-                result = request('http://localhost:3036/api/datasources/proxy/uid/lab6-prometheus/api/v1/query_range?'+query)
-                if result.get('status') != 'success' or not result['data']['result']:
-                    raise RuntimeError(f'Grafana panel has no data: {panel["title"]}')
-                panel_checks.append(dict(dashboard=uid, panel=panel['title'], series=len(result['data']['result'])))
+            panel_checks.extend(check_panel(dashboard, panel))
     traces = json.loads((target/'traces-import.json').read_text())
     trace_url = 'http://localhost:3036/api/datasources/proxy/uid/lab6-tempo/api/traces/'+traces['example_trace_id']
     ready(trace_url)
