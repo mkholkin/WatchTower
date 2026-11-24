@@ -84,7 +84,7 @@
         "name": "component",
         "label": "Компонент",
         "type": "custom",
-        "query": "Приложение API : api, Сборщик метрик : collector",
+        "query": "Приложение API : api, Docker metrics : collector, OTel Collector : otel-collector, Tempo : tempo",
         "multi": false,
         "includeAll": false,
         "current": {

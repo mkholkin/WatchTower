@@ -1,0 +1,36 @@
+# File exporter writes one official OTLP JSON payload per line.
+# https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/v0.140.0/exporter/fileexporter
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+exporters:
+  file:
+    path: /artifacts/traces-otlp.jsonl
+    format: json
+    flush_interval: 1s
+  otlphttp/tempo:
+    endpoint: http://tempo:4318
+    sending_queue:
+      enabled: false
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 30s
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+service:
+  extensions: [health_check]
+  telemetry:
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [file, otlphttp/tempo]

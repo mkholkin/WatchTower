@@ -4,10 +4,15 @@ import (
 	"WatchTower/configs"
 	apigen "WatchTower/internal/api/http/v1/gen"
 	"WatchTower/internal/api/http/v1/handler"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"context"
 
@@ -95,78 +100,91 @@ func SetupRouter(handler *handler.ApiHandler, middleware ...gin.HandlerFunc) *gi
 }
 
 func main() {
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "usage: %s <path-to-config.yaml>\n", os.Args[0])
-		return
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx, os.Args); err != nil {
+		log.Print(err)
+		os.Exit(1)
 	}
+}
 
-	configPath := os.Args[1]
-	cfg, err := configs.Load(configPath)
+func run(ctx context.Context, args []string) (result error) {
+	if len(args) < 2 {
+		return fmt.Errorf("usage: %s <path-to-config.yaml>", args[0])
+	}
+	cfg, err := configs.Load(args[1])
 	if err != nil {
-		log.Fatalf("failed to load config %q: %v", configPath, err)
+		return fmt.Errorf("load configuration: %w", err)
 	}
-
-	recorder := configureRecorder()
-	defer closeRecorder(recorder)
+	recorder, err := setupTracing(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, shutdownTracing(recorder)) }()
 	logger, closer, err := configs.NewLoggerFromConfig(cfg.Logging)
 	if err != nil {
-		log.Fatal("cannot initialize request logger")
+		return errors.New("cannot initialize request logger")
 	}
 	if closer != nil {
 		defer closer.Close()
 	}
 	appObj, err := app.InitApp(ctx, cfg)
 	if err != nil {
-		log.Fatalf("failed to init app: %v", err)
+		return fmt.Errorf("initialize application: %w", err)
 	}
 	defer appObj.Shutdown()
-
-	apiHandler := handler.NewApiHandler(
-		appObj.AuthSvc,
-		appObj.MonitoringSvc,
-		appObj.AlertContactsSvc,
-		appObj.MaintenanceSvc,
-		appObj.MetricsQuerySvc,
-	)
-
-	r := SetupRouter(apiHandler, observability.Middleware(recorder, logger, os.Getenv("WT_HTTP_DEBUG") == "true"))
+	apiHandler := handler.NewApiHandler(appObj.AuthSvc, appObj.MonitoringSvc, appObj.AlertContactsSvc, appObj.MaintenanceSvc, appObj.MetricsQuerySvc)
+	router := SetupRouter(apiHandler, observability.Middleware(recorder, logger, os.Getenv("WT_HTTP_DEBUG") == "true"))
 	if appObj.MFA != nil {
-		handler.RegisterMFARoutes(r, appObj.MFA)
+		handler.RegisterMFARoutes(router, appObj.MFA)
 	}
-
-	go appObj.Start(ctx)
-
-	port := ":8080"
-	log.Printf("Starting API server on port %s", port)
-	err = r.Run(port)
-
-	if err != nil {
-		log.Fatal(err)
-	}
+	appObj.Start(ctx)
+	server := &http.Server{Addr: ":8080", Handler: router, ReadHeaderTimeout: 10 * time.Second}
+	log.Printf("Starting API server on port %s", server.Addr)
+	return serve(ctx, server)
 }
 
-func configureRecorder() *observability.Recorder {
-	path := os.Getenv("WT_TRACE_FILE")
-	if path == "" {
-		return nil
+func setupTracing(ctx context.Context) (*observability.Recorder, error) {
+	if os.Getenv("WT_TRACING_ENABLED") != "true" {
+		return nil, nil
 	}
-	recorder, err := observability.New(path)
+	recorder, err := observability.New(ctx)
 	if err != nil {
-		log.Fatal("cannot open trace output")
+		return nil, errors.New("cannot initialize tracing")
 	}
 	observability.SetCurrent(recorder)
-	return recorder
+	return recorder, nil
 }
 
-func closeRecorder(recorder *observability.Recorder) {
-	if recorder == nil {
-		return
-	}
-	if err := recorder.Close(); err != nil {
-		log.Print(err)
+func shutdownTracing(recorder *observability.Recorder) error {
+	observability.SetCurrent(nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	err := recorder.Shutdown(ctx)
+	summary, _ := json.Marshal(recorder.Summary())
+	fmt.Fprintf(os.Stderr, "OTEL_EXPORT_SUMMARY %s\n", summary)
+	return err
+}
+
+func serve(ctx context.Context, server *http.Server) error {
+	stopped := make(chan error, 1)
+	go func() { stopped <- server.ListenAndServe() }()
+	select {
+	case err := <-stopped:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			return errors.Join(err, server.Close())
+		}
+		err := <-stopped
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
 	}
 }

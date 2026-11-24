@@ -1,16 +1,17 @@
 | Требование | Файл или команда |
 |---|---|
-| Повторить пять профилей ЛР №4 | `tools/lab6/run.py`; `make lab6` |
-| Трассировка и расширенные логи в матрице 2×2 | `tools/lab6/run.py`; `WT_TRACE_FILE`, `WT_HTTP_DEBUG` |
-| Сохранить сырые трассы и метрики | `variants/*/repetitions/*/profiles/*/traces.jsonl`, `resources.jsonl` |
-| CPU API и сборщика в CPU-секундах | `tools/lab6/report.py`: `resource_summary`; `summary.json` |
-| RAM min/median/max и разница с baseline того же профиля | `tools/lab6/report.py`: `resource_summary`, `compare` |
-| Учитывать RPS и ошибки исходного сценария | `tools/lab4/report.py`: `summarize`; `results.md`, `summary.json` |
-| Отдельно оценить накладные расходы сборщика | `tools/lab6/report.py`: компонент `collector` |
-| Проверить целостность ресурсов и наличие трасс | `tools/lab6/test_report.py`; `make lab6-check` |
-| Исключить секреты из трасс | `tools/lab6/test_report.py`: `test_trace_secrets_and_raw_identifiers_rejected` |
-| Allure, Markdown, JSON и графики | `tools/lab6/report.py`; `allure-results/`, `results.md`, `summary.json`, `plots/` |
-| Сохранить артефакты опыта в CI | `.github/workflows/tiopo-lab6.yml` |
-| Зафиксировать методику и ограничения | `tiopo/lab6/README.md` |
-| Grafana: CPU/RAM, RPS, ошибки и HTTP/SQL-трассы | `make lab6-grafana`; `tools/lab6/grafana/`; `tiopo/lab6/grafana.md` |
-| Проверить импорт в Prometheus и Tempo, измерить стоимость просмотра | `make lab6-grafana-check`; `viewer-resources.json`, `viewer-resources.jsonl` |
+| Использовать проект и пять профилей ЛР №4 | `tools/lab6/run.py`; `tests/lab4/model.mjs`; `make lab6` |
+| Интегрировать OpenTelemetry для отладки | `internal/observability/trace.go`; Go SDK и OTLP/HTTP exporter |
+| Связать HTTP и SQL spans | Gin middleware; `pgx.QueryTracer`; `X-Trace-ID`; W3C Trace Context |
+| Сравнить четыре настройки трассировки и логирования | `baseline`, `trace`, `debug`, `trace-debug`; 20 опытов |
+| Доставлять трассы в Tempo во время нагрузки | `tools/lab6/otel-collector.yaml`; `tempo-experiment.yaml`; `tempo-live-check.json` |
+| Сохранять трассы в CI/CD | Collector file exporter; `traces-otlp.jsonl`; `.github/workflows/tiopo-lab6.yml` |
+| Сравнить CPU и память приложения с трассировкой и без неё | `tools/lab6/report.py`: `resource_summary`, `compare`; `results.md` |
+| Сравнить обычные и расширенные логи | `WT_HTTP_DEBUG`; `logging.level`; режимы `debug`, `trace-debug` |
+| Отдельно оценить средства мониторинга и трассировки | Компоненты `collector`, `otel-collector`, `tempo` в `resources.jsonl`; сводки CPU/RAM |
+| Проверить 100% выборку и завершение пакетного экспорта | `export-summary.json`; `otel-collector-metrics.txt`; `export_integrity` |
+| Проверить отсутствие секретов в трассах и логах | `internal/observability/trace_test.go`; `tools/lab6/test_report.py` |
+| Проверить parent IDs и длительности HTTP → SQL | `tools/lab6/report.py`: `read_otlp`; `tempo-live-trace.json` |
+| Сформировать сравнимый отчёт | Allure, `results.md`, `summary.json`, `plots/`; `tools/lab6/report.py` |
+| Показать метрики и трассы в Grafana | `make lab6-grafana`; `tools/lab6/grafana/`; `tiopo/lab6/grafana.md` |
+| Измерить стоимость просмотра | `make lab6-grafana-check`; `viewer-resources.json`, `viewer-resources.jsonl` |
