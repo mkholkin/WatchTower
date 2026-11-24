@@ -131,7 +131,7 @@ func InitApp(ctx context.Context, cfg *configs.Config) (*App, error) {
 
 	eventBus := gochannel.NewGoChannel(gochannel.Config{
 		OutputChannelBuffer:            256,
-		Persistent:                     false,
+		Persistent:                     20,
 		BlockPublishUntilSubscriberAck: false,
 		PreserveContext:                false,
 	},
