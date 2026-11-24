@@ -31,7 +31,7 @@ func TestRequestAndDatabaseTraceAreCorrelatedAndRedacted(t *testing.T) {
 	router.Use(Middleware(recorder, slog.New(slog.NewJSONHandler(io.Discard, nil)), false))
 	router.GET("/items/:id", func(c *gin.Context) {
 		tracer := QueryTracer{Recorder: recorder}
-		ctx := tracer.TraceQueryStart(c, nil, pgx.TraceQueryStartData{SQL: "SELECT secret FROM accounts WHERE token='private-value'", Args: []any{"private-password"}})
+		ctx := tracer.TraceQueryStart(c, nil, pgx.TraceQueryStartData{SQL: "-- name: PrivateAccount :one\nSELECT secret FROM accounts WHERE token='private-value'", Args: []any{"private-password"}})
 		tracer.TraceQueryEnd(ctx, nil, pgx.TraceQueryEndData{Err: errors.New("private-error")})
 		c.Status(503)
 	})
@@ -180,4 +180,36 @@ func TestShutdownRejectsUnfinishedSpans(t *testing.T) {
 	_, span := recorder.tracer.Start(context.Background(), "unfinished")
 	require.ErrorContains(t, recorder.Shutdown(context.Background()), "trace export failed")
 	span.End()
+}
+
+func TestQueryTracerClassifiesLeadingSQLComments(t *testing.T) {
+	cases := []struct{ name, sql, operation string }{
+		{"generated", "-- name: PrivateAccount :one\nSELECT secret FROM private_accounts", "SELECT"},
+		{"multiple lines", " \t-- private annotation\n-- private second annotation\r\n select secret", "SELECT"},
+		{"block", " /* private annotation */ UPDATE private_accounts SET secret = 1", "UPDATE"},
+		{"nested blocks", "/* private outer /* private inner */ outer */ INSERT INTO private_accounts VALUES (1)", "INSERT"},
+		{"mixed", "-- private annotation\n/* private block */ -- private second\n DELETE FROM private_accounts", "DELETE"},
+		{"unterminated block", "/* private annotation SELECT secret", "OTHER"},
+		{"unterminated nested block", "/* outer /* private inner */ SELECT secret", "OTHER"},
+		{"line without newline", "-- private annotation SELECT secret", "OTHER"},
+		{"comments only", "/* private block */ -- private annotation\n", "OTHER"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			exporter := tracetest.NewInMemoryExporter()
+			recorder := newRecorder(exporter, resource.Empty())
+			tracer := QueryTracer{Recorder: recorder}
+			ctx := tracer.TraceQueryStart(context.Background(), nil, pgx.TraceQueryStartData{SQL: tc.sql})
+			tracer.TraceQueryEnd(ctx, nil, pgx.TraceQueryEndData{})
+			require.NoError(t, recorder.provider.ForceFlush(context.Background()))
+			spans := exporter.GetSpans()
+			require.Len(t, spans, 1)
+			require.Equal(t, "postgres "+tc.operation, spans[0].Name)
+			require.Contains(t, spans[0].Attributes, attribute.String("db.operation.name", tc.operation))
+			serialized, err := json.Marshal(spans)
+			require.NoError(t, err)
+			require.NotContains(t, string(serialized), "private")
+			require.NoError(t, recorder.Shutdown(context.Background()))
+		})
+	}
 }
