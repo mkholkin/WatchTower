@@ -13,7 +13,8 @@ from tools.lab4 import report as lab4
 
 VARIANTS = ('baseline', 'trace', 'debug', 'trace-debug')
 PROFILES = ('ramp', 'stress', 'soak-0', 'soak-10', 'soak-20')
-COMPONENTS = ('api', 'collector')
+COMPONENTS = ('api', 'collector', 'otel-collector', 'tempo')
+CPU_SETS = dict(lab4.CPU_SETS, **{'otel-collector': '3', 'tempo': '3'})
 
 
 def number(value):
@@ -27,7 +28,11 @@ def resource_summary(rows, component, start, end):
     selected = sorted((r for r in rows if r.get('component') == component), key=lambda r: r['time'])
     if len(selected) < 2:
         raise ValueError(f'{component}: missing resource samples')
-    relevant = [r for r in selected if start-5 <= r['time'] <= end+5]
+    before = [index for index, row in enumerate(selected) if row['time'] <= start]
+    after = [index for index, row in enumerate(selected) if row['time'] >= end]
+    if not before or not after:
+        raise ValueError(f'{component}: raw CPU counters do not bracket measurement window')
+    relevant = selected[before[-1]:after[0]+1]
     counters = []
     for row in relevant:
         value = row.get('raw', {}).get('cpu_stats', {}).get('cpu_usage', {}).get('total_usage')
@@ -55,14 +60,140 @@ def resource_summary(rows, component, start, end):
             'memory_samples': len(memory)}
 
 
+SAFE_NAME = re.compile(
+    r'(?:postgres (?:SELECT|INSERT|UPDATE|DELETE|BEGIN|COMMIT|ROLLBACK|CREATE|ALTER|DROP|GRANT|DO|OTHER)|'
+    r'(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|OTHER) (?:/[A-Za-z0-9_/:.{}-]*|unmatched))')
+RESOURCE_ATTRIBUTES = {'service.name', 'service.version', 'telemetry.sdk.name', 'telemetry.sdk.language',
+                       'telemetry.sdk.version', 'run_id', 'profile', 'variant', 'repetition'}
+SPAN_ATTRIBUTES = {'http.request.method', 'http.route', 'http.response.status_code', 'db.operation.name', 'db.system.name'}
+
+
+def safe_name(name):
+    if not isinstance(name, str) or not SAFE_NAME.fullmatch(name) or re.search(
+            r'[0-9a-f]{8}-[0-9a-f-]{27,}', name, re.I):
+        raise ValueError('Trace includes an unsanitized route or secret')
+
+
+def otlp_attributes(entries, allowed):
+    values = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {'key', 'value'}:
+            raise ValueError('Invalid OTLP attribute')
+        key, value = entry['key'], entry['value']
+        if key not in allowed or key in values or not isinstance(value, dict) or len(value) != 1:
+            raise ValueError('Unsafe or duplicate OTLP attribute')
+        kind = next(iter(value))
+        if kind not in ('stringValue', 'intValue'):
+            raise ValueError('Unsafe OTLP attribute type')
+        item = value[kind]
+        if kind == 'intValue':
+            if isinstance(item, bool) or not re.fullmatch(r'-?[0-9]+', str(item)):
+                raise ValueError('Invalid OTLP integer attribute')
+            item = int(item)
+        elif not isinstance(item, str) or not re.fullmatch(r'[A-Za-z0-9_.:/ {}-]{1,128}', item):
+            raise ValueError('Unsafe OTLP string attribute')
+        values[key] = item
+    return values
+
+
+def read_otlp(path):
+    """Validate the native Collector JSONL export before deriving display spans."""
+    events = []
+    for payload in lab4.read_jsonl(path):
+        if not isinstance(payload, dict) or set(payload) != {'resourceSpans'}:
+            raise ValueError('Invalid OTLP export envelope')
+        for resource in payload['resourceSpans']:
+            if set(resource)-{'resource', 'scopeSpans', 'schemaUrl'}:
+                raise ValueError('Unsafe OTLP resource fields')
+            metadata = resource.get('resource', {})
+            if set(metadata)-{'attributes', 'droppedAttributesCount'} or metadata.get('droppedAttributesCount', 0):
+                raise ValueError('Dropped or unsafe OTLP resource attributes')
+            otlp_attributes(metadata.get('attributes', []), RESOURCE_ATTRIBUTES)
+            for scope in resource.get('scopeSpans', []):
+                if set(scope)-{'scope', 'spans', 'schemaUrl'}:
+                    raise ValueError('Unsafe OTLP scope fields')
+                instrumentation = scope.get('scope', {})
+                if set(instrumentation)-{'name', 'version'} or any(
+                        not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9_.:/-]{1,128}', value)
+                        for value in instrumentation.values()):
+                    raise ValueError('Unsafe OTLP instrumentation scope')
+                for span in scope.get('spans', []):
+                    allowed = {'traceId', 'spanId', 'parentSpanId', 'name', 'kind', 'startTimeUnixNano',
+                               'endTimeUnixNano', 'attributes', 'status', 'flags', 'droppedAttributesCount',
+                               'droppedEventsCount', 'droppedLinksCount', 'events', 'links', 'traceState'}
+                    if set(span)-allowed or any(span.get(key) for key in (
+                            'events', 'links', 'traceState', 'droppedAttributesCount', 'droppedEventsCount', 'droppedLinksCount')):
+                        raise ValueError('Unsafe or dropped OTLP span data')
+                    for key, width in (('traceId', 32), ('spanId', 16), ('parentSpanId', 16)):
+                        value = span.get(key, '')
+                        if key == 'parentSpanId' and value == '':
+                            continue
+                        if not isinstance(value, str) or not re.fullmatch('[0-9a-f]{'+str(width)+'}', value) or int(value, 16) == 0:
+                            raise ValueError('Invalid OTLP trace identity')
+                    stamps = []
+                    for key in ('startTimeUnixNano', 'endTimeUnixNano'):
+                        value = span.get(key)
+                        if isinstance(value, bool) or not re.fullmatch(r'[0-9]+', str(value)) or not 0 < int(value) < 2**64:
+                            raise ValueError('Invalid OTLP timestamp')
+                        stamps.append(int(value))
+                    if stamps[1] < stamps[0]:
+                        raise ValueError('Invalid OTLP duration')
+                    name = span.get('name')
+                    safe_name(name)
+                    attributes = otlp_attributes(span.get('attributes', []), SPAN_ATTRIBUTES)
+                    sql = name.startswith('postgres ')
+                    expected = {'db.operation.name', 'db.system.name'} if sql else {'http.request.method', 'http.route', 'http.response.status_code'}
+                    if set(attributes) != expected or span.get('kind') != (3 if sql else 2):
+                        raise ValueError('Invalid HTTP/SQL span attributes or kind')
+                    if not sql and (attributes['http.request.method']+' '+attributes['http.route'] != name):
+                        raise ValueError('HTTP method/route attributes differ from sanitized span name')
+                    if sql and (attributes['db.system.name'] != 'postgresql' or attributes['db.operation.name'] != name.split()[1]):
+                        raise ValueError('Invalid SQL operation')
+                    code = span.get('status', {}).get('code', 0)
+                    if set(span.get('status', {}))-{'code'} or type(code) is not int or code not in (0, 1, 2):
+                        raise ValueError('Invalid OTLP span status')
+                    status = attributes.get('http.response.status_code', 503 if code == 2 else 200)
+                    if type(status) is not int or not 100 <= status <= 599:
+                        raise ValueError('Invalid HTTP status')
+                    event = dict(trace_id=span['traceId'], span_id=span['spanId'], name=name,
+                                 started_ns=stamps[0], duration_ns=stamps[1]-stamps[0], status=status)
+                    if span.get('parentSpanId'):
+                        event['parent_id'] = span['parentSpanId']
+                    events.append(event)
+    identities = {}
+    for event in events:
+        identity = event['trace_id'], event['span_id']
+        if identity in identities:
+            raise ValueError('Duplicate exported span identity')
+        identities[identity] = event
+    for event in events:
+        sql = event['name'].startswith('postgres ')
+        parent = identities.get((event['trace_id'], event.get('parent_id')))
+        if sql and event.get('parent_id') and (not parent or parent['name'].startswith('postgres ')):
+            raise ValueError('Missing HTTP parent for SQL span')
+        if event.get('parent_id') and not parent:
+            raise ValueError('Missing exported parent span')
+        if parent and (not sql or event['started_ns'] < parent['started_ns'] or
+                       event['started_ns']+event['duration_ns'] > parent['started_ns']+parent['duration_ns']):
+            raise ValueError('Invalid HTTP to SQL parent timing')
+    if events and not any(event['name'].startswith('postgres ') and event.get('parent_id') for event in events):
+        raise ValueError('Export does not contain a correlated HTTP to SQL trace')
+    return events
+
+
 def trace_summary(path, enabled, start, end):
     if not path.exists() or path.stat().st_size == 0:
         if enabled:
-            raise ValueError('Tracing enabled but traces.jsonl is missing or empty')
+            raise ValueError('Tracing enabled but trace export is missing or empty')
         return {'events': 0, 'measurement_events': 0, 'bytes': 0}
     if not enabled:
         raise ValueError('Tracing disabled but trace events were recorded')
-    events = list(lab4.read_jsonl(path))
+    native = path.name == 'traces-otlp.jsonl'
+    events = read_otlp(path) if native else list(lab4.read_jsonl(path))
+    if native:
+        path.with_name('traces.jsonl').write_text(''.join(json.dumps(event)+'\n' for event in events))
+    if not events:
+        raise ValueError('Tracing enabled but trace export has no spans')
     measured = []
     for event in events:
         required = {'trace_id', 'span_id', 'name', 'started_ns', 'duration_ns', 'status'}
@@ -96,9 +227,42 @@ def trace_summary(path, enabled, start, end):
     return {'events': len(events), 'measurement_events': len(measured), 'bytes': path.stat().st_size}
 
 
+def export_integrity(directory, traces, enabled):
+    expected = traces['events']
+    evidence = json.loads((directory/'export-summary.json').read_text())
+    if (any(type(evidence.get(key)) is not int for key in ('ended_spans', 'exported_spans', 'export_errors')) or
+            evidence['ended_spans'] != expected or evidence['exported_spans'] != expected or evidence['export_errors'] != 0):
+        raise ValueError('SDK ended/exported span counts differ from durable OTLP export')
+    metrics = (directory/'otel-collector-metrics.txt').read_text()
+    counters = {}
+    for line in metrics.splitlines():
+        match = re.fullmatch(r'(otelcol_(?:receiver_(?:accepted|refused)_spans|exporter_(?:sent|send_failed)_spans)(?:_total)?)(\{[^}]*\})?\s+([0-9.eE+-]+)(?:\s+[0-9]+)?', line)
+        if match:
+            name, tags, value = match.groups()
+            value = float(value)
+            if not math.isfinite(value) or value < 0:
+                raise ValueError('Invalid Collector span counter')
+            counters[name+(tags or '')] = value
+    for name, value in counters.items():
+        if ('refused_spans' in name or 'send_failed_spans' in name) and value:
+            raise ValueError('Collector refused or failed to export spans')
+    if not enabled and any(counters.values()):
+        raise ValueError('Tracing disabled but Collector recorded spans')
+    if enabled:
+        accepted = [v for k, v in counters.items() if 'accepted_spans' in k]
+        sent = [v for k, v in counters.items() if 'sent_spans' in k]
+        if sum(accepted) != expected or not sent or any(value != expected for value in sent):
+            raise ValueError('Collector received/sent counts differ from durable OTLP export')
+        live = json.loads((directory/'tempo-live-check.json').read_text())
+        if not live.get('tempo_live_verified') or not live.get('unique_spans'):
+            raise ValueError('Live Tempo export was not verified')
+    traces['sdk_export'] = evidence
+    traces['collector_span_counters'] = counters
+
+
 def compare(current, baseline):
     result = {}
-    for component in COMPONENTS:
+    for component in current['resources']:
         now, before = current['resources'][component], baseline['resources'][component]
         cpu_delta = now['cpu_seconds']-before['cpu_seconds']
         result[component] = {'cpu_seconds_delta': cpu_delta,
@@ -114,14 +278,14 @@ def container_configuration(record):
     configuration, issues = {}, []
     for container in record.get('containers', []):
         name = container.get('Config', {}).get('Labels', {}).get('com.docker.compose.service')
-        if name not in lab4.CPU_SETS:
+        if name not in CPU_SETS:
             issues.append('Unknown container component')
             continue
         host = container.get('HostConfig', {})
         configuration[name] = {key: host.get(key) for key in ('CpusetCpus', 'NanoCpus', 'Memory')}
-        if host.get('CpusetCpus') != lab4.CPU_SETS[name] or not number(host.get('Memory')) or host['Memory'] <= 0 or not number(host.get('NanoCpus')) or host['NanoCpus'] <= 0:
+        if host.get('CpusetCpus') != CPU_SETS[name] or not number(host.get('Memory')) or host['Memory'] <= 0 or not number(host.get('NanoCpus')) or host['NanoCpus'] <= 0:
             issues.append(f'{name}: invalid CPU isolation/resource limits')
-    if set(configuration) != set(lab4.CPU_SETS):
+    if set(configuration) != set(CPU_SETS):
         issues.append('Missing container configuration')
     for container in record.get('final_containers', []):
         if container.get('State', {}).get('OOMKilled') or container.get('RestartCount'):
@@ -139,11 +303,12 @@ def plot_comparison(root, summaries):
         rows = [r for r in summaries if r['name'] == profile]
         if not rows:
             continue
-        fig, axes = plt.subplots(2, 2, figsize=(13, 8), constrained_layout=True)
+        components = list(rows[0]['resources'])
+        fig, axes = plt.subplots(len(components), 2, figsize=(13, 4*len(components)), constrained_layout=True)
         mode = 'diagnostic smoke' if rows[0]['load']['config'].get('smoke') else 'full workload'
         fig.suptitle(f'Lab 6: {profile} — {mode}')
         labels = [f'{r["variant"]} / {r["repetition"]}' for r in rows]
-        for index, component in enumerate(COMPONENTS):
+        for index, component in enumerate(components):
             values = [r['resources'][component] for r in rows]
             axes[index, 0].bar(labels, [v['cpu_seconds'] for v in values])
             axes[index, 0].set(title=component, ylabel='CPU-seconds in measurement window')
@@ -185,7 +350,8 @@ def write_reports(root):
                     raise ValueError('Manifest measurement window differs from request timestamps')
             raw = list(lab4.read_jsonl(directory/'resources.jsonl'))
             resources = {name: resource_summary(raw, name, start, end) for name in COMPONENTS}
-            traces = trace_summary(directory/'traces.jsonl', record['variant'] in ('trace', 'trace-debug'), start, end)
+            traces = trace_summary(directory/'traces-otlp.jsonl', record['variant'] in ('trace', 'trace-debug'), start, end)
+            export_integrity(directory, traces, record['variant'] in ('trace', 'trace-debug'))
             summary = {'name': record['name'], 'variant': record['variant'], 'repetition': record.get('repetition', 1),
                        'artifact_path': record['path'],
                        'measurement_start': start, 'measurement_end': end, 'measurement_seconds': end-start,
@@ -245,11 +411,11 @@ def write_reports(root):
                 'attachments': attachments}
         (output/f'{identity}-result.json').write_text(json.dumps(item)+'\n')
     lines = ['# Lab 6 measured overhead', '', f'Run: `{manifest["run_id"]}`; smoke: `{manifest["smoke"]}`.', '',
-             'CPU-seconds are raw cumulative CPU nanosecond differences at measurement boundaries, linearly interpolated between adjacent samples. RAM is working set; warmup and cooldown are excluded. Collector overhead is reported separately. Δ compares the same profile and repetition with baseline.', '',
+             'CPU-seconds are raw cumulative CPU nanosecond differences at measurement boundaries, linearly interpolated between adjacent samples. RAM is working set; warmup and cooldown are excluded. API, Docker metrics collector, OpenTelemetry Collector and live Tempo overhead are reported separately. Δ compares the same profile and repetition with baseline.', '',
              '| Profile | Variant / repetition | Component | CPU s | Δ CPU s | Δ CPU % | RAM min / median / max MiB | Δ median MiB | RPS median | Unexpected % | Intentional % |',
              '|---|---|---|---:|---:|---:|---|---:|---:|---:|---:|']
     for s in summaries:
-        for component in COMPONENTS:
+        for component in s['resources']:
             values = s['resources'][component]
             delta = s.get('baseline_delta', {}).get(component, {})
             fmt = lambda value: f'{value:.3f}' if value is not None else 'n/a'
@@ -260,7 +426,7 @@ def write_reports(root):
             lines += ['', f'{s["name"]}/{s["variant"]}: '+ '; '.join(s['integrity_issues']), '']
     for failure in failures:
         lines += ['', f'Failed `{failure["name"]}`: {failure["error"]}', '']
-    lines += ['', 'The workload is closed-loop: CPU changes must be read together with RPS and errors. One run does not estimate run-to-run uncertainty or establish causality. Traces and HTTP diagnostics include file/logging costs; OS and Docker daemon remain shared. Smoke runs are diagnostics, not final measurements.', '']
+    lines += ['', 'The workload is closed-loop: CPU changes must be read together with RPS and errors. One run does not estimate run-to-run uncertainty or establish causality. Trace overhead includes SDK, OTLP export and durable Collector file output; HTTP diagnostics include logging costs; OS and Docker daemon remain shared. Smoke runs are diagnostics, not final measurements.', '']
     (root/'results.md').write_text('\n'.join(lines))
     if failures or any(s['integrity_issues'] for s in summaries):
         raise ValueError('Experiment integrity checks failed; see summary.json')

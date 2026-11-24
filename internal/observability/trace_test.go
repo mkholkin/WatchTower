@@ -3,62 +3,142 @@ package observability
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	collector "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestRequestAndDatabaseTraceAreCorrelatedAndRedacted(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "traces.jsonl")
-	recorder, err := New(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	exporter := tracetest.NewInMemoryExporter()
+	recorder := newRecorder(exporter, resource.Empty())
 	router := gin.New()
 	router.ContextWithFallback = true
-	router.Use(Middleware(recorder, slog.New(slog.NewJSONHandler(io.Discard, nil)), true))
+	router.Use(Middleware(recorder, slog.New(slog.NewJSONHandler(io.Discard, nil)), false))
 	router.GET("/items/:id", func(c *gin.Context) {
 		tracer := QueryTracer{Recorder: recorder}
 		ctx := tracer.TraceQueryStart(c, nil, pgx.TraceQueryStartData{SQL: "SELECT secret FROM accounts WHERE token='private-value'", Args: []any{"private-password"}})
-		tracer.TraceQueryEnd(ctx, nil, pgx.TraceQueryEndData{})
-		c.Status(200)
+		tracer.TraceQueryEnd(ctx, nil, pgx.TraceQueryEndData{Err: errors.New("private-error")})
+		c.Status(503)
 	})
+	request := httptest.NewRequest("GET", "/items/private-id?token=private-query", strings.NewReader("private-body"))
+	request.Header.Set("Authorization", "Bearer private-header")
+	request.Header.Set("tracestate", "vendor=private-header-value")
+	request.Header.Set("traceparent", "00-0123456789abcdef0123456789abcdef-0123456789abcdef-00")
 	response := httptest.NewRecorder()
-	router.ServeHTTP(response, httptest.NewRequest("GET", "/items/private-id?token=private-query", nil))
-	require.NoError(t, recorder.Close())
-	data, err := os.ReadFile(path)
-	require.NoError(t, err)
-	require.NotContains(t, string(data), "private")
-	require.NotContains(t, string(data), "accounts")
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	require.Len(t, lines, 2)
-	var child, parent Span
-	require.NoError(t, json.Unmarshal([]byte(lines[0]), &child))
-	require.NoError(t, json.Unmarshal([]byte(lines[1]), &parent))
-	require.Equal(t, parent.SpanID, child.ParentID)
-	require.Equal(t, parent.TraceID, child.TraceID)
-	require.Equal(t, "GET /items/:id", parent.Name)
+	router.ServeHTTP(response, request)
+	require.NoError(t, recorder.provider.ForceFlush(context.Background()))
+	spans := exporter.GetSpans()
+	require.Len(t, spans, 2)
+	child, parent := spans[0], spans[1]
 	require.Equal(t, "postgres SELECT", child.Name)
-	require.GreaterOrEqual(t, parent.DurationNS, child.DurationNS)
-	require.Equal(t, 200, parent.Status)
-	require.Equal(t, parent.TraceID, response.Header().Get("X-Trace-ID"))
+	require.Equal(t, "GET /items/:id", parent.Name)
+	require.Equal(t, parent.SpanContext.SpanID(), child.Parent.SpanID())
+	require.Equal(t, parent.SpanContext.TraceID(), child.SpanContext.TraceID())
+	require.Equal(t, "0123456789abcdef0123456789abcdef", parent.SpanContext.TraceID().String())
+	require.Equal(t, "0123456789abcdef", parent.Parent.SpanID().String())
+	require.True(t, parent.SpanContext.IsSampled())
+	require.Equal(t, parent.SpanContext.TraceID().String(), response.Header().Get("X-Trace-ID"))
+	require.Contains(t, parent.Attributes, attribute.Int("http.response.status_code", 503))
+	require.Contains(t, child.Attributes, attribute.String("db.operation.name", "SELECT"))
+	require.Contains(t, child.Attributes, attribute.String("db.system.name", "postgresql"))
+	serialized, err := json.Marshal(spans)
+	require.NoError(t, err)
+	require.NotContains(t, string(serialized), "private-header-value")
+	for _, span := range spans {
+		require.Empty(t, span.SpanContext.TraceState().String())
+		require.Empty(t, span.Parent.TraceState().String())
+		require.NotContains(t, span.Name, "private")
+		require.Empty(t, span.Events)
+		for _, attr := range span.Attributes {
+			require.NotContains(t, attr.Value.Emit(), "private")
+		}
+	}
+	require.NoError(t, recorder.Shutdown(context.Background()))
+	require.Equal(t, Summary{EndedSpans: 2, ExportedSpans: 2}, recorder.Summary())
+}
+
+func TestOTLPHTTPShutdownFlushesEverySpanAndResource(t *testing.T) {
+	var mu sync.Mutex
+	var requests []*collector.ExportTraceServiceRequest
+	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/traces", r.URL.Path)
+		require.Equal(t, "application/x-protobuf", r.Header.Get("Content-Type"))
+		data, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		message := new(collector.ExportTraceServiceRequest)
+		require.NoError(t, proto.Unmarshal(data, message))
+		mu.Lock()
+		requests = append(requests, message)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/x-protobuf")
+	}))
+	defer receiver.Close()
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", receiver.URL+"/v1/traces")
+	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "run.id=run1,profile=search,variant=trace,repetition=2")
+	recorder, err := New(context.Background())
+	require.NoError(t, err)
+	for range 2200 {
+		_, span := recorder.tracer.Start(context.Background(), "flush")
+		span.End()
+	}
+	require.NoError(t, recorder.Shutdown(context.Background()))
+	mu.Lock()
+	defer mu.Unlock()
+	count := 0
+	for _, request := range requests {
+		for _, batch := range request.ResourceSpans {
+			attrs := make(map[string]string)
+			for _, attr := range batch.Resource.Attributes {
+				attrs[attr.Key] = attr.Value.GetStringValue()
+			}
+			require.Equal(t, "watchtower-lab6", attrs["service.name"])
+			require.Equal(t, "run1", attrs["run.id"])
+			for _, scope := range batch.ScopeSpans {
+				count += len(scope.Spans)
+			}
+		}
+	}
+	require.Equal(t, 2200, count)
+	require.Equal(t, Summary{EndedSpans: 2200, ExportedSpans: 2200}, recorder.Summary())
+}
+
+func TestExporterFailureIsReturnedAtShutdown(t *testing.T) {
+	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusBadRequest) }))
+	defer receiver.Close()
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", receiver.URL+"/v1/traces")
+	recorder, err := New(context.Background())
+	require.NoError(t, err)
+	_, span := recorder.tracer.Start(context.Background(), "failed")
+	span.End()
+	require.Error(t, recorder.provider.ForceFlush(context.Background()))
+	require.ErrorContains(t, recorder.Shutdown(context.Background()), "trace export failed")
+	require.Equal(t, Summary{EndedSpans: 1, ExportErrors: 1}, recorder.Summary())
 }
 
 func TestDisabledTracingCreatesNoSpans(t *testing.T) {
 	var recorder *Recorder
-	ctx, span := recorder.Start(context.Background(), "disabled")
-	if span != nil || ctx == nil {
-		t.Fatal("disabled tracer allocated span")
-	}
-	recorder.Finish(span, "ignored", 200)
+	require.NoError(t, recorder.Shutdown(context.Background()))
+	router := gin.New()
+	router.Use(Middleware(recorder, slog.Default(), false))
+	router.GET("/test", func(c *gin.Context) { c.Status(200) })
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest("GET", "/test", nil))
+	require.Empty(t, response.Header().Get("X-Trace-ID"))
 }
 
 func TestExtendedLogsAreOptionalAndExcludeRequestSecrets(t *testing.T) {
@@ -71,15 +151,33 @@ func TestExtendedLogsAreOptionalAndExcludeRequestSecrets(t *testing.T) {
 		request := httptest.NewRequest("POST", "/login?token=private-token", strings.NewReader("private-password"))
 		request.Header.Set("Authorization", "Bearer private-token")
 		router.ServeHTTP(httptest.NewRecorder(), request)
-		text := output.String()
-		if extended && (!strings.Contains(text, "HTTP request completed") || !strings.Contains(text, "401")) {
-			t.Fatal("missing diagnostic log")
+		if extended {
+			require.Contains(t, output.String(), "HTTP request completed")
+		} else {
+			require.Empty(t, output.String())
 		}
-		if !extended && text != "" {
-			t.Fatal("default mode emitted extended log")
-		}
-		if strings.Contains(text, "private") {
-			t.Fatal("request secrets leaked")
-		}
+		require.NotContains(t, output.String(), "private")
 	}
+}
+
+func TestStandardServiceNameEnvironmentOverridesDefault(t *testing.T) {
+	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/x-protobuf")
+	}))
+	defer receiver.Close()
+	t.Setenv("OTEL_SERVICE_NAME", "watchtower-test")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", receiver.URL+"/v1/traces")
+	recorder, err := New(context.Background())
+	require.NoError(t, err)
+	_, span := recorder.tracer.Start(context.Background(), "resource")
+	require.Contains(t, span.(sdktrace.ReadWriteSpan).Resource().Attributes(), attribute.String("service.name", "watchtower-test"))
+	span.End()
+	require.NoError(t, recorder.Shutdown(context.Background()))
+}
+
+func TestShutdownRejectsUnfinishedSpans(t *testing.T) {
+	recorder := newRecorder(tracetest.NewInMemoryExporter(), resource.Empty())
+	_, span := recorder.tracer.Start(context.Background(), "unfinished")
+	require.ErrorContains(t, recorder.Shutdown(context.Background()), "trace export failed")
+	span.End()
 }

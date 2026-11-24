@@ -1,0 +1,39 @@
+# Tempo 2.9.0 live experiment receiver, local storage isolated per experiment.
+target: all
+auth_enabled: false
+server:
+  http_listen_port: 3200
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+ingester:
+  lifecycler:
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+  trace_idle_period: 5s
+  flush_check_period: 5s
+  max_block_duration: 1m
+compactor:
+  compaction:
+    block_retention: 24h
+storage:
+  trace:
+    backend: local
+    blocklist_poll: 5s
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
+overrides:
+  defaults:
+    ingestion:
+      max_traces_per_user: 200000
+      rate_limit_bytes: 50000000
+      burst_size_bytes: 50000000
+usage_report:
+  reporting_enabled: false
