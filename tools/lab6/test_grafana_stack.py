@@ -65,6 +65,30 @@ class GrafanaImportTests(unittest.TestCase):
             self.assertEqual(params['from'], [labels['window_start_ms']])
             self.assertEqual(params['to'], [labels['window_end_ms']])
 
+    def test_trace_dashboard_uses_direct_id_query_and_viewer_links(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.fixture(root)
+            prepare(root, root/'output')
+            dashboards = root/'output/dashboards'
+            trace = json.loads((dashboards/'traces.json').read_text())
+            self.assertEqual(trace['uid'], 'lab6-traces')
+            self.assertFalse(trace['editable'])
+            variable = next(v for v in trace['templating']['list'] if v['name'] == 'traceId')
+            self.assertEqual(variable['type'], 'textbox')
+            self.assertEqual(variable['current']['value'], '__EXAMPLE_TRACE_ID__')
+            panel = next(p for p in trace['panels'] if p['type'] == 'traces')
+            self.assertEqual(panel['datasource'], {'type': 'tempo', 'uid': 'lab6-tempo'})
+            self.assertEqual(panel['targets'][0]['queryType'], 'traceId')
+            self.assertEqual(panel['targets'][0]['query'], '${traceId}')
+            for name in ('lab6.json', 'detail.json'):
+                dashboard = json.loads((dashboards/name).read_text())
+                self.assertTrue(any(link['url'] == '/d/lab6-traces' for link in dashboard['links']))
+                self.assertNotIn('/explore', json.dumps(dashboard))
+            example = 'c8b788823fd9499eb0a31aafb2823fe2'
+            resolved = json.loads((dashboards/'traces.json').read_text().replace('__EXAMPLE_TRACE_ID__', example))
+            self.assertEqual(resolved['templating']['list'][0]['current']['value'], example)
+
     def test_failed_experiment_and_escaping_artifacts_are_rejected(self):
         for change in ('failed_profiles', 'artifact_path'):
             with self.subTest(change=change), tempfile.TemporaryDirectory() as tmp:

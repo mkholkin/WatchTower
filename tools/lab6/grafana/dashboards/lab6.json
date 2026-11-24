@@ -96,7 +96,14 @@
       }
     ]
   },
-  "links": [],
+  "links": [
+    {
+      "title": "Трасса HTTP → SQL",
+      "type": "link",
+      "url": "/d/lab6-traces",
+      "targetBlank": false
+    }
+  ],
   "panels": [
     {
       "id": 1,
