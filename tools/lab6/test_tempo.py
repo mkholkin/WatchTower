@@ -71,6 +71,23 @@ class TempoTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'rejected'):
                     import_traces(root, 'http://tempo:4318/v1/traces')
 
+    def test_native_otlp_import_validates_graph_and_preserves_64_bit_ids(self):
+        from tools.lab6.test_report import otlp_export
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root/'manifest.json').write_text(json.dumps({'run_id': 'run-1', 'profiles': [
+                {'name': 'ramp', 'variant': 'trace', 'path': '.'}]}))
+            (root/'traces-otlp.jsonl').write_text(json.dumps(otlp_export())+'\n')
+            payloads = []
+            def receive(request, timeout):
+                payloads.append(json.loads(request.data))
+                return io.BytesIO(b'{}')
+            with patch('tools.lab6.tempo.urlopen', side_effect=receive):
+                self.assertEqual(import_traces(root, 'http://tempo:4318')['spans'], 2)
+            spans = payloads[0]['resourceSpans'][0]['scopeSpans'][0]['spans']
+            self.assertEqual(spans[1]['parentSpanId'], spans[0]['spanId'])
+            self.assertEqual(len(spans[0]['spanId']), 16)
+
     def test_empty_tracing_export_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

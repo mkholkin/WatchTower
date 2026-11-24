@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 from urllib.request import Request, urlopen
 
-from tools.lab6.report import PROFILES, VARIANTS
+from tools.lab6.report import PROFILES, VARIANTS, read_otlp
 
 BATCH_SIZE = 500
 REQUIRED = {'trace_id', 'span_id', 'name', 'started_ns', 'duration_ns', 'status'}
@@ -21,8 +21,8 @@ SAFE_NAME = re.compile(
 def convert_span(event):
     """Validate the privacy allowlist and return one OTLP JSON span.
 
-    The native exporter uses random 128-bit span IDs. OTLP requires 64-bit IDs:
-    retain the first 16 hex characters for both span and parent references.
+    OpenTelemetry span IDs remain unchanged. Historical recorder files used
+    128-bit span IDs; only those are shortened consistently for OTLP replay.
     """
     if not isinstance(event, dict) or not REQUIRED <= event.keys() or event.keys()-REQUIRED-{'parent_id'}:
         raise ValueError('Unsafe or invalid trace event fields')
@@ -52,7 +52,9 @@ def convert_span(event):
               'kind': 3 if postgres else 2,
               'startTimeUnixNano': str(event['started_ns']), 'endTimeUnixNano': str(end),
               'status': {'code': 2 if status >= 500 else 1},
-              'attributes': [] if postgres else [
+              'attributes': [
+                  {'key': 'db.system.name', 'value': {'stringValue': 'postgresql'}},
+                  {'key': 'db.operation.name', 'value': {'stringValue': name.split()[1]}}] if postgres else [
                   {'key': 'http.response.status_code', 'value': {'intValue': str(status)}}]}
     if event.get('parent_id'):
         result['parentSpanId'] = event['parent_id'][:16]
@@ -83,7 +85,11 @@ def import_traces(root, endpoint):
             raise ValueError('Invalid profile/variant/repetition')
         if variant not in ('trace', 'trace-debug'):
             continue
-        path = (root/record['path']/'traces.jsonl').resolve()
+        directory = (root/record['path']).resolve()
+        path = directory/'traces-otlp.jsonl'
+        native = path.exists()
+        if not native:
+            path = directory/'traces.jsonl'  # Historical recorder artifacts.
         if not path.is_relative_to(root):
             raise ValueError('Profile path escapes artifact directory')
         attributes = [{'key': key, 'value': {'stringValue': value}} for key, value in (
@@ -110,17 +116,16 @@ def import_traces(root, endpoint):
 
         batch = []
         previous_spans = counts['spans']
-        with path.open() as source:
-            for line_number, line in enumerate(source, 1):
-                if not line.strip():
-                    continue
-                try:
-                    batch.append(convert_span(json.loads(line)))
-                except ValueError as error:
-                    raise ValueError(f'{path}:{line_number}: {error}') from error
-                if len(batch) == BATCH_SIZE:
-                    send(batch)
-                    batch = []
+        if native:
+            events = read_otlp(path)
+        else:
+            with path.open() as source:
+                events = [json.loads(line) for line in source if line.strip()]
+        for event in events:
+            batch.append(convert_span(event))
+            if len(batch) == BATCH_SIZE:
+                send(batch)
+                batch = []
         if batch:
             send(batch)
         if counts['spans'] == previous_spans:

@@ -1,0 +1,6 @@
+ARG BASE
+FROM ${BASE}
+WORKDIR /workspace
+ENV GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org
+COPY go.mod go.sum ./
+RUN go mod download

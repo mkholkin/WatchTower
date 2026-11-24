@@ -143,12 +143,12 @@ def main():
         traces = import_traces(run, 'http://localhost:4316')
         (target/'traces-import.json').write_text(json.dumps(traces, indent=2)+'\n')
         for dashboard in (target/'dashboards').glob('*.json'):
-            dashboard.write_text(dashboard.read_text().replace('__EXAMPLE_TRACE_ID__', traces['example_trace_id']))
+            dashboard.write_text(dashboard.read_text().replace('__EXAMPLE_TRACE_ID__', traces['example_trace_id'] or 'No exported traces'))
     meta = json.loads((target/'import.json').read_text())
     import urllib.parse
     query = urllib.parse.urlencode({'query':f'count(last_over_time(lab6_summary_cpu_seconds[{math.ceil(meta["original_to"]-meta["original_from"])+30}s]))','time':meta['original_to']})
     result = request('http://localhost:9096/api/v1/query?'+query)
-    expected = len(json.loads((run/'summary.json').read_text())['profiles'])*2
+    expected = sum(len(p['resources']) for p in json.loads((run/'summary.json').read_text())['profiles'])
     if not result['data']['result'] or int(result['data']['result'][0]['value'][1]) != expected:
         raise RuntimeError('Prometheus summary series do not match the experiment')
     panel_checks = []

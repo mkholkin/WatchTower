@@ -1,5 +1,6 @@
 """Repeat unchanged Lab 4 workloads in a controlled tracing/logging matrix."""
 import argparse
+import base64
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -35,9 +36,101 @@ def configuration(extended_logs):
             'redis': {'url': 'redis://redis:6379/0'}, 'migrations_dir': 'migrations'}
 
 
+def otlp_id(value):
+    """Collector OTLP IDs are hex; Tempo's protobuf JSON may encode bytes as base64."""
+    if not value:
+        return ''
+    if len(value) in (16, 32) and all(char in '0123456789abcdefABCDEF' for char in value):
+        return value.lower()
+    return base64.b64decode(value, validate=True).hex()
+
+
+def flush_telemetry(compose, directory, record, tracing):
+    """Drain API exporters while resource sampling and downstream receivers stay live."""
+    errors = []
+    try:
+        run(compose+['stop', 'api'], directory/'stop-api.log', 120)
+        api_id = capture(compose+['ps', '-aq', 'api'])
+        if api_id:
+            record['api_exit_code'] = int(capture(['docker', 'inspect', api_id, '--format', '{{.State.ExitCode}}']))
+        logs = capture(compose+['logs', '--no-color', 'api'])
+        summary_lines = [line.split('OTEL_EXPORT_SUMMARY ', 1)[1] for line in logs.splitlines()
+                         if 'OTEL_EXPORT_SUMMARY ' in line]
+        if summary_lines:
+            summary = json.loads(summary_lines[-1])
+            (directory/'export-summary.json').write_text(json.dumps(summary, indent=2)+'\n')
+            record['export_summary'] = summary
+        if tracing and record.get('load_started_at') and not summary_lines:
+            raise RuntimeError('API graceful shutdown did not emit OTEL_EXPORT_SUMMARY')
+        if record.get('load_started_at') and record.get('api_exit_code') != 0:
+            raise RuntimeError(f'API exited {record.get("api_exit_code")} during shutdown')
+        # SDK Shutdown has completed; the synchronous Collector exporters can settle.
+        time.sleep(2)
+        run(compose+['exec', '-T', 'probe', 'curl', '--fail', '--silent',
+                     'http://otel-collector:8888/metrics'], directory/'otel-collector-metrics.txt', 30, stream=False)
+    except Exception as error:
+        errors.append(str(error))
+    try:
+        run(compose+['stop', 'otel-collector'], directory/'stop-otel-collector.log', 70)
+        path = directory/'traces-otlp.jsonl'
+        span_count, unique_spans, trace_id = 0, set(), None
+        http_roots, sql_parents = {}, {}
+        if path.exists():
+            with path.open() as source:
+                for line in source:
+                    for resource in json.loads(line).get('resourceSpans', []):
+                        for scope in resource.get('scopeSpans', []):
+                            for span in scope.get('spans', []):
+                                span_count += 1
+                                unique_spans.add((span['traceId'], span['spanId']))
+                                trace_id = trace_id or span['traceId']
+                                if span.get('kind') in (2, 'SPAN_KIND_SERVER'):
+                                    http_roots.setdefault(otlp_id(span['traceId']), set()).add(otlp_id(span['spanId']))
+                                elif span.get('name', '').startswith('postgres '):
+                                    sql_parents.setdefault(otlp_id(span['traceId']), set()).add(otlp_id(span.get('parentSpanId')))
+        counts = {'spans': span_count, 'unique_spans': len(unique_spans)}
+        if tracing and record.get('load_started_at'):
+            if not span_count:
+                raise RuntimeError('Collector did not export any OTLP spans')
+            correlated = [key for key, roots in http_roots.items() if roots & sql_parents.get(key, set())]
+            if not correlated:
+                raise RuntimeError('Collector export contains no correlated HTTP/SQL trace')
+            trace_id = correlated[0]
+            response = capture(compose+['exec', '-T', 'probe', 'curl', '--fail', '--silent',
+                                        '--retry', '15', '--retry-all-errors', '--retry-delay', '1',
+                                        '--max-time', '5', '-H', 'Accept: application/json',
+                                        'http://tempo:3200/api/traces/'+trace_id])
+            trace = json.loads(response)
+            (directory/'tempo-live-trace.json').write_text(json.dumps(trace)+'\n')
+            live_spans = [span for resource in trace.get('batches', trace.get('resourceSpans', []))
+                          for scope in resource.get('scopeSpans', []) for span in scope.get('spans', [])]
+            live_http = {otlp_id(span['spanId']) for span in live_spans
+                         if span.get('kind') in (2, 'SPAN_KIND_SERVER')}
+            if not any(span.get('name', '').startswith('postgres ') and otlp_id(span.get('parentSpanId')) in live_http
+                       for span in live_spans):
+                raise RuntimeError('Tempo live trace lacks correlated HTTP/SQL spans')
+            counts.update(trace_id=trace_id, tempo_live_verified=True)
+        else:
+            counts['tempo_live_verified'] = False
+            if span_count:
+                raise RuntimeError('Tracing-disabled variant exported spans')
+        (directory/'tempo-live-check.json').write_text(json.dumps(counts, indent=2)+'\n')
+        record['telemetry'] = counts
+    except Exception as error:
+        errors.append(str(error))
+    finally:
+        try:
+            run(compose+['stop', 'tempo'], directory/'stop-tempo.log', 70)
+        except Exception as error:
+            errors.append(str(error))
+    if errors:
+        raise RuntimeError('; '.join(errors))
+
+
 def experiment(output, run_id, name, variant, repetition, app, postgres, smoke):
     directory = output/'variants'/variant/'repetitions'/str(repetition)/'profiles'/name
     directory.mkdir(parents=True)
+    (directory/'tempo-data').mkdir()
     image = f'watchtower-lab6-run:{run_id}-{variant}-{repetition}-{name}'
     dockerfile = directory/'Dockerfile.run'
     dockerfile.write_text(f'FROM {app}\nLABEL org.watchtower.lab6.run="{run_id}-{variant}-{repetition}-{name}"\n')
@@ -49,7 +142,8 @@ def experiment(output, run_id, name, variant, repetition, app, postgres, smoke):
     os.environ.update(LAB4_APP_IMAGE=image, LAB4_POSTGRES_IMAGE=postgres, LAB4_CONFIG=str(config),
                       LAB4_OUTPUT=str(directory), LAB4_UID=str(os.getuid()), LAB4_GID=str(os.getgid()),
                       LAB4_PROFILE=name, LAB4_SMOKE='1' if smoke else '0', LAB4_CONTAINERS='{}',
-                      LAB6_TRACE_FILE='/artifacts/traces.jsonl' if options['tracing'] else '',
+                      LAB6_TRACING_ENABLED=str(options['tracing']).lower(),
+                      LAB6_RESOURCE_ATTRIBUTES=f'run_id={run_id},profile={name},variant={variant},repetition={repetition}',
                       LAB6_HTTP_DEBUG='true' if options['extended_logs'] else 'false')
     compose = ['docker', 'compose', '-p', f'wt-lab6-{run_id}-{variant}-{repetition}-{name}',
                '-f', 'tools/lab6/compose.yaml']
@@ -60,8 +154,12 @@ def experiment(output, run_id, name, variant, repetition, app, postgres, smoke):
         run(['docker', 'build', '--network=none', '-f', str(dockerfile), '-t', image, str(directory)], directory/'build.log', 120)
         record['image_id'] = capture(['docker', 'image', 'inspect', image, '--format', '{{.Id}}'])
         run(compose+['up', '-d', '--wait', '--wait-timeout', '180'], directory/'start.log', 240)
+        for url in ('http://otel-collector:13133/', 'http://tempo:3200/ready'):
+            run(compose+['exec', '-T', 'probe', 'curl', '--fail', '--silent', '--retry', '40',
+                         '--retry-all-errors', '--retry-delay', '1', '--max-time', '2', url],
+                directory/('ready-otel.log' if '13133' in url else 'ready-tempo.log'), 120)
         run(compose+['--profile', 'load', 'create', 'load'], directory/'create-load.log')
-        ids = {service: capture(compose+['ps', '-aq', service]) for service in ('api', 'postgres', 'redis', 'probe', 'load')}
+        ids = {service: capture(compose+['ps', '-aq', service]) for service in ('api', 'postgres', 'redis', 'probe', 'load', 'otel-collector', 'tempo')}
         os.environ['LAB4_CONTAINERS'] = json.dumps(ids)
         run(compose+['--profile', 'monitor', 'up', '-d', 'collector'], directory/'collector.log')
         ids['collector'] = capture(compose+['ps', '-aq', 'collector'])
@@ -86,6 +184,7 @@ def experiment(output, run_id, name, variant, repetition, app, postgres, smoke):
         record['load_finished_at'] = time.time()
         try:
             try:
+                flush_telemetry(compose, directory, record, options['tracing'])
                 run(compose+['stop', 'collector'], directory/'stop-collector.log', 60)
                 run(compose+['logs', '--no-color', '--timestamps'], directory/'services.log', 60, stream=False)
                 record['final_state'] = capture(compose+['ps', '-a'])
@@ -154,8 +253,8 @@ def main():
                 'selected_profiles': profiles, 'variants': [{'name': name, **VARIANTS[name]} for name in variants],
                 'git_commit': capture(['git', 'rev-parse', 'HEAD']), 'working_tree': capture(['git', 'status', '--short']),
                 'docker': json.loads(capture(['docker', 'info', '--format', '{{json .}}'])), 'profiles': []}
-    sources = [ROOT/p for p in ('go.mod', 'go.sum', 'Dockerfile.postgres', 'Makefile', 'tools/lab6/Dockerfile', 'tools/lab6/Dockerfile.dockerignore', 'tools/lab6/Dockerfile.cached', 'tools/lab6/Dockerfile.cached.dockerignore', '.github/workflows/tiopo-lab6.yml')]
-    for folder in ('tools/lab6', 'tools/lab4', 'tests/lab4', 'tools/lab2', 'internal', 'cmd/api', 'configs'):
+    sources = [ROOT/p for p in ('go.mod', 'go.sum', 'Dockerfile.postgres', 'Makefile', 'tools/lab6/Dockerfile', 'tools/lab6/Dockerfile.dockerignore', 'tools/lab6/Dockerfile.dependencies', 'tools/lab6/Dockerfile.dependencies.dockerignore', 'tools/lab6/Dockerfile.cached', 'tools/lab6/Dockerfile.cached.dockerignore', '.github/workflows/tiopo-lab6.yml')]
+    for folder in ('tools/lab6', 'tools/lab4', 'tests/lab4', 'tools/lab2', 'internal', 'pkg', 'cmd/api', 'configs'):
         sources.extend(p for p in (ROOT/folder).rglob('*')
                        if p.is_file() and p.suffix in ('.py', '.go', '.json', '.yaml', '.js', '.mjs')
                        and not {'node_modules', 'allure-results', '__pycache__', 'build', '.cache'}.intersection(p.relative_to(ROOT).parts))
@@ -168,8 +267,12 @@ def main():
             manifest['runtime_base'] = {'image': args.runtime_base,
                                         'image_id': capture(['docker', 'image', 'inspect', args.runtime_base, '--format', '{{.Id}}'])}
             save_manifest(output, manifest)
+            dependencies = f'{app}-dependencies'
+            run(['docker', 'build', '-f', 'tools/lab6/Dockerfile.dependencies',
+                 '--build-arg', f'BASE={args.runtime_base}', '-t', dependencies, '.'],
+                output/'build-dependencies.log', 900)
             run(['docker', 'build', '--network=none', '-f', 'tools/lab6/Dockerfile.cached',
-                 '--build-arg', f'BASE={args.runtime_base}', '-t', app, '.'], output/'build-app.log', 1500)
+                 '--build-arg', f'BASE={dependencies}', '-t', app, '.'], output/'build-app.log', 1500)
         else:
             run(['docker', 'build', '-f', 'tools/lab6/Dockerfile', '-t', app, '.'], output/'build-app.log', 1500)
         app_ready = True
@@ -182,7 +285,8 @@ def main():
         manifest['postgres_image'] = {'image': postgres,
                                       'image_id': capture(['docker', 'image', 'inspect', postgres, '--format', '{{.Id}}'])}
         manifest['dependency_images'] = {image: ensure_image(image, output)
-                                         for image in ('grafana/k6:1.3.0', 'redis:7.4-bookworm')}
+                                         for image in ('grafana/k6:1.3.0', 'redis:7.4-bookworm',
+                                                       'otel/opentelemetry-collector-contrib:0.140.0', 'grafana/tempo:2.9.0')}
         save_manifest(output, manifest)
         for repetition in range(1, args.repetitions+1):
             for name in profiles:

@@ -24,6 +24,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
@@ -56,7 +57,8 @@ type App struct {
 	mongoClients map[string]*mongo.Client
 	logger       *slog.Logger
 
-	cancel context.CancelFunc
+	cancel  context.CancelFunc
+	workers sync.WaitGroup
 }
 
 func newPgPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
@@ -490,20 +492,24 @@ func dbNameFromDSN(dsn string) string {
 func (a *App) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	a.cancel = cancel
+	a.workers.Add(3)
 
 	go func() {
+		defer a.workers.Done()
 		if err := a.healthchecker.Run(ctx); err != nil {
 			a.logger.Error("health checker stopped", "error", err)
 		}
 	}()
 
 	go func() {
+		defer a.workers.Done()
 		if err := a.analyzer.Run(ctx); err != nil {
 			a.logger.Error("analyzer stopped", "error", err)
 		}
 	}()
 
 	go func() {
+		defer a.workers.Done()
 		if err := a.notificator.Run(ctx); err != nil {
 			a.logger.Error("notification service stopped", "error", err)
 		}
@@ -511,7 +517,10 @@ func (a *App) Start(ctx context.Context) {
 }
 
 func (a *App) Shutdown() {
-	a.cancel()
+	if a.cancel != nil {
+		a.cancel()
+	}
+	a.workers.Wait()
 	for _, pool := range a.pgPools {
 		pool.Close()
 	}

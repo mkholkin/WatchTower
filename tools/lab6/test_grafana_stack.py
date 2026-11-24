@@ -13,7 +13,7 @@ class GrafanaImportTests(unittest.TestCase):
         profile = dict(name='ramp', variant='trace', repetition=1, artifact_path='profile',
                        measurement_start=100, measurement_end=110, integrity_issues=[],
                        resources={name: dict(cpu_seconds=2, memory_bytes=dict(min=10, median=20, max=30))
-                                  for name in ('api', 'collector')},
+                                  for name in ('api', 'collector', 'otel-collector', 'tempo')},
                        load=dict(rps=dict(median=36), unexpected_ratio=0))
         summary = dict(run_id='test-run', failed_profiles=[], profiles=[profile])
         (root/'summary.json').write_text(json.dumps(summary))
@@ -33,10 +33,15 @@ class GrafanaImportTests(unittest.TestCase):
             self.assertIn('lab6_cpu_seconds_total{component="api",profile="ramp",repetition="1",run="test-run",variant="trace"} 3 101.000000', data)
             self.assertNotIn('99.000000', data)
             self.assertNotIn('111.000000', data)
-            self.assertEqual(meta['samples'], 12)
+            self.assertEqual(meta['samples'], 20)
             dashboard = json.loads((root/'output/dashboards/lab6.json').read_text())
             self.assertEqual(dashboard['time']['from'], '1970-01-01T00:01:25Z')
             self.assertTrue(data.endswith('# EOF\n'))
+            self.assertIn('component="otel-collector"', data)
+            self.assertIn('component="tempo"', data)
+            variable = next(v for v in dashboard['templating']['list'] if v['name'] == 'component')
+            self.assertIn('otel-collector', variable['query'])
+            self.assertIn('tempo', variable['query'])
             self.assertIn('window_start_ms="100000"', data)
             self.assertIn('window_end_ms="111000"', data)
             detail = json.loads((root/'output/dashboards/detail.json').read_text())
