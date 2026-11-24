@@ -312,11 +312,11 @@ def plot_comparison(root, summaries):
             values = [r['resources'][component] for r in rows]
             axes[index, 0].bar(labels, [v['cpu_seconds'] for v in values])
             axes[index, 0].set(title=component, ylabel='CPU-seconds in measurement window')
-            medians = [v['memory_bytes']['median']/2**20 for v in values]
-            errors = [[m-v['memory_bytes']['min']/2**20 for m, v in zip(medians, values)],
-                      [v['memory_bytes']['max']/2**20-m for m, v in zip(medians, values)]]
+            medians = [v['memory_bytes']['median']/1_000_000 for v in values]
+            errors = [[m-v['memory_bytes']['min']/1_000_000 for m, v in zip(medians, values)],
+                      [v['memory_bytes']['max']/1_000_000-m for m, v in zip(medians, values)]]
             axes[index, 1].bar(labels, medians, yerr=errors, capsize=4)
-            axes[index, 1].set(title=component, ylabel='RAM MiB: median, whiskers min/max')
+            axes[index, 1].set(title=component, ylabel='RAM MB: median, whiskers min/max')
         for ax in axes.flat:
             ax.tick_params(axis='x', rotation=25)
             ax.grid(axis='y', alpha=.2)
@@ -412,16 +412,16 @@ def write_reports(root):
         (output/f'{identity}-result.json').write_text(json.dumps(item)+'\n')
     lines = ['# Lab 6 measured overhead', '', f'Run: `{manifest["run_id"]}`; smoke: `{manifest["smoke"]}`.', '',
              'CPU-seconds are raw cumulative CPU nanosecond differences at measurement boundaries, linearly interpolated between adjacent samples. RAM is working set; warmup and cooldown are excluded. API, Docker metrics collector, OpenTelemetry Collector and live Tempo overhead are reported separately. Δ compares the same profile and repetition with baseline.', '',
-             '| Profile | Variant / repetition | Component | CPU s | Δ CPU s | Δ CPU % | RAM min / median / max MiB | Δ median MiB | RPS median | Unexpected % | Intentional % |',
+             '| Profile | Variant / repetition | Component | CPU s | Δ CPU s | Δ CPU % | RAM min / median / max MB | Δ median MB | RPS median | Unexpected % | Intentional % |',
              '|---|---|---|---:|---:|---:|---|---:|---:|---:|---:|']
     for s in summaries:
         for component in s['resources']:
             values = s['resources'][component]
             delta = s.get('baseline_delta', {}).get(component, {})
             fmt = lambda value: f'{value:.3f}' if value is not None else 'n/a'
-            memory = ' / '.join(fmt(values['memory_bytes'][key]/2**20) for key in ('min', 'median', 'max'))
+            memory = ' / '.join(fmt(values['memory_bytes'][key]/1_000_000) for key in ('min', 'median', 'max'))
             median_delta = delta.get('memory_bytes_delta', {}).get('median')
-            lines.append(f'| {s["name"]} | {s["variant"]} / {s["repetition"]} | {component} | {values["cpu_seconds"]:.3f} | {fmt(delta.get("cpu_seconds_delta"))} | {fmt(delta.get("cpu_seconds_delta_percent"))} | {memory} | {fmt(median_delta/2**20 if median_delta is not None else None)} | {s["load"]["rps"]["median"]:.2f} | {s["load"]["unexpected_ratio"]*100:.2f} | {s["load"]["intentional_error_percent"]:.2f} |')
+            lines.append(f'| {s["name"]} | {s["variant"]} / {s["repetition"]} | {component} | {values["cpu_seconds"]:.3f} | {fmt(delta.get("cpu_seconds_delta"))} | {fmt(delta.get("cpu_seconds_delta_percent"))} | {memory} | {fmt(median_delta/1_000_000 if median_delta is not None else None)} | {s["load"]["rps"]["median"]:.2f} | {s["load"]["unexpected_ratio"]*100:.2f} | {s["load"]["intentional_error_percent"]:.2f} |')
         if s['integrity_issues']:
             lines += ['', f'{s["name"]}/{s["variant"]}: '+ '; '.join(s['integrity_issues']), '']
     for failure in failures:
