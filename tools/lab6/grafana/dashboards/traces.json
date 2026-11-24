@@ -52,8 +52,106 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Ниже показан запрос `POST /auth/register` и вложенные SQL spans. Раскройте HTTP span: строки `postgres INSERT` и `postgres SELECT` показывают время работы с PostgreSQL внутри запроса. Длина полосы — длительность span; положение — время его начала.\n\nЧтобы открыть другую трассу, вставьте её ID в поле **«ID трассы»** и нажмите Enter. Трасса загружается автоматически."
+        "content": "В таблице перечислены все spans выбранной трассы: HTTP-запрос имеет тип **server**, обращения к PostgreSQL — **client**. Столбец «Операция» показывает HTTP-метод и маршрут либо SQL-операцию. Длительность HTTP span включает работу вложенных SQL spans.\n\nНиже таблицы показано дерево трассы с временными полосами. Чтобы открыть другую трассу, вставьте её ID в поле **«ID трассы»** и нажмите Enter."
       }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Все операции трассы: HTTP и SQL",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "lab6-tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "lab6-tempo"
+          },
+          "queryType": "traceId",
+          "query": "${traceId}"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Длительность, мс",
+            "desc": true
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Длительность, мс"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 3
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "operationName",
+                "kind",
+                "duration"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "operationName": 0,
+              "kind": 1,
+              "duration": 2
+            },
+            "renameByName": {
+              "operationName": "Операция",
+              "kind": "Тип",
+              "duration": "Длительность, мс"
+            }
+          }
+        }
+      ]
     },
     {
       "id": 2,
@@ -61,7 +159,7 @@
       "title": "HTTP-запрос и SQL",
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 12,
         "w": 24,
         "h": 20
       },
