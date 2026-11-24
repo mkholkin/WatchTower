@@ -35,7 +35,7 @@ class GrafanaImportTests(unittest.TestCase):
             self.assertNotIn('111.000000', data)
             self.assertEqual(meta['samples'], 20)
             dashboard = json.loads((root/'output/dashboards/lab6.json').read_text())
-            self.assertEqual(dashboard['time']['from'], '1970-01-01T00:01:25Z')
+            self.assertEqual(dashboard['time']['from'], '85000')
             self.assertTrue(data.endswith('# EOF\n'))
             self.assertIn('component="otel-collector"', data)
             self.assertIn('component="tempo"', data)
@@ -47,7 +47,31 @@ class GrafanaImportTests(unittest.TestCase):
             detail = json.loads((root/'output/dashboards/detail.json').read_text())
             selected = {v['name']: v['current']['value'] for v in detail['templating']['list']}
             self.assertEqual((selected['profile'], selected['variant'], selected['run']), ('ramp', 'trace', 'test-run'))
-            self.assertEqual(detail['time'], {'from': '1970-01-01T00:01:40Z', 'to': '1970-01-01T00:01:51Z'})
+            self.assertEqual(detail['time'], {'from': '100000', 'to': '111000'})
+
+    def test_generated_variables_and_reset_link_use_only_loaded_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.fixture(root)
+            prepare(root, root/'output')
+            for path in (root/'output/dashboards').glob('*.json'):
+                dashboard = json.loads(path.read_text())
+                variables = {v['name']: v for v in dashboard['templating']['list']}
+                for name, value in (('run', 'test-run'), ('profile', 'ramp'), ('repetition', '1'), ('variant', 'trace')):
+                    if name not in variables:
+                        continue
+                    variable = variables[name]
+                    self.assertTrue(variable['skipUrlSync'])
+                    self.assertEqual(variable['current']['value'], value)
+                    self.assertEqual([option['value'] for option in variable['options']], [value])
+                    self.assertNotIn('soak-20', variable['query'])
+                reset = next(link for link in dashboard['links'] if link['title'] == 'Показать данные текущего запуска')
+                self.assertEqual(parse_qs(urlsplit(reset['url']).query), {
+                    'from': ['85000'], 'to': ['125000'], 'var-run': ['test-run'], 'var-profile': ['ramp'],
+                    'var-repetition': ['1'], 'var-component': ['api']})
+                self.assertNotIn('${', reset['url'])
+                self.assertTrue(dashboard['time']['from'].isdigit())
+                self.assertTrue(dashboard['time']['to'].isdigit())
 
     def test_drilldown_link_uses_experiment_labels_without_array_formatting(self):
         dashboard = json.loads((Path(__file__).parent/'grafana/dashboards/lab6.json').read_text())
@@ -98,7 +122,7 @@ class GrafanaImportTests(unittest.TestCase):
             self.assertNotIn('/auth/register', description)
             for name in ('lab6.json', 'detail.json'):
                 dashboard = json.loads((dashboards/name).read_text())
-                self.assertTrue(any(link['url'] == '/d/lab6-traces' for link in dashboard['links']))
+                self.assertTrue(any(link['url'] == '/d/lab6-traces?var-traceId=__EXAMPLE_TRACE_ID__' for link in dashboard['links']))
                 self.assertNotIn('/explore', json.dumps(dashboard))
             example = 'c8b788823fd9499eb0a31aafb2823fe2'
             resolved = json.loads((dashboards/'traces.json').read_text().replace('__EXAMPLE_TRACE_ID__', example))

@@ -20,6 +20,12 @@
       "type": "link",
       "url": "/d/lab6-observability",
       "targetBlank": false
+    },
+    {
+      "title": "Пример текущего запуска",
+      "type": "link",
+      "url": "/d/lab6-traces?var-traceId=__EXAMPLE_TRACE_ID__",
+      "targetBlank": false
     }
   ],
   "templating": {
