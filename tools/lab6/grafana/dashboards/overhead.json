@@ -1,0 +1,1154 @@
+{
+  "id": null,
+  "uid": "lab6-overhead",
+  "title": "ЛР №6 — суммарный overhead",
+  "description": "Полный стек, прямые затраты диагностики и разница с baseline за одно измерительное окно.",
+  "tags": [
+    "watchtower",
+    "lab6",
+    "historical"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 4,
+  "editable": false,
+  "refresh": "",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "run",
+        "label": "Запуск",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "lab6-prometheus"
+        },
+        "query": "label_values(lab6_memory_bytes{}, run)",
+        "definition": "label_values(lab6_memory_bytes{}, run)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "",
+          "value": "",
+          "selected": true
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "profile",
+        "label": "Профиль нагрузки",
+        "type": "custom",
+        "query": "Плавный рост : ramp, Перегрузка : stress, Длительная · 0% ошибок : soak-0, Длительная · 10% ошибок : soak-10, Длительная · 20% ошибок : soak-20",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "Длительная · 0% ошибок",
+          "value": "soak-0",
+          "selected": true
+        },
+        "options": []
+      },
+      {
+        "name": "repetition",
+        "label": "Повторение",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "lab6-prometheus"
+        },
+        "query": "label_values(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\"}, repetition)",
+        "definition": "label_values(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\"}, repetition)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "1",
+          "value": "1",
+          "selected": true
+        },
+        "options": []
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "← К сравнению режимов",
+      "type": "link",
+      "url": "/d/lab6-observability?${run:queryparam}&${profile:queryparam}&${repetition:queryparam}",
+      "targetBlank": false
+    },
+    {
+      "title": "Трасса HTTP → SQL",
+      "type": "link",
+      "url": "/d/lab6-traces?var-traceId=__EXAMPLE_TRACE_ID__",
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Что входит в overhead",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Измеренный стек:** API, Docker metrics collector, OTel Collector и Tempo. **Δ к baseline** — разница затрат полного стека при том же профиле и повторении; она включает SDK внутри API. **Прямая диагностика** — три внешних процесса: collector, OTel Collector и Tempo.\n\nRAM — среднее working set по времени за измерительное окно, MB = 1 000 000 байт. Суммы считаются по средним; Δ уже входит в затраты полного стека. RPS и ошибки помогают сравнить выполненную работу.\n\nПросмотр в Grafana/Prometheus измеряется отдельно."
+      }
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "Δ CPU измеренного стека к baseline",
+      "description": "Разница процессорного времени четырёх компонентов с baseline; включает SDK и экспорт внутри API.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: CPU-с",
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Без диагностики"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8e8e8e"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Расширенные логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace-debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка и логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_overhead_cpu_seconds{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\"}[$__range])",
+          "legendFormat": "{{variant}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": false,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "minVizHeight": 36,
+        "minVizWidth": 10,
+        "valueMode": "color",
+        "namePlacement": "left"
+      }
+    },
+    {
+      "id": 3,
+      "type": "bargauge",
+      "title": "Δ средней RAM измеренного стека к baseline",
+      "description": "Разница сумм средних по времени working set четырёх компонентов с baseline.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: MB",
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Без диагностики"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8e8e8e"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Расширенные логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace-debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка и логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_overhead_memory_mean_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\"}[$__range]) / 1000000",
+          "legendFormat": "{{variant}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": false,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "minVizHeight": 36,
+        "minVizWidth": 10,
+        "valueMode": "color",
+        "namePlacement": "left"
+      }
+    },
+    {
+      "id": 4,
+      "type": "bargauge",
+      "title": "CPU прямой диагностики",
+      "description": "Сумма CPU Docker metrics collector, OTel Collector и Tempo за измерительное окно.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: CPU-с",
+          "min": 0,
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Без диагностики"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8e8e8e"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Расширенные логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace-debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка и логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_diagnostics_cpu_seconds{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\"}[$__range])",
+          "legendFormat": "{{variant}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": false,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "minVizHeight": 36,
+        "minVizWidth": 10,
+        "valueMode": "color",
+        "namePlacement": "left"
+      }
+    },
+    {
+      "id": 5,
+      "type": "bargauge",
+      "title": "Средняя RAM прямой диагностики",
+      "description": "Сумма средних по времени working set трёх внешних диагностических процессов.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: MB",
+          "min": 0,
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Без диагностики"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8e8e8e"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Расширенные логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace-debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка и логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_diagnostics_memory_mean_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\"}[$__range]) / 1000000",
+          "legendFormat": "{{variant}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": false,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "minVizHeight": 36,
+        "minVizWidth": 10,
+        "valueMode": "color",
+        "namePlacement": "left"
+      }
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "CPU измеренного стека",
+      "description": "Сумма CPU API, Docker metrics collector, OTel Collector и Tempo.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: CPU-с",
+          "min": 0,
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Без диагностики"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8e8e8e"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Расширенные логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace-debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка и логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_total_cpu_seconds{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\"}[$__range])",
+          "legendFormat": "{{variant}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": false,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "minVizHeight": 36,
+        "minVizWidth": 10,
+        "valueMode": "color",
+        "namePlacement": "left"
+      }
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "Средняя RAM измеренного стека",
+      "description": "Сумма средних по времени working set четырёх компонентов за измерительное окно.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: MB",
+          "min": 0,
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Без диагностики"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8e8e8e"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Расширенные логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace-debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка и логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_total_memory_mean_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\"}[$__range]) / 1000000",
+          "legendFormat": "{{variant}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": false,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "minVizHeight": 36,
+        "minVizWidth": 10,
+        "valueMode": "color",
+        "namePlacement": "left"
+      }
+    },
+    {
+      "id": 8,
+      "type": "bargauge",
+      "title": "Пропускная способность API",
+      "description": "Медиана RPS — контекст выполненной работы.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: запросов/с",
+          "min": 0,
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Без диагностики"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8e8e8e"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Расширенные логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace-debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка и логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_rps{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",component=\"api\"}[$__range])",
+          "legendFormat": "{{variant}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": false,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "minVizHeight": 36,
+        "minVizWidth": 10,
+        "valueMode": "color",
+        "namePlacement": "left"
+      }
+    },
+    {
+      "id": 9,
+      "type": "bargauge",
+      "title": "Неожиданные ошибки API",
+      "description": "Доля неожиданных ответов API; предусмотренные сценарием 401/400 исключены.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "lab6-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Без диагностики"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8e8e8e"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Расширенные логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace-debug"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Трассировка и логи"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "last_over_time(lab6_summary_unexpected_ratio{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",component=\"api\"}[$__range])",
+          "legendFormat": "{{variant}}",
+          "range": false,
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "lab6-prometheus"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": false,
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "minVizHeight": 36,
+        "minVizWidth": 10,
+        "valueMode": "color",
+        "namePlacement": "left"
+      }
+    }
+  ]
+}

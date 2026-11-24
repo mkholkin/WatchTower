@@ -19,9 +19,9 @@ class GrafanaImportTests(unittest.TestCase):
         summary = dict(run_id='test-run', failed_profiles=[], profiles=[profile])
         (root/'summary.json').write_text(json.dumps(summary))
         (root/'profile').mkdir()
-        rows = [dict(time=t, component='api', memory_bytes=128,
+        rows = [dict(time=t, component=component, memory_bytes=128,
                      raw=dict(cpu_stats=dict(cpu_usage=dict(total_usage=3_000_000_000))))
-                for t in (99, 101, 111)]
+                for component in ('api', 'collector', 'otel-collector', 'tempo') for t in (99, 101, 104, 107, 110, 111)]
         (root/'profile/resources.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rows))
         return summary
 
@@ -34,7 +34,7 @@ class GrafanaImportTests(unittest.TestCase):
             self.assertIn('lab6_cpu_seconds_total{component="api",profile="ramp",repetition="1",run="test-run",variant="trace"} 3 101.000000', data)
             self.assertNotIn('99.000000', data)
             self.assertNotIn('111.000000', data)
-            self.assertEqual(meta['samples'], 20)
+            self.assertEqual(meta['samples'], 54)
             dashboard = json.loads((root/'output/dashboards/lab6.json').read_text())
             self.assertEqual(dashboard['time']['from'], '85000')
             self.assertTrue(data.endswith('# EOF\n'))
@@ -85,7 +85,7 @@ class GrafanaImportTests(unittest.TestCase):
                 for panel in dashboard['panels']:
                     for target in panel.get('targets', []):
                         expression = target.get('expr', '')
-                        if 'lab6_summary_' in expression:
+                        if 'lab6_summary_' in expression and dashboard['uid'] in ('lab6-observability', 'lab6-detail'):
                             summaries += 1
                             self.assertNotIn('$__range', expression)
                             self.assertIn('[40s] @125.000000', expression)
@@ -122,6 +122,74 @@ class GrafanaImportTests(unittest.TestCase):
         with patch('tools.lab6.grafana_stack.request', return_value=valid) as post:
             check_panel(dashboard, panel)
             self.assertEqual(post.call_args.args[1]['from'], '85000')
+
+    def test_aggregate_metrics_keep_negative_matched_deltas_and_baseline_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = self.fixture(root)
+            prepare(root, root/'unmatched')
+            unmatched = (root/'unmatched/metrics.om').read_text()
+            self.assertNotIn('lab6_summary_overhead_', unmatched)
+            self.assertIn('lab6_summary_total_memory_mean_bytes', unmatched)
+            baseline = json.loads(json.dumps(summary['profiles'][0]))
+            baseline.update(variant='baseline', artifact_path='baseline')
+            for resource in baseline['resources'].values():
+                resource['cpu_seconds'] = 3
+            summary['profiles'].append(baseline)
+            (root/'summary.json').write_text(json.dumps(summary))
+            (root/'baseline').mkdir()
+            rows = [json.loads(line) for line in (root/'profile/resources.jsonl').read_text().splitlines()]
+            for row in rows:
+                row['memory_bytes'] = 256
+            (root/'baseline/resources.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in rows))
+            prepare(root, root/'matched')
+            metrics = (root/'matched/metrics.om').read_text().splitlines()
+            def value(name, variant):
+                line = next(line for line in metrics if line.startswith(name+'{') and f'variant="{variant}"' in line)
+                return float(line.split()[-2])
+            self.assertEqual(value('lab6_summary_total_cpu_seconds', 'trace'), 8)
+            self.assertEqual(value('lab6_summary_diagnostics_cpu_seconds', 'trace'), 6)
+            self.assertEqual(value('lab6_summary_total_memory_mean_bytes', 'trace'), 512)
+            self.assertEqual(value('lab6_summary_diagnostics_memory_mean_bytes', 'trace'), 384)
+            self.assertEqual(value('lab6_summary_overhead_cpu_seconds', 'trace'), -4)
+            self.assertEqual(value('lab6_summary_overhead_memory_mean_bytes', 'trace'), -512)
+            self.assertEqual(value('lab6_summary_overhead_cpu_seconds', 'baseline'), 0)
+            self.assertEqual(value('lab6_summary_overhead_memory_mean_bytes', 'baseline'), 0)
+
+    def test_overhead_dashboard_uses_aggregate_series_and_preserves_signed_deltas(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.fixture(root)
+            prepare(root, root/'output')
+            dashboard = json.loads((root/'output/dashboards/overhead.json').read_text())
+            self.assertEqual(dashboard['uid'], 'lab6-overhead')
+            self.assertEqual({v['name'] for v in dashboard['templating']['list']}, {'run', 'profile', 'repetition'})
+            panels = [panel for panel in dashboard['panels'] if panel.get('targets')]
+            self.assertEqual(len(panels), 8)
+            expected = {'total_cpu_seconds', 'diagnostics_cpu_seconds', 'total_memory_mean_bytes',
+                        'diagnostics_memory_mean_bytes', 'overhead_cpu_seconds', 'overhead_memory_mean_bytes'}
+            found = set()
+            for panel in panels:
+                query = panel['targets'][0]
+                expression = query['expr']
+                self.assertTrue(query['instant'])
+                self.assertFalse(query['range'])
+                self.assertIn('[40s] @125.000000', expression)
+                metric = re.search(r'lab6_summary_([a-z_]+)', expression).group(1)
+                if metric in expected:
+                    found.add(metric)
+                    self.assertNotIn('component=', expression)
+                else:
+                    self.assertIn('component="api"', expression)
+                if 'memory' in metric:
+                    self.assertIn('/ 1000000', expression)
+                    self.assertEqual(panel['fieldConfig']['defaults']['unit'], 'suffix: MB')
+                if metric.startswith('overhead_'):
+                    self.assertNotIn('min', panel['fieldConfig']['defaults'])
+            self.assertEqual(found, expected)
+            for path in (root/'output/dashboards').glob('*.json'):
+                self.assertNotIn('1048576', path.read_text())
+                self.assertNotIn('MiB', path.read_text())
 
     def test_drilldown_link_uses_experiment_labels_without_array_formatting(self):
         dashboard = json.loads((Path(__file__).parent/'grafana/dashboards/lab6.json').read_text())

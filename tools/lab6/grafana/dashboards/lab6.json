@@ -98,6 +98,12 @@
   },
   "links": [
     {
+      "title": "Суммарный overhead",
+      "type": "link",
+      "url": "/d/lab6-overhead?${run:queryparam}&${profile:queryparam}&${repetition:queryparam}",
+      "targetBlank": false
+    },
+    {
       "title": "Трасса HTTP → SQL",
       "type": "link",
       "url": "/d/lab6-traces?var-traceId=__EXAMPLE_TRACE_ID__",
@@ -274,7 +280,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix: МиБ",
+          "unit": "suffix: MB",
           "min": 0,
           "decimals": 2,
           "links": [
@@ -367,7 +373,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",component=~\"${component:regex}\",stat=\"median\"}[$__range]) / 1048576",
+          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",component=~\"${component:regex}\",stat=\"median\"}[$__range]) / 1000000",
           "legendFormat": "{{variant}}",
           "range": false,
           "instant": true,

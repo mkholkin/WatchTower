@@ -116,6 +116,12 @@
   },
   "links": [
     {
+      "title": "Суммарный overhead",
+      "type": "link",
+      "url": "/d/lab6-overhead?${run:queryparam}&${profile:queryparam}&${repetition:queryparam}",
+      "targetBlank": false
+    },
+    {
       "title": "← К сравнению режимов",
       "type": "link",
       "url": "/d/lab6-observability?${run:queryparam}&${profile:queryparam}&${repetition:queryparam}&${component:queryparam}",
@@ -207,7 +213,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix: МиБ",
+          "unit": "suffix: MB",
           "decimals": 2,
           "color": {
             "mode": "fixed",
@@ -219,7 +225,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\",stat=\"min\"}[$__range]) / 1048576",
+          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\",stat=\"min\"}[$__range]) / 1000000",
           "instant": true,
           "range": false,
           "legendFormat": "Память — минимум"
@@ -254,7 +260,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix: МиБ",
+          "unit": "suffix: MB",
           "decimals": 2,
           "color": {
             "mode": "fixed",
@@ -266,7 +272,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\",stat=\"median\"}[$__range]) / 1048576",
+          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\",stat=\"median\"}[$__range]) / 1000000",
           "instant": true,
           "range": false,
           "legendFormat": "Память — медиана"
@@ -301,7 +307,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix: МиБ",
+          "unit": "suffix: MB",
           "decimals": 2,
           "color": {
             "mode": "fixed",
@@ -313,7 +319,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\",stat=\"max\"}[$__range]) / 1048576",
+          "expr": "last_over_time(lab6_summary_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\",stat=\"max\"}[$__range]) / 1000000",
           "instant": true,
           "range": false,
           "legendFormat": "Память — максимум"
@@ -407,7 +413,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix: МиБ",
+          "unit": "suffix: MB",
           "min": 0,
           "custom": {
             "drawStyle": "line",
@@ -428,7 +434,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\"} and (time() - timestamp(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\"}) < 5)) / 1048576",
+          "expr": "(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\"} and (time() - timestamp(lab6_memory_bytes{run=~\"${run:regex}\",profile=~\"${profile:regex}\",repetition=~\"${repetition:regex}\",variant=~\"${variant:regex}\",component=~\"${component:regex}\"}) < 5)) / 1000000",
           "legendFormat": "Память",
           "range": true,
           "instant": false,
